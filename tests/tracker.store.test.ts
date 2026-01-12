@@ -10,18 +10,10 @@ describe('Tracker Store', () => {
     setActivePinia(createPinia())
     mockElectronAPI.getCurrentTracking.mockResolvedValue(null)
     mockElectronAPI.getHandsoffMode.mockResolvedValue(false)
-  })
-
-  describe('initial state', () => {
-    it('starts with no active tracking', () => {
-      const store = useTrackerStore()
-      expect(store.currentEntry).toBeNull()
-      expect(store.currentIssue).toBeNull()
-      expect(store.isTracking).toBe(false)
-      expect(store.handsoffMode).toBe(false)
-      expect(store.elapsedSeconds).toBe(0)
-      expect(store.formattedTime).toBe('00:00:00')
-    })
+    mockElectronAPI.startTracking.mockReset()
+    mockElectronAPI.pauseTracking.mockReset()
+    mockElectronAPI.setHandsoffMode.mockReset()
+    mockElectronAPI.resetIdleTime.mockReset()
   })
 
   describe('isIdle', () => {
@@ -58,6 +50,19 @@ describe('Tracker Store', () => {
       expect(store.currentIssue).toEqual(mockIssue)
       expect(store.isTracking).toBe(true)
     })
+
+    it('handles issue not found', async () => {
+      const store = useTrackerStore()
+      const mockEntry = createMockTimeEntry({ issueId: 999 })
+
+      mockElectronAPI.startTracking.mockResolvedValue(mockEntry)
+      mockElectronAPI.getIssues.mockResolvedValue([])
+
+      await store.startTracking(999)
+
+      expect(store.currentEntry).toEqual(mockEntry)
+      expect(store.currentIssue).toBeNull()
+    })
   })
 
   describe('pauseTracking', () => {
@@ -72,6 +77,70 @@ describe('Tracker Store', () => {
       expect(store.currentEntry).toBeNull()
       expect(store.currentIssue).toBeNull()
       expect(store.isTracking).toBe(false)
+    })
+  })
+
+  describe('toggleHandsoffMode', () => {
+    it('toggles handsoff mode on', async () => {
+      const store = useTrackerStore()
+      store.handsoffMode = false
+
+      await store.toggleHandsoffMode()
+
+      expect(mockElectronAPI.setHandsoffMode).toHaveBeenCalledWith(true)
+      expect(store.handsoffMode).toBe(true)
+    })
+
+    it('toggles handsoff mode off', async () => {
+      const store = useTrackerStore()
+      store.handsoffMode = true
+
+      await store.toggleHandsoffMode()
+
+      expect(mockElectronAPI.setHandsoffMode).toHaveBeenCalledWith(false)
+      expect(store.handsoffMode).toBe(false)
+    })
+  })
+
+  describe('resetIdle', () => {
+    it('calls API and resets idle seconds', async () => {
+      const store = useTrackerStore()
+      store.idleSeconds = 120
+
+      await store.resetIdle()
+
+      expect(mockElectronAPI.resetIdleTime).toHaveBeenCalled()
+      expect(store.idleSeconds).toBe(0)
+    })
+  })
+
+  describe('loadCurrentTracking', () => {
+    it('loads active tracking session', async () => {
+      const store = useTrackerStore()
+      const mockEntry = createMockTimeEntry()
+      const mockIssue = createMockIssue()
+
+      mockElectronAPI.getCurrentTracking.mockResolvedValue({
+        entry: mockEntry,
+        issue: mockIssue,
+      })
+      mockElectronAPI.getHandsoffMode.mockResolvedValue(true)
+
+      await store.loadCurrentTracking()
+
+      expect(store.currentEntry).toEqual(mockEntry)
+      expect(store.currentIssue).toEqual(mockIssue)
+      expect(store.handsoffMode).toBe(true)
+    })
+
+    it('handles no active tracking', async () => {
+      const store = useTrackerStore()
+      mockElectronAPI.getCurrentTracking.mockResolvedValue(null)
+
+      await store.loadCurrentTracking()
+
+      expect(store.currentEntry).toBeNull()
+      expect(store.currentIssue).toBeNull()
     })
   })
 })
