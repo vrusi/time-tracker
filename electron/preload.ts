@@ -26,6 +26,10 @@ const electronAPI: ElectronAPI = {
   // Export
   exportMonth: (year, month) => ipcRenderer.invoke('export-month', year, month),
 
+  // Idle
+  getIdleTime: () => ipcRenderer.invoke('get-idle-time'),
+  resetIdleTime: () => ipcRenderer.invoke('reset-idle-time'),
+
   // Events from main process
   onIdlePause: (callback) => {
     ipcRenderer.on('idle-pause', callback)
@@ -35,6 +39,9 @@ const electronAPI: ElectronAPI = {
   },
   onHandsoffModeChange: (callback) => {
     ipcRenderer.on('handsoff-mode-change', (_, enabled) => callback(enabled))
+  },
+  onIdleUpdate: (callback) => {
+    ipcRenderer.on('idle-update', (_, seconds) => callback(seconds))
   }
 }
 

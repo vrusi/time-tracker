@@ -7,7 +7,10 @@ export const useTrackerStore = defineStore('tracker', () => {
   const currentIssue = ref<Issue | null>(null)
   const elapsedSeconds = ref(0)
   const handsoffMode = ref(false)
+  const idleSeconds = ref(0)
   let timer: number | null = null
+
+  const IDLE_THRESHOLD = 600 // 10 minutes - matches main process
 
   const isTracking = computed(() => currentEntry.value !== null && currentEntry.value.endedAt === null)
 
@@ -16,6 +19,23 @@ export const useTrackerStore = defineStore('tracker', () => {
     const minutes = Math.floor((elapsedSeconds.value % 3600) / 60)
     const seconds = elapsedSeconds.value % 60
     return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`
+  })
+
+  const isIdle = computed(() => idleSeconds.value >= 30) // Show as idle after 30 seconds
+
+  const formattedIdleTime = computed(() => {
+    if (idleSeconds.value < 30) return ''
+    const minutes = Math.floor(idleSeconds.value / 60)
+    const seconds = idleSeconds.value % 60
+    if (minutes > 0) {
+      return `${minutes}m ${seconds}s`
+    }
+    return `${seconds}s`
+  })
+
+  const idleProgress = computed(() => {
+    // Progress towards auto-pause (10 min = 600s)
+    return Math.min(100, (idleSeconds.value / IDLE_THRESHOLD) * 100)
   })
 
   function updateElapsed() {
@@ -73,6 +93,11 @@ export const useTrackerStore = defineStore('tracker', () => {
     handsoffMode.value = newValue
   }
 
+  async function resetIdle() {
+    await window.electronAPI.resetIdleTime()
+    idleSeconds.value = 0
+  }
+
   function setupListeners() {
     window.electronAPI.onIdlePause(() => {
       currentEntry.value = null
@@ -95,6 +120,10 @@ export const useTrackerStore = defineStore('tracker', () => {
     window.electronAPI.onHandsoffModeChange((enabled) => {
       handsoffMode.value = enabled
     })
+
+    window.electronAPI.onIdleUpdate((seconds) => {
+      idleSeconds.value = seconds
+    })
   }
 
   return {
@@ -104,10 +133,15 @@ export const useTrackerStore = defineStore('tracker', () => {
     elapsedSeconds,
     formattedTime,
     handsoffMode,
+    idleSeconds,
+    isIdle,
+    formattedIdleTime,
+    idleProgress,
     startTracking,
     pauseTracking,
     loadCurrentTracking,
     toggleHandsoffMode,
+    resetIdle,
     setupListeners
   }
 })

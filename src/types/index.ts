@@ -59,10 +59,15 @@ export interface ElectronAPI {
   // Export
   exportMonth: (year: number, month: number) => Promise<MonthlyReport[]>
 
+  // Idle
+  getIdleTime: () => Promise<number>
+  resetIdleTime: () => Promise<void>
+
   // Events from main process
   onIdlePause: (callback: () => void) => void
   onTrackingUpdate: (callback: (data: { entry: TimeEntry; issue: Issue } | null) => void) => void
   onHandsoffModeChange: (callback: (enabled: boolean) => void) => void
+  onIdleUpdate: (callback: (seconds: number) => void) => void
 }
 
 declare global {

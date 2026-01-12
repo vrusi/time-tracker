@@ -11,6 +11,7 @@ let mainWindow: BrowserWindow | null = null
 let tray: Tray | null = null
 let idleCheckInterval: NodeJS.Timeout | null = null
 let handsoffMode = false
+let idleResetTime: number | null = null
 
 const IDLE_THRESHOLD = 600 // 10 minutes in seconds
 
@@ -101,10 +102,32 @@ function updateTrayMenu() {
   tray?.setToolTip(tooltip)
 }
 
+function getEffectiveIdleTime(): number {
+  const systemIdleTime = powerMonitor.getSystemIdleTime()
+
+  // If we have a reset time and system idle is still counting from before reset,
+  // return 0 (user manually indicated they're active)
+  if (idleResetTime !== null) {
+    const timeSinceReset = Math.floor((Date.now() - idleResetTime) / 1000)
+    if (systemIdleTime > timeSinceReset) {
+      // System still shows old idle time, use time since reset instead
+      return timeSinceReset
+    } else {
+      // System idle reset naturally (user activity detected), clear our manual reset
+      idleResetTime = null
+    }
+  }
+
+  return systemIdleTime
+}
+
 function startIdleWatcher() {
   idleCheckInterval = setInterval(() => {
-    const idleTime = powerMonitor.getSystemIdleTime()
+    const idleTime = getEffectiveIdleTime()
     const current = getCurrentTracking()
+
+    // Send idle time to renderer
+    mainWindow?.webContents.send('idle-update', idleTime)
 
     // Skip idle pause if handsoff mode is enabled
     if (handsoffMode) return
@@ -119,7 +142,7 @@ function startIdleWatcher() {
 
       mainWindow?.webContents.send('idle-pause')
     }
-  }, 15000) // Check every 15 seconds
+  }, 5000) // Check every 5 seconds for smoother idle display
 }
 
 function setHandsoffMode(enabled: boolean) {
@@ -381,6 +404,15 @@ function setupIpcHandlers() {
 
   ipcMain.handle('set-handsoff-mode', (_, enabled: boolean) => {
     setHandsoffMode(enabled)
+  })
+
+  ipcMain.handle('get-idle-time', () => {
+    return getEffectiveIdleTime()
+  })
+
+  ipcMain.handle('reset-idle-time', () => {
+    idleResetTime = Date.now()
+    mainWindow?.webContents.send('idle-update', 0)
   })
 }
 
