@@ -32,13 +32,64 @@ function getSettings() {
     issueUrlPattern: settings.issueUrlPattern || 'gitlab',
     customIssuePattern: settings.customIssuePattern,
     theme: settings.theme || 'light',
-    showEarnings: settings.showEarnings === 'true'
+    showEarnings: settings.showEarnings === 'true',
+    notificationsEnabled: settings.notificationsEnabled !== 'false'
   }
 }
 
 function loadIdleThreshold() {
   const settings = getSettings()
   idleThreshold = settings.idleThresholdMinutes * 60
+}
+
+function getTodayTotalSeconds(): number {
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const todayStart = today.toISOString()
+  const todayEnd = new Date(today.getTime() + 24 * 60 * 60 * 1000).toISOString()
+
+  const entries = db.prepare(`
+    SELECT started_at, ended_at FROM time_entries
+    WHERE started_at >= ? AND started_at < ?
+  `).all(todayStart, todayEnd) as { started_at: string; ended_at: string | null }[]
+
+  return entries.reduce((total, entry) => {
+    const start = new Date(entry.started_at).getTime()
+    const end = entry.ended_at ? new Date(entry.ended_at).getTime() : Date.now()
+    return total + (end - start) / 1000
+  }, 0)
+}
+
+let dailyTargetNotified = false
+
+function checkDailyTargetNotification() {
+  const settings = getSettings()
+  if (!settings.notificationsEnabled) return
+
+  const todaySeconds = getTodayTotalSeconds()
+  const targetSeconds = settings.dailyTargetHours * 3600
+
+  if (todaySeconds >= targetSeconds && !dailyTargetNotified) {
+    dailyTargetNotified = true
+    new Notification({
+      title: 'Daily Target Reached!',
+      body: `You've completed ${settings.dailyTargetHours} hours today`
+    }).show()
+  }
+}
+
+// Reset daily notification flag at midnight
+function scheduleDailyReset() {
+  const now = new Date()
+  const tomorrow = new Date(now)
+  tomorrow.setDate(tomorrow.getDate() + 1)
+  tomorrow.setHours(0, 0, 0, 0)
+  const msUntilMidnight = tomorrow.getTime() - now.getTime()
+
+  setTimeout(() => {
+    dailyTargetNotified = false
+    scheduleDailyReset()
+  }, msUntilMidnight)
 }
 
 function createWindow() {
@@ -161,10 +212,13 @@ function startIdleWatcher() {
     if (idleTime >= idleThreshold && current) {
       pauseTracking('idle')
 
-      new Notification({
-        title: 'Time Tracker',
-        body: `Paused "${current.issue.name}" due to inactivity`
-      }).show()
+      const settings = getSettings()
+      if (settings.notificationsEnabled) {
+        new Notification({
+          title: 'Time Tracker',
+          body: `Paused "${current.issue.name}" due to inactivity`
+        }).show()
+      }
 
       mainWindow?.webContents.send('idle-pause')
     }
@@ -219,6 +273,9 @@ function pauseTracking(reason: 'manual' | 'idle' | 'switched'): TimeEntry | null
 
   updateTrayMenu()
   mainWindow?.webContents.send('tracking-update', null)
+
+  // Check if daily target was just reached
+  checkDailyTargetNotification()
 
   return { ...current.entry, endedAt: now, pausedReason: reason }
 }
@@ -537,6 +594,7 @@ app.whenReady().then(() => {
   createTray()
   setupIpcHandlers()
   startIdleWatcher()
+  scheduleDailyReset()
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {

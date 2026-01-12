@@ -16,7 +16,8 @@ const form = ref({
   issueUrlPattern: 'gitlab' as 'gitlab' | 'github' | 'jira' | 'custom',
   customIssuePattern: '',
   theme: 'light' as 'light' | 'dark' | 'system',
-  showEarnings: false
+  showEarnings: false,
+  notificationsEnabled: true
 })
 
 const isSaving = ref(false)
@@ -64,7 +65,8 @@ function syncFormFromStore() {
     issueUrlPattern: s.issueUrlPattern,
     customIssuePattern: s.customIssuePattern || '',
     theme: s.theme,
-    showEarnings: s.showEarnings
+    showEarnings: s.showEarnings,
+    notificationsEnabled: s.notificationsEnabled
   }
 }
 
@@ -91,7 +93,8 @@ async function saveSettings() {
       issueUrlPattern: form.value.issueUrlPattern,
       customIssuePattern: form.value.customIssuePattern || undefined,
       theme: form.value.theme,
-      showEarnings: form.value.showEarnings
+      showEarnings: form.value.showEarnings,
+      notificationsEnabled: form.value.notificationsEnabled
     })
     saveMessage.value = 'Settings saved!'
     setTimeout(() => { saveMessage.value = '' }, 2000)
@@ -194,6 +197,30 @@ async function saveSettings() {
             System
           </button>
         </div>
+      </div>
+
+      <!-- Notifications Toggle -->
+      <div class="flex items-center justify-between mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+        <div>
+          <label class="text-sm font-medium text-gray-700 dark:text-gray-300">
+            Desktop Notifications
+          </label>
+          <p class="text-xs text-gray-500 dark:text-gray-400">Show notifications for idle pauses and daily target</p>
+        </div>
+        <button
+          @click="form.notificationsEnabled = !form.notificationsEnabled"
+          :class="[
+            'relative inline-flex h-6 w-11 items-center rounded-full transition-colors',
+            form.notificationsEnabled ? 'bg-blue-500' : 'bg-gray-300 dark:bg-gray-600'
+          ]"
+        >
+          <span
+            :class="[
+              'inline-block h-4 w-4 transform rounded-full bg-white transition-transform',
+              form.notificationsEnabled ? 'translate-x-6' : 'translate-x-1'
+            ]"
+          />
+        </button>
       </div>
     </div>
 

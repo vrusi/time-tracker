@@ -47,6 +47,7 @@ export interface AppSettings {
   customIssuePattern?: string
   theme: 'light' | 'dark' | 'system'
   showEarnings: boolean
+  notificationsEnabled: boolean
 }
 
 // IPC API exposed to renderer

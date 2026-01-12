@@ -14,7 +14,8 @@ export const useSettingsStore = defineStore('settings', () => {
     issueUrlPattern: 'gitlab',
     customIssuePattern: undefined,
     theme: 'light',
-    showEarnings: false
+    showEarnings: false,
+    notificationsEnabled: true
   })
 
   const isLoaded = ref(false)
