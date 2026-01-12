@@ -4,6 +4,26 @@ import { fileURLToPath } from 'url'
 import { initDatabase, db } from './db'
 import type { Issue, TimeEntry } from '../src/types'
 
+// Database row types (snake_case from SQLite)
+interface IssueRow {
+  id: number
+  external_id: string
+  name: string
+  link: string | null
+  notes: string | null
+  archived: number
+  created_at: string
+}
+
+interface TimeEntryRow {
+  id: number
+  issue_id: number
+  started_at: string
+  ended_at: string | null
+  paused_reason: 'manual' | 'idle' | 'switched' | null
+  notes: string | null
+}
+
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
 
@@ -235,11 +255,11 @@ function setHandsoffMode(enabled: boolean) {
 function getCurrentTracking(): { entry: TimeEntry; issue: Issue } | null {
   const entry = db.prepare(`
     SELECT * FROM time_entries WHERE ended_at IS NULL LIMIT 1
-  `).get() as any
+  `).get() as TimeEntryRow | undefined
 
   if (!entry) return null
 
-  const issue = db.prepare('SELECT * FROM issues WHERE id = ?').get(entry.issue_id) as any
+  const issue = db.prepare('SELECT * FROM issues WHERE id = ?').get(entry.issue_id) as IssueRow
 
   return {
     entry: {
@@ -300,7 +320,7 @@ function startTracking(issueId: number): TimeEntry {
 
   updateTrayMenu()
 
-  const issue = db.prepare('SELECT * FROM issues WHERE id = ?').get(issueId) as any
+  const issue = db.prepare('SELECT * FROM issues WHERE id = ?').get(issueId) as IssueRow
   mainWindow?.webContents.send('tracking-update', {
     entry,
     issue: {
@@ -377,7 +397,7 @@ function setupIpcHandlers() {
       db.prepare(`UPDATE issues SET ${fields.join(', ')} WHERE id = ?`).run(...values)
     }
 
-    const row = db.prepare('SELECT * FROM issues WHERE id = ?').get(id) as any
+    const row = db.prepare('SELECT * FROM issues WHERE id = ?').get(id) as IssueRow
     return {
       id: row.id,
       externalId: row.external_id,
@@ -448,7 +468,7 @@ function setupIpcHandlers() {
   ipcMain.handle('get-issue-time', (_, issueId: number) => {
     const entries = db.prepare(`
       SELECT started_at, ended_at FROM time_entries WHERE issue_id = ?
-    `).all(issueId) as any[]
+    `).all(issueId) as Pick<TimeEntryRow, 'started_at' | 'ended_at'>[]
 
     return entries.reduce((total, entry) => {
       const start = new Date(entry.started_at).getTime()
@@ -496,7 +516,7 @@ function setupIpcHandlers() {
       db.prepare(`UPDATE time_entries SET ${fields.join(', ')} WHERE id = ?`).run(...values)
     }
 
-    const row = db.prepare('SELECT * FROM time_entries WHERE id = ?').get(id) as any
+    const row = db.prepare('SELECT * FROM time_entries WHERE id = ?').get(id) as TimeEntryRow
     return {
       id: row.id,
       issueId: row.issue_id,
@@ -521,7 +541,7 @@ function setupIpcHandlers() {
       FROM time_entries te
       JOIN issues i ON te.issue_id = i.id
       WHERE te.started_at >= ? AND te.started_at <= ?
-    `).all(startDate, endDate) as any[]
+    `).all(startDate, endDate) as { id: number; external_id: string; name: string; started_at: string; ended_at: string | null }[]
 
     const issueMap = new Map<number, { externalId: string; name: string; totalSeconds: number }>()
 

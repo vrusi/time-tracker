@@ -36,7 +36,7 @@ const currencies = [
   { code: 'CZK', symbol: 'Kč', name: 'Czech Koruna' }
 ]
 
-const issueTrackers = [
+const issueTrackers: { value: 'gitlab' | 'github' | 'jira' | 'custom'; name: string; example: string }[] = [
   { value: 'gitlab', name: 'GitLab', example: 'https://gitlab.com/.../issues/123' },
   { value: 'github', name: 'GitHub', example: 'https://github.com/.../issues/123' },
   { value: 'jira', name: 'Jira', example: 'https://company.atlassian.net/browse/PROJ-123' },
@@ -335,7 +335,7 @@ async function saveSettings() {
             <button
               v-for="tracker in issueTrackers"
               :key="tracker.value"
-              @click="form.issueUrlPattern = tracker.value as any"
+              @click="form.issueUrlPattern = tracker.value"
               :class="[
                 'px-4 py-2 text-sm font-medium rounded-md border transition-colors',
                 form.issueUrlPattern === tracker.value
