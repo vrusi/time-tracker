@@ -28,6 +28,7 @@ function initDatabase() {
       started_at TEXT NOT NULL,
       ended_at TEXT,
       paused_reason TEXT,
+      notes TEXT,
       FOREIGN KEY (issue_id) REFERENCES issues(id)
     );
 
@@ -56,6 +57,12 @@ function initDatabase() {
   const insertSetting = db.prepare('INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)')
   for (const [key, value] of Object.entries(defaultSettings)) {
     insertSetting.run(key, value)
+  }
+
+  // Migration: Add notes column if it doesn't exist
+  const columns = db.prepare("PRAGMA table_info(time_entries)").all() as { name: string }[]
+  if (!columns.some(col => col.name === 'notes')) {
+    db.exec('ALTER TABLE time_entries ADD COLUMN notes TEXT')
   }
 
   return db

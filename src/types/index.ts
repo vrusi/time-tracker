@@ -13,6 +13,7 @@ export interface TimeEntry {
   startedAt: string
   endedAt: string | null
   pausedReason: 'manual' | 'idle' | 'switched' | null
+  notes: string | null
 }
 
 export interface IssueWithTime extends Issue {
@@ -67,6 +68,11 @@ export interface ElectronAPI {
   // History
   getTimeEntries: (startDate: string, endDate: string) => Promise<(TimeEntry & { issue: Issue })[]>
   getIssueTime: (issueId: number) => Promise<number>
+
+  // Time entry management
+  createTimeEntry: (issueId: number, startedAt: string, endedAt: string, notes?: string) => Promise<TimeEntry>
+  updateTimeEntry: (id: number, updates: { startedAt?: string; endedAt?: string; notes?: string }) => Promise<TimeEntry>
+  deleteTimeEntry: (id: number) => Promise<void>
 
   // Export
   exportMonth: (year: number, month: number) => Promise<MonthlyReport[]>

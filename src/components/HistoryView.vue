@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted } from 'vue'
 import type { TimeEntry, Issue, DayGroup } from '../types'
+import { useIssuesStore } from '../stores/issues.store'
+
+const issuesStore = useIssuesStore()
 
 const entries = ref<(TimeEntry & { issue: Issue })[]>([])
 const isLoading = ref(false)
@@ -12,6 +15,23 @@ weekStart.setDate(today.getDate() - today.getDay())
 
 const startDate = ref(weekStart.toISOString().split('T')[0])
 const endDate = ref(today.toISOString().split('T')[0])
+
+// Edit state
+const editingEntryId = ref<number | null>(null)
+const editForm = ref({ startedAt: '', endedAt: '', notes: '' })
+
+// Delete confirmation state
+const confirmingDeleteId = ref<number | null>(null)
+
+// Add entry modal state
+const showAddEntryModal = ref(false)
+const addEntryForm = ref({
+  issueId: 0,
+  date: today.toISOString().split('T')[0],
+  startTime: '09:00',
+  endTime: '17:00',
+  notes: ''
+})
 
 const groupedEntries = computed<DayGroup[]>(() => {
   const groups = new Map<string, DayGroup>()
@@ -84,31 +104,131 @@ function entryDuration(entry: TimeEntry): number {
   return (end - start) / 1000
 }
 
+// Edit functions
+function startEditing(entry: TimeEntry & { issue: Issue }) {
+  editingEntryId.value = entry.id
+  editForm.value = {
+    startedAt: entry.startedAt.slice(0, 16), // Format for datetime-local input
+    endedAt: entry.endedAt ? entry.endedAt.slice(0, 16) : '',
+    notes: entry.notes || ''
+  }
+}
+
+function cancelEditing() {
+  editingEntryId.value = null
+}
+
+async function saveEdit() {
+  if (!editingEntryId.value) return
+
+  const updates: { startedAt?: string; endedAt?: string; notes?: string } = {}
+
+  if (editForm.value.startedAt) {
+    updates.startedAt = new Date(editForm.value.startedAt).toISOString()
+  }
+  if (editForm.value.endedAt) {
+    updates.endedAt = new Date(editForm.value.endedAt).toISOString()
+  }
+  updates.notes = editForm.value.notes || undefined
+
+  await window.electronAPI.updateTimeEntry(editingEntryId.value, updates)
+  editingEntryId.value = null
+  await loadEntries()
+}
+
+// Delete functions
+function confirmDelete(entryId: number) {
+  confirmingDeleteId.value = entryId
+}
+
+function cancelDelete() {
+  confirmingDeleteId.value = null
+}
+
+async function executeDelete(entryId: number) {
+  await window.electronAPI.deleteTimeEntry(entryId)
+  confirmingDeleteId.value = null
+  await loadEntries()
+}
+
+// Add entry functions
+function openAddEntryModal() {
+  addEntryForm.value = {
+    issueId: issuesStore.activeIssues[0]?.id || 0,
+    date: today.toISOString().split('T')[0],
+    startTime: '09:00',
+    endTime: '17:00',
+    notes: ''
+  }
+  showAddEntryModal.value = true
+}
+
+function closeAddEntryModal() {
+  showAddEntryModal.value = false
+}
+
+async function submitAddEntry() {
+  if (!addEntryForm.value.issueId) return
+
+  const startedAt = new Date(`${addEntryForm.value.date}T${addEntryForm.value.startTime}`).toISOString()
+  const endedAt = new Date(`${addEntryForm.value.date}T${addEntryForm.value.endTime}`).toISOString()
+
+  await window.electronAPI.createTimeEntry(
+    addEntryForm.value.issueId,
+    startedAt,
+    endedAt,
+    addEntryForm.value.notes || undefined
+  )
+
+  showAddEntryModal.value = false
+  await loadEntries()
+}
+
+// Computed preview duration for add entry form
+const addEntryDuration = computed(() => {
+  const start = new Date(`${addEntryForm.value.date}T${addEntryForm.value.startTime}`).getTime()
+  const end = new Date(`${addEntryForm.value.date}T${addEntryForm.value.endTime}`).getTime()
+  if (isNaN(start) || isNaN(end) || end <= start) return ''
+  return formatDuration((end - start) / 1000)
+})
+
 watch([startDate, endDate], loadEntries)
-onMounted(loadEntries)
+onMounted(() => {
+  loadEntries()
+  issuesStore.loadIssues()
+})
 </script>
 
 <template>
   <div>
-    <!-- Date filter -->
+    <!-- Date filter and Add button -->
     <div class="bg-white rounded-lg shadow p-4 mb-6">
-      <div class="flex items-center gap-4">
-        <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">From</label>
-          <input
-            v-model="startDate"
-            type="date"
-            class="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">From</label>
+            <input
+              v-model="startDate"
+              type="date"
+              class="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">To</label>
+            <input
+              v-model="endDate"
+              type="date"
+              class="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
         </div>
-        <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">To</label>
-          <input
-            v-model="endDate"
-            type="date"
-            class="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
-        </div>
+        <button
+          @click="openAddEntryModal"
+          class="px-4 py-2 text-sm font-medium text-white bg-blue-500 hover:bg-blue-600 rounded-md transition-colors"
+          title="Add a manual time entry"
+        >
+          + Add Entry
+        </button>
       </div>
     </div>
 
@@ -140,25 +260,201 @@ onMounted(loadEntries)
           <li
             v-for="entry in group.entries"
             :key="entry.id"
-            class="px-4 py-3 flex items-center gap-4"
+            class="px-4 py-3"
           >
-            <div class="flex-1">
+            <!-- Edit mode -->
+            <form v-if="editingEntryId === entry.id" @submit.prevent="saveEdit" class="space-y-3">
+              <div class="flex items-center gap-3">
+                <div>
+                  <label class="block text-xs text-gray-500 mb-1">Start</label>
+                  <input
+                    v-model="editForm.startedAt"
+                    type="datetime-local"
+                    class="px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    required
+                  />
+                </div>
+                <div>
+                  <label class="block text-xs text-gray-500 mb-1">End</label>
+                  <input
+                    v-model="editForm.endedAt"
+                    type="datetime-local"
+                    class="px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div class="flex-1">
+                  <label class="block text-xs text-gray-500 mb-1">Notes (markdown)</label>
+                  <input
+                    v-model="editForm.notes"
+                    type="text"
+                    class="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="What did you work on?"
+                  />
+                </div>
+              </div>
               <div class="flex items-center gap-2">
-                <span class="font-medium text-gray-900">{{ entry.issue.externalId }}</span>
-                <span class="text-gray-600">{{ entry.issue.name }}</span>
+                <button type="submit" class="px-3 py-1 text-sm text-white bg-blue-500 hover:bg-blue-600 rounded">Save</button>
+                <button type="button" @click="cancelEditing" class="px-3 py-1 text-sm text-gray-600 hover:text-gray-800">Cancel</button>
               </div>
-              <div class="text-sm text-gray-400">
-                {{ formatTime(entry.startedAt) }} - {{ entry.endedAt ? formatTime(entry.endedAt) : 'ongoing' }}
-                <span v-if="entry.pausedReason" class="ml-2 text-xs">
-                  ({{ entry.pausedReason }})
-                </span>
+            </form>
+
+            <!-- Normal display mode -->
+            <div v-else class="flex items-center gap-4">
+              <div class="flex-1">
+                <div class="flex items-center gap-2">
+                  <span class="font-medium text-gray-900">{{ entry.issue.externalId }}</span>
+                  <span class="text-gray-600">{{ entry.issue.name }}</span>
+                </div>
+                <div class="text-sm text-gray-400">
+                  {{ formatTime(entry.startedAt) }} - {{ entry.endedAt ? formatTime(entry.endedAt) : 'ongoing' }}
+                  <span v-if="entry.pausedReason" class="ml-2 text-xs">
+                    ({{ entry.pausedReason }})
+                  </span>
+                </div>
+                <div v-if="entry.notes" class="mt-1 text-sm text-gray-500 italic">
+                  {{ entry.notes }}
+                </div>
               </div>
+              <span class="text-sm font-medium text-gray-900">
+                {{ formatDuration(entryDuration(entry)) }}
+              </span>
+
+              <!-- Edit button -->
+              <button
+                @click="startEditing(entry)"
+                class="text-gray-400 hover:text-gray-600"
+                title="Edit entry"
+              >
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                </svg>
+              </button>
+
+              <!-- Delete with confirmation -->
+              <div v-if="confirmingDeleteId === entry.id" class="flex items-center gap-2 bg-red-50 px-2 py-1 rounded">
+                <span class="text-xs text-red-600">Delete?</span>
+                <button
+                  @click="executeDelete(entry.id)"
+                  class="px-2 py-0.5 text-xs text-white bg-red-500 hover:bg-red-600 rounded"
+                >
+                  Yes
+                </button>
+                <button
+                  @click="cancelDelete"
+                  class="px-2 py-0.5 text-xs text-gray-600 hover:text-gray-800"
+                >
+                  No
+                </button>
+              </div>
+              <button
+                v-else
+                @click="confirmDelete(entry.id)"
+                class="text-gray-400 hover:text-red-600"
+                title="Delete entry"
+              >
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+              </button>
             </div>
-            <span class="text-sm font-medium text-gray-900">
-              {{ formatDuration(entryDuration(entry)) }}
-            </span>
           </li>
         </ul>
+      </div>
+    </div>
+
+    <!-- Add Entry Modal -->
+    <div
+      v-if="showAddEntryModal"
+      class="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+      @click.self="closeAddEntryModal"
+    >
+      <div class="bg-white rounded-lg shadow-xl w-full max-w-md">
+        <div class="px-6 py-4 border-b flex items-center justify-between">
+          <h2 class="text-lg font-semibold text-gray-900">Add Manual Entry</h2>
+          <button @click="closeAddEntryModal" class="text-gray-400 hover:text-gray-600">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        <form @submit.prevent="submitAddEntry" class="px-6 py-4 space-y-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Issue</label>
+            <select
+              v-model="addEntryForm.issueId"
+              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              required
+            >
+              <option value="0" disabled>Select an issue</option>
+              <option v-for="issue in issuesStore.activeIssues" :key="issue.id" :value="issue.id">
+                {{ issue.externalId }} - {{ issue.name }}
+              </option>
+            </select>
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Date</label>
+            <input
+              v-model="addEntryForm.date"
+              type="date"
+              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              required
+            />
+          </div>
+
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Start Time</label>
+              <input
+                v-model="addEntryForm.startTime"
+                type="time"
+                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                required
+              />
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">End Time</label>
+              <input
+                v-model="addEntryForm.endTime"
+                type="time"
+                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                required
+              />
+            </div>
+          </div>
+
+          <div v-if="addEntryDuration" class="text-sm text-gray-500">
+            Duration: <span class="font-medium">{{ addEntryDuration }}</span>
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Notes (optional, markdown)</label>
+            <textarea
+              v-model="addEntryForm.notes"
+              rows="3"
+              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="What did you work on?"
+            ></textarea>
+          </div>
+
+          <div class="flex justify-end gap-3 pt-2">
+            <button
+              type="button"
+              @click="closeAddEntryModal"
+              class="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              :disabled="!addEntryForm.issueId"
+              class="px-4 py-2 text-sm font-medium text-white bg-blue-500 hover:bg-blue-600 rounded-md transition-colors disabled:opacity-50"
+            >
+              Add Entry
+            </button>
+          </div>
+        </form>
       </div>
     </div>
   </div>

@@ -23,6 +23,11 @@ const electronAPI: ElectronAPI = {
   getTimeEntries: (startDate, endDate) => ipcRenderer.invoke('get-time-entries', startDate, endDate),
   getIssueTime: (issueId) => ipcRenderer.invoke('get-issue-time', issueId),
 
+  // Time entry management
+  createTimeEntry: (issueId, startedAt, endedAt, notes) => ipcRenderer.invoke('create-time-entry', issueId, startedAt, endedAt, notes),
+  updateTimeEntry: (id, updates) => ipcRenderer.invoke('update-time-entry', id, updates),
+  deleteTimeEntry: (id) => ipcRenderer.invoke('delete-time-entry', id),
+
   // Export
   exportMonth: (year, month) => ipcRenderer.invoke('export-month', year, month),
 

@@ -191,7 +191,8 @@ function getCurrentTracking(): { entry: TimeEntry; issue: Issue } | null {
       issueId: entry.issue_id,
       startedAt: entry.started_at,
       endedAt: entry.ended_at,
-      pausedReason: entry.paused_reason
+      pausedReason: entry.paused_reason,
+      notes: entry.notes
     },
     issue: {
       id: issue.id,
@@ -233,7 +234,8 @@ function startTracking(issueId: number): TimeEntry {
     issueId,
     startedAt: now,
     endedAt: null,
-    pausedReason: null
+    pausedReason: null,
+    notes: null
   }
 
   updateTrayMenu()
@@ -362,6 +364,7 @@ function setupIpcHandlers() {
       startedAt: row.started_at,
       endedAt: row.ended_at,
       pausedReason: row.paused_reason,
+      notes: row.notes,
       issue: {
         id: row.issue_id,
         externalId: row.external_id,
@@ -383,6 +386,60 @@ function setupIpcHandlers() {
       const end = entry.ended_at ? new Date(entry.ended_at).getTime() : Date.now()
       return total + (end - start) / 1000
     }, 0)
+  })
+
+  // Time entry management
+  ipcMain.handle('create-time-entry', (_, issueId: number, startedAt: string, endedAt: string, notes?: string) => {
+    const result = db.prepare(`
+      INSERT INTO time_entries (issue_id, started_at, ended_at, paused_reason, notes)
+      VALUES (?, ?, ?, 'manual', ?)
+    `).run(issueId, startedAt, endedAt, notes || null)
+
+    return {
+      id: result.lastInsertRowid as number,
+      issueId,
+      startedAt,
+      endedAt,
+      pausedReason: 'manual',
+      notes: notes || null
+    }
+  })
+
+  ipcMain.handle('update-time-entry', (_, id: number, updates: { startedAt?: string; endedAt?: string; notes?: string }) => {
+    const fields: string[] = []
+    const values: any[] = []
+
+    if (updates.startedAt !== undefined) {
+      fields.push('started_at = ?')
+      values.push(updates.startedAt)
+    }
+    if (updates.endedAt !== undefined) {
+      fields.push('ended_at = ?')
+      values.push(updates.endedAt)
+    }
+    if (updates.notes !== undefined) {
+      fields.push('notes = ?')
+      values.push(updates.notes)
+    }
+
+    if (fields.length > 0) {
+      values.push(id)
+      db.prepare(`UPDATE time_entries SET ${fields.join(', ')} WHERE id = ?`).run(...values)
+    }
+
+    const row = db.prepare('SELECT * FROM time_entries WHERE id = ?').get(id) as any
+    return {
+      id: row.id,
+      issueId: row.issue_id,
+      startedAt: row.started_at,
+      endedAt: row.ended_at,
+      pausedReason: row.paused_reason,
+      notes: row.notes
+    }
+  })
+
+  ipcMain.handle('delete-time-entry', (_, id: number) => {
+    db.prepare('DELETE FROM time_entries WHERE id = ?').run(id)
   })
 
   // Export
