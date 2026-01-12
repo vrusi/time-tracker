@@ -12,6 +12,7 @@ const settingsStore = useSettingsStore()
 const issueTimes = ref<Map<number, number>>(new Map())
 const editingIssue = ref<Issue | null>(null)
 const editForm = ref({ name: '', link: '' })
+const confirmingDeleteId = ref<number | null>(null)
 
 async function loadIssueTimes() {
   for (const issue of issuesStore.issues) {
@@ -73,6 +74,19 @@ async function saveEdit() {
     link: url || null
   })
   editingIssue.value = null
+}
+
+function confirmDelete(issueId: number) {
+  confirmingDeleteId.value = issueId
+}
+
+function cancelDelete() {
+  confirmingDeleteId.value = null
+}
+
+async function executeDelete(issueId: number) {
+  await issuesStore.deleteIssue(issueId)
+  confirmingDeleteId.value = null
 }
 </script>
 
@@ -145,6 +159,7 @@ async function saveEdit() {
           <button
             @click="toggleTracking(issue)"
             :disabled="issue.archived"
+            :title="isCurrentlyTracking(issue) ? 'Pause tracking' : 'Start tracking this issue'"
             :class="[
               'w-10 h-10 rounded-full flex items-center justify-center transition-colors',
               isCurrentlyTracking(issue)
@@ -179,6 +194,7 @@ async function saveEdit() {
             :href="issue.link"
             target="_blank"
             class="text-blue-500 hover:text-blue-600"
+            title="Open in issue tracker"
             @click.stop
           >
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -208,10 +224,27 @@ async function saveEdit() {
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
               </svg>
             </button>
+            <!-- Delete with confirmation -->
+            <div v-if="confirmingDeleteId === issue.id" class="flex items-center gap-2 bg-red-50 px-2 py-1 rounded">
+              <span class="text-xs text-red-600">Delete?</span>
+              <button
+                @click="executeDelete(issue.id)"
+                class="px-2 py-0.5 text-xs text-white bg-red-500 hover:bg-red-600 rounded"
+              >
+                Yes
+              </button>
+              <button
+                @click="cancelDelete"
+                class="px-2 py-0.5 text-xs text-gray-600 hover:text-gray-800"
+              >
+                No
+              </button>
+            </div>
             <button
-              @click="issuesStore.deleteIssue(issue.id)"
+              v-else
+              @click="confirmDelete(issue.id)"
               class="text-red-400 hover:text-red-600"
-              title="Delete permanently"
+              title="Delete permanently (removes all tracked time)"
             >
               <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />

@@ -114,7 +114,7 @@ trackerStore.$subscribe(() => {
 <template>
   <div class="bg-white rounded-lg shadow p-4 space-y-4">
     <!-- Earnings highlight -->
-    <div class="text-center py-2 border-b border-gray-100">
+    <div class="text-center py-2 border-b border-gray-100" :title="`${monthlyHours.toFixed(1)} hours × ${formatMoney(settingsStore.settings.hourlyRate)}/hour`">
       <div class="text-3xl font-bold text-green-600">{{ formatMoney(monthlyEarnings) }}</div>
       <div class="text-sm text-gray-500">earned this month (of {{ formatMoney(targetEarnings) }})</div>
     </div>

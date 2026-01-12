@@ -42,7 +42,7 @@ const trackerStore = useTrackerStore()
           ? 'bg-amber-100 text-amber-700 border-amber-300 hover:bg-amber-200'
           : 'bg-gray-100 text-gray-500 border-gray-200 hover:bg-gray-200'
       ]"
-      :title="trackerStore.handsoffMode ? 'Handsoff mode ON - idle detection disabled' : 'Enable handsoff mode'"
+      :title="trackerStore.handsoffMode ? 'Handsoff mode ON - click to re-enable idle detection' : 'Enable handsoff mode: keeps tracking even when idle (useful for meetings, reading, or away-from-keyboard work)'"
     >
       <span class="flex items-center gap-1">
         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -53,7 +53,7 @@ const trackerStore = useTrackerStore()
     </button>
 
     <template v-if="trackerStore.isTracking && trackerStore.currentIssue">
-      <div class="flex items-center gap-2">
+      <div class="flex items-center gap-2" :title="trackerStore.isIdle && !trackerStore.handsoffMode ? 'Idle - activity not detected' : 'Actively tracking time'">
         <span class="relative flex h-3 w-3">
           <span
             class="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75"
@@ -74,6 +74,7 @@ const trackerStore = useTrackerStore()
       <button
         @click="trackerStore.pauseTracking()"
         class="px-3 py-1.5 text-sm font-medium text-white bg-red-500 hover:bg-red-600 rounded-md transition-colors"
+        title="Stop the timer and save tracked time"
       >
         Pause
       </button>
