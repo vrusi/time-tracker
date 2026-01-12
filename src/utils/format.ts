@@ -41,6 +41,36 @@ export function formatMoney(amount: number, symbol: string): string {
 }
 
 /**
+ * Format seconds to timer display (HH:MM:SS)
+ */
+export function formatTimer(totalSeconds: number): string {
+  const hours = Math.floor(totalSeconds / 3600)
+  const minutes = Math.floor((totalSeconds % 3600) / 60)
+  const seconds = totalSeconds % 60
+  return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`
+}
+
+/**
+ * Format idle time (e.g., "2m 30s" or "45s")
+ */
+export function formatIdleTime(idleSeconds: number, thresholdSeconds: number): string {
+  if (idleSeconds < thresholdSeconds) return ''
+  const minutes = Math.floor(idleSeconds / 60)
+  const seconds = idleSeconds % 60
+  if (minutes > 0) {
+    return `${minutes}m ${seconds}s`
+  }
+  return `${seconds}s`
+}
+
+/**
+ * Calculate idle progress percentage towards auto-pause
+ */
+export function calculateIdleProgress(idleSeconds: number, thresholdSeconds: number): number {
+  return Math.min(100, (idleSeconds / thresholdSeconds) * 100)
+}
+
+/**
  * Format date string for display (e.g., "Monday, Jan 12")
  */
 export function formatDate(dateStr: string): string {

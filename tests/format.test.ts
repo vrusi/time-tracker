@@ -1,5 +1,12 @@
 import { describe, it, expect } from 'vitest'
-import { formatDuration, formatHours, formatMoney } from '../src/utils/format'
+import {
+  formatDuration,
+  formatHours,
+  formatMoney,
+  formatTimer,
+  formatIdleTime,
+  calculateIdleProgress
+} from '../src/utils/format'
 
 describe('Format Utilities', () => {
   describe('formatDuration', () => {
@@ -51,6 +58,61 @@ describe('Format Utilities', () => {
     it('rounds to 2 decimal places', () => {
       expect(formatMoney(10.556, '$')).toBe('$10.56')
       expect(formatMoney(10.554, '$')).toBe('$10.55')
+    })
+  })
+
+  describe('formatTimer', () => {
+    it('formats to HH:MM:SS with zero padding', () => {
+      expect(formatTimer(0)).toBe('00:00:00')
+      expect(formatTimer(1)).toBe('00:00:01')
+      expect(formatTimer(59)).toBe('00:00:59')
+      expect(formatTimer(60)).toBe('00:01:00')
+      expect(formatTimer(61)).toBe('00:01:01')
+    })
+
+    it('handles hours correctly', () => {
+      expect(formatTimer(3600)).toBe('01:00:00')
+      expect(formatTimer(3661)).toBe('01:01:01')
+      expect(formatTimer(36000)).toBe('10:00:00')
+    })
+
+    it('handles large values', () => {
+      expect(formatTimer(86400)).toBe('24:00:00')
+      expect(formatTimer(90061)).toBe('25:01:01')
+    })
+  })
+
+  describe('formatIdleTime', () => {
+    const threshold = 30 // 30 seconds threshold
+
+    it('returns empty string when below threshold', () => {
+      expect(formatIdleTime(0, threshold)).toBe('')
+      expect(formatIdleTime(29, threshold)).toBe('')
+    })
+
+    it('formats seconds only when less than a minute', () => {
+      expect(formatIdleTime(30, threshold)).toBe('30s')
+      expect(formatIdleTime(45, threshold)).toBe('45s')
+      expect(formatIdleTime(59, threshold)).toBe('59s')
+    })
+
+    it('formats minutes and seconds when >= 1 minute', () => {
+      expect(formatIdleTime(60, threshold)).toBe('1m 0s')
+      expect(formatIdleTime(90, threshold)).toBe('1m 30s')
+      expect(formatIdleTime(150, threshold)).toBe('2m 30s')
+    })
+  })
+
+  describe('calculateIdleProgress', () => {
+    it('calculates percentage of idle time towards threshold', () => {
+      expect(calculateIdleProgress(0, 600)).toBe(0)
+      expect(calculateIdleProgress(300, 600)).toBe(50)
+      expect(calculateIdleProgress(600, 600)).toBe(100)
+    })
+
+    it('caps at 100%', () => {
+      expect(calculateIdleProgress(700, 600)).toBe(100)
+      expect(calculateIdleProgress(1200, 600)).toBe(100)
     })
   })
 })
