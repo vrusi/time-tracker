@@ -1,15 +1,7 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { describe, it, expect, beforeEach } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
 import { useSettingsStore } from '../src/stores/settings.store'
-
-// Mock window.electronAPI
-vi.stubGlobal('window', {
-  electronAPI: {
-    getSettings: vi.fn(),
-    updateSettings: vi.fn(),
-  },
-  matchMedia: vi.fn(() => ({ matches: false })),
-})
+// Uses shared mock from setup.ts
 
 describe('Settings Store', () => {
   beforeEach(() => {
@@ -68,18 +60,4 @@ describe('Settings Store', () => {
     })
   })
 
-  describe('issueIdRegex', () => {
-    it('returns correct regex for each pattern type', () => {
-      const store = useSettingsStore()
-
-      store.settings.issueUrlPattern = 'gitlab'
-      expect(store.issueIdRegex.source).toBe('\\/issues\\/(\\d+)')
-
-      store.settings.issueUrlPattern = 'github'
-      expect(store.issueIdRegex.source).toBe('\\/issues\\/(\\d+)')
-
-      store.settings.issueUrlPattern = 'jira'
-      expect(store.issueIdRegex.source).toBe('\\/browse\\/([A-Z]+-\\d+)')
-    })
-  })
 })

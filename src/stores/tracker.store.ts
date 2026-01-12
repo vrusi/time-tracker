@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import type { Issue, TimeEntry } from '@/types'
 import { useSettingsStore } from './settings.store'
+import { formatTimer, formatIdleTime, calculateIdleProgress } from '@/utils/format'
 
 export const useTrackerStore = defineStore('tracker', () => {
   const settingsStore = useSettingsStore()
@@ -17,29 +18,17 @@ export const useTrackerStore = defineStore('tracker', () => {
 
   const isTracking = computed(() => currentEntry.value !== null && currentEntry.value.endedAt === null)
 
-  const formattedTime = computed(() => {
-    const hours = Math.floor(elapsedSeconds.value / 3600)
-    const minutes = Math.floor((elapsedSeconds.value % 3600) / 60)
-    const seconds = elapsedSeconds.value % 60
-    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`
-  })
+  const formattedTime = computed(() => formatTimer(elapsedSeconds.value))
 
   const isIdle = computed(() => idleSeconds.value >= settingsStore.settings.idleIndicatorSeconds)
 
-  const formattedIdleTime = computed(() => {
-    if (idleSeconds.value < settingsStore.settings.idleIndicatorSeconds) return ''
-    const minutes = Math.floor(idleSeconds.value / 60)
-    const seconds = idleSeconds.value % 60
-    if (minutes > 0) {
-      return `${minutes}m ${seconds}s`
-    }
-    return `${seconds}s`
-  })
+  const formattedIdleTime = computed(() =>
+    formatIdleTime(idleSeconds.value, settingsStore.settings.idleIndicatorSeconds)
+  )
 
-  const idleProgress = computed(() => {
-    // Progress towards auto-pause
-    return Math.min(100, (idleSeconds.value / idleThresholdSeconds.value) * 100)
-  })
+  const idleProgress = computed(() =>
+    calculateIdleProgress(idleSeconds.value, idleThresholdSeconds.value)
+  )
 
   function updateElapsed() {
     if (currentEntry.value && !currentEntry.value.endedAt) {
