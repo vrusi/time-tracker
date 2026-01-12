@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted } from 'vue'
 import type { TimeEntry, Issue } from '../types'
+import { RCard, RButton, RText, RSpace } from 'roughness'
 
 const entries = ref<(TimeEntry & { issue: Issue })[]>([])
 const isLoading = ref(false)
@@ -81,13 +82,13 @@ function formatHours(seconds: number): string {
   return `${minutes}m`
 }
 
-function getHoursColor(seconds: number): string {
+function getHoursClass(seconds: number): string {
   if (seconds === 0) return ''
   const hours = seconds / 3600
-  if (hours >= 8) return 'bg-green-100 dark:bg-green-900/50 text-green-800 dark:text-green-300'
-  if (hours >= 6) return 'bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-300'
-  if (hours >= 4) return 'bg-yellow-100 dark:bg-yellow-900/50 text-yellow-800 dark:text-yellow-300'
-  return 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400'
+  if (hours >= 8) return 'hours-great'
+  if (hours >= 6) return 'hours-good'
+  if (hours >= 4) return 'hours-ok'
+  return 'hours-low'
 }
 
 function isToday(dateStr: string): boolean {
@@ -140,54 +141,38 @@ onMounted(loadEntries)
 </script>
 
 <template>
-  <div class="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
-    <!-- Header with navigation -->
-    <div class="px-4 py-3 border-b dark:border-gray-700 flex items-center justify-between bg-gray-50 dark:bg-gray-700">
-      <button
-        @click="prevMonth"
-        class="p-2 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-full transition-colors"
-      >
-        <svg class="w-5 h-5 text-gray-600 dark:text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
-        </svg>
-      </button>
+  <RCard>
+    <template #title>
+      <RSpace justify="between" align="center" class="w-full">
+        <RButton @click="prevMonth">←</RButton>
 
-      <div class="text-center">
-        <h3 class="font-semibold text-gray-900 dark:text-white">{{ monthName }}</h3>
-        <p class="text-sm text-gray-500 dark:text-gray-400">Total: {{ formatHours(monthTotal) || '0h' }}</p>
-      </div>
+        <div class="text-center">
+          <RText class="font-semibold">{{ monthName }}</RText>
+          <RText size="small" class="text-secondary block">
+            Total: {{ formatHours(monthTotal) || '0h' }}
+          </RText>
+        </div>
 
-      <div class="flex items-center gap-2">
-        <button
-          @click="goToToday"
-          class="px-3 py-1 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 rounded transition-colors"
-        >
-          Today
-        </button>
-        <button
-          @click="nextMonth"
-          class="p-2 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-full transition-colors"
-        >
-          <svg class="w-5 h-5 text-gray-600 dark:text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
-          </svg>
-        </button>
-      </div>
-    </div>
+        <RSpace>
+          <RButton size="small" @click="goToToday">Today</RButton>
+          <RButton @click="nextMonth">→</RButton>
+        </RSpace>
+      </RSpace>
+    </template>
 
     <!-- Loading -->
-    <div v-if="isLoading" class="p-8 text-center text-gray-500 dark:text-gray-400">
-      Loading...
+    <div v-if="isLoading" class="p-8 text-center">
+      <RText class="text-secondary">Loading...</RText>
     </div>
 
     <!-- Calendar grid -->
-    <div v-else class="p-4">
+    <div v-else class="calendar-grid">
       <!-- Week day headers -->
       <div class="grid grid-cols-7 gap-1 mb-2">
         <div
           v-for="day in weekDays"
           :key="day"
-          class="text-center text-sm font-medium text-gray-500 dark:text-gray-400 py-2"
+          class="text-center text-sm font-medium text-secondary py-2"
         >
           {{ day }}
         </div>
@@ -204,28 +189,25 @@ onMounted(loadEntries)
             v-for="dayInfo in week"
             :key="dayInfo.dateStr"
             :class="[
-              'min-h-[60px] p-2 rounded border dark:border-gray-700 text-sm',
-              dayInfo.isCurrentMonth ? 'bg-white dark:bg-gray-800' : 'bg-gray-50 dark:bg-gray-900',
-              isToday(dayInfo.dateStr) && 'ring-2 ring-blue-500',
-              isWeekend(dayInfo.date) && dayInfo.isCurrentMonth && 'bg-gray-50 dark:bg-gray-900'
+              'calendar-day',
+              !dayInfo.isCurrentMonth && 'other-month',
+              isToday(dayInfo.dateStr) && 'today',
+              isWeekend(dayInfo.date) && dayInfo.isCurrentMonth && 'weekend'
             ]"
           >
             <div class="flex justify-between items-start">
               <span
                 :class="[
                   'font-medium',
-                  dayInfo.isCurrentMonth ? 'text-gray-900 dark:text-white' : 'text-gray-400 dark:text-gray-600',
-                  isToday(dayInfo.dateStr) && 'text-blue-600 dark:text-blue-400'
+                  !dayInfo.isCurrentMonth && 'text-secondary',
+                  isToday(dayInfo.dateStr) && 'text-accent'
                 ]"
               >
                 {{ dayInfo.day }}
               </span>
               <span
                 v-if="dailyTotals.get(dayInfo.dateStr)"
-                :class="[
-                  'text-xs px-1.5 py-0.5 rounded-full font-medium',
-                  getHoursColor(dailyTotals.get(dayInfo.dateStr) || 0)
-                ]"
+                :class="['hours-badge', getHoursClass(dailyTotals.get(dayInfo.dateStr) || 0)]"
               >
                 {{ formatHours(dailyTotals.get(dayInfo.dateStr) || 0) }}
               </span>
@@ -234,5 +216,64 @@ onMounted(loadEntries)
         </div>
       </div>
     </div>
-  </div>
+  </RCard>
 </template>
+
+<style scoped>
+.text-secondary {
+  color: var(--color-text-secondary);
+}
+
+.text-accent {
+  color: var(--color-accent);
+}
+
+.calendar-day {
+  min-height: 60px;
+  padding: 0.5rem;
+  border: 2px solid var(--color-border);
+  border-radius: 4px;
+  background: var(--color-bg);
+}
+
+.calendar-day.other-month {
+  background: var(--color-bg-secondary);
+  opacity: 0.6;
+}
+
+.calendar-day.weekend {
+  background: var(--color-bg-secondary);
+}
+
+.calendar-day.today {
+  border-color: var(--color-accent);
+  border-width: 3px;
+}
+
+.hours-badge {
+  font-size: 0.75rem;
+  padding: 0.125rem 0.5rem;
+  border-radius: 9999px;
+  font-weight: 500;
+}
+
+.hours-great {
+  background: var(--color-success);
+  color: var(--color-bg);
+}
+
+.hours-good {
+  background: var(--color-accent);
+  color: var(--color-bg);
+}
+
+.hours-ok {
+  background: var(--color-warning);
+  color: var(--color-bg);
+}
+
+.hours-low {
+  background: var(--color-border);
+  color: var(--color-text-secondary);
+}
+</style>

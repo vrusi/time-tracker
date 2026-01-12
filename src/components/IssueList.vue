@@ -4,6 +4,7 @@ import { useIssuesStore } from '../stores/issues.store'
 import { useTrackerStore } from '../stores/tracker.store'
 import { useSettingsStore } from '../stores/settings.store'
 import type { Issue } from '../types'
+import { RCard, RButton, RInput, RText, RSpace, RList, RListItem, RDialog } from 'roughness'
 
 const issuesStore = useIssuesStore()
 const trackerStore = useTrackerStore()
@@ -112,210 +113,179 @@ async function saveNotes() {
 </script>
 
 <template>
-  <div class="bg-white dark:bg-gray-800 rounded-lg shadow">
-    <div class="px-4 py-3 border-b dark:border-gray-700 flex items-center justify-between">
-      <h2 class="text-lg font-medium text-gray-900 dark:text-white">Issues</h2>
-      <div class="inline-flex rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 p-1">
-        <button
-          @click="issuesStore.showArchived = false"
-          :class="[
-            'px-3 py-1 text-sm font-medium rounded-md transition-colors',
-            !issuesStore.showArchived
-              ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm'
-              : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
-          ]"
-        >
-          Active
-        </button>
-        <button
-          @click="issuesStore.showArchived = true"
-          :class="[
-            'px-3 py-1 text-sm font-medium rounded-md transition-colors',
-            issuesStore.showArchived
-              ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm'
-              : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
-          ]"
-        >
-          Archived
-        </button>
-      </div>
+  <RCard>
+    <template #title>
+      <RSpace align="center" justify="between" class="w-full">
+        <RText>Issues</RText>
+        <RSpace>
+          <RButton
+            :filled="!issuesStore.showArchived"
+            size="small"
+            @click="issuesStore.showArchived = false"
+            title="Show active issues"
+          >
+            Active
+          </RButton>
+          <RButton
+            :filled="issuesStore.showArchived"
+            size="small"
+            @click="issuesStore.showArchived = true"
+            title="Show archived issues"
+          >
+            Archived
+          </RButton>
+        </RSpace>
+      </RSpace>
+    </template>
+
+    <div v-if="issuesStore.isLoading" class="p-8 text-center">
+      <RText class="text-secondary">Loading...</RText>
     </div>
 
-    <div v-if="issuesStore.isLoading" class="p-8 text-center text-gray-500 dark:text-gray-400">
-      Loading...
+    <div v-else-if="issuesStore.displayedIssues.length === 0" class="p-8 text-center">
+      <RText class="text-secondary">No issues yet. Add one above!</RText>
     </div>
 
-    <div v-else-if="issuesStore.displayedIssues.length === 0" class="p-8 text-center text-gray-500 dark:text-gray-400">
-      No issues yet. Add one above!
-    </div>
-
-    <ul v-else class="divide-y dark:divide-gray-700">
-      <li
+    <RList v-else>
+      <RListItem
         v-for="issue in issuesStore.displayedIssues"
         :key="issue.id"
-        class="px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+        class="issue-item"
       >
         <!-- Edit mode -->
-        <form v-if="editingIssue?.id === issue.id" @submit.prevent="saveEdit" class="flex items-center gap-3">
-          <input
+        <form v-if="editingIssue?.id === issue.id" @submit.prevent="saveEdit" class="flex items-center gap-3 w-full">
+          <RInput
             v-model="editForm.link"
-            type="url"
-            class="w-64 px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-            placeholder="GitLab URL"
+            placeholder="Issue URL"
+            class="w-48"
           />
-          <input
+          <RInput
             v-model="editForm.name"
-            type="text"
-            class="flex-1 px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
             placeholder="Name"
-            required
+            class="flex-1"
           />
-          <button type="submit" class="px-3 py-1 text-sm text-white bg-blue-500 hover:bg-blue-600 rounded">Save</button>
-          <button type="button" @click="cancelEditing" class="px-3 py-1 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200">Cancel</button>
+          <RButton type="submit" size="small" filled>Save</RButton>
+          <RButton type="button" size="small" @click="cancelEditing">Cancel</RButton>
         </form>
 
         <!-- Notes edit mode -->
-        <div v-else-if="editingNotesId === issue.id" class="space-y-2">
-          <div class="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
-            <span class="font-medium">{{ issue.externalId }}</span>
-            <span>{{ issue.name }}</span>
-          </div>
-          <textarea
+        <div v-else-if="editingNotesId === issue.id" class="space-y-2 w-full">
+          <RText class="text-secondary text-sm">
+            <strong>{{ issue.externalId }}</strong> {{ issue.name }}
+          </RText>
+          <RInput
             v-model="notesForm"
-            rows="4"
-            class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-            placeholder="Add notes about this issue (e.g., investigation findings, handoff notes)..."
-          ></textarea>
-          <div class="flex items-center gap-2">
-            <button @click="saveNotes" class="px-3 py-1 text-sm text-white bg-blue-500 hover:bg-blue-600 rounded">Save Notes</button>
-            <button @click="cancelEditingNotes" class="px-3 py-1 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200">Cancel</button>
-          </div>
+            :lines="4"
+            placeholder="Add notes about this issue..."
+          />
+          <RSpace>
+            <RButton size="small" filled @click="saveNotes">Save Notes</RButton>
+            <RButton size="small" @click="cancelEditingNotes">Cancel</RButton>
+          </RSpace>
         </div>
 
         <!-- Normal display mode -->
-        <div v-else class="flex items-center gap-4">
+        <div v-else class="flex items-center gap-4 w-full">
           <!-- Play/Pause button -->
-          <button
+          <RButton
             @click="toggleTracking(issue)"
             :disabled="issue.archived"
-            :title="isCurrentlyTracking(issue) ? 'Pause tracking' : 'Start tracking this issue'"
-            :class="[
-              'w-10 h-10 rounded-full flex items-center justify-center transition-colors',
-              isCurrentlyTracking(issue)
-                ? 'bg-red-100 text-red-600 hover:bg-red-200'
-                : 'bg-green-100 text-green-600 hover:bg-green-200',
-              issue.archived && 'cursor-not-allowed opacity-50'
-            ]"
+            :filled="isCurrentlyTracking(issue)"
+            :color="isCurrentlyTracking(issue) ? 'error' : 'success'"
+            :title="isCurrentlyTracking(issue) ? 'Pause tracking' : 'Start tracking'"
           >
-            <svg v-if="isCurrentlyTracking(issue)" class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-              <rect x="5" y="4" width="4" height="12" rx="1" />
-              <rect x="11" y="4" width="4" height="12" rx="1" />
-            </svg>
-            <svg v-else class="w-5 h-5 ml-0.5" fill="currentColor" viewBox="0 0 20 20">
-              <path d="M6.3 2.841A1.5 1.5 0 004 4.11V15.89a1.5 1.5 0 002.3 1.269l9.344-5.89a1.5 1.5 0 000-2.538L6.3 2.84z" />
-            </svg>
-          </button>
+            {{ isCurrentlyTracking(issue) ? '⏸' : '▶' }}
+          </RButton>
 
           <!-- Issue info -->
           <div class="flex-1 min-w-0">
             <div class="flex items-center gap-2">
-              <span class="font-medium text-gray-900 dark:text-white">{{ issue.externalId }}</span>
-              <span class="text-gray-600 dark:text-gray-400 truncate">{{ issue.name }}</span>
+              <RText class="font-medium">{{ issue.externalId }}</RText>
+              <RText class="text-secondary truncate">{{ issue.name }}</RText>
             </div>
-            <div class="text-sm text-gray-400 dark:text-gray-500">
+            <RText size="small" class="text-secondary">
               Total: {{ formatDuration(issueTimes.get(issue.id) || 0) }}
-            </div>
+            </RText>
           </div>
 
-          <!-- Link -->
-          <a
-            v-if="issue.link"
-            :href="issue.link"
-            target="_blank"
-            class="text-blue-500 hover:text-blue-600"
-            title="Open in issue tracker"
-            @click.stop
-          >
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-            </svg>
-          </a>
-
-          <!-- Notes button -->
-          <button
-            @click="startEditingNotes(issue)"
-            :class="[
-              'hover:text-blue-600',
-              issue.notes ? 'text-blue-500' : 'text-gray-400 dark:text-gray-500'
-            ]"
-            :title="issue.notes ? 'View/edit notes' : 'Add notes'"
-          >
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-            </svg>
-          </button>
-
-          <!-- Edit button -->
-          <button
-            @click="startEditing(issue)"
-            class="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300"
-            title="Edit"
-          >
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-            </svg>
-          </button>
-
-          <!-- Archive/Unarchive/Delete buttons -->
-          <template v-if="issue.archived">
-            <button
-              @click="issuesStore.unarchiveIssue(issue.id)"
-              class="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300"
-              title="Restore"
+          <!-- Action buttons -->
+          <RSpace>
+            <!-- Link -->
+            <RButton
+              v-if="issue.link"
+              tag="a"
+              :href="issue.link"
+              target="_blank"
+              size="small"
+              title="Open in tracker"
+              @click.stop
             >
-              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
-              </svg>
-            </button>
-            <!-- Delete with confirmation -->
-            <div v-if="confirmingDeleteId === issue.id" class="flex items-center gap-2 bg-red-50 dark:bg-red-900/30 px-2 py-1 rounded">
-              <span class="text-xs text-red-600 dark:text-red-400">Delete?</span>
-              <button
-                @click="executeDelete(issue.id)"
-                class="px-2 py-0.5 text-xs text-white bg-red-500 hover:bg-red-600 rounded"
+              ↗
+            </RButton>
+
+            <!-- Notes -->
+            <RButton
+              size="small"
+              :filled="!!issue.notes"
+              @click="startEditingNotes(issue)"
+              :title="issue.notes ? 'View/edit notes' : 'Add notes'"
+            >
+              📝
+            </RButton>
+
+            <!-- Edit -->
+            <RButton
+              size="small"
+              @click="startEditing(issue)"
+              title="Edit"
+            >
+              ✏️
+            </RButton>
+
+            <!-- Archive/Restore/Delete -->
+            <template v-if="issue.archived">
+              <RButton
+                size="small"
+                @click="issuesStore.unarchiveIssue(issue.id)"
+                title="Restore"
               >
-                Yes
-              </button>
-              <button
-                @click="cancelDelete"
-                class="px-2 py-0.5 text-xs text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200"
+                ↩
+              </RButton>
+              <RButton
+                v-if="confirmingDeleteId !== issue.id"
+                size="small"
+                color="error"
+                @click="confirmDelete(issue.id)"
+                title="Delete"
               >
-                No
-              </button>
-            </div>
-            <button
+                🗑
+              </RButton>
+              <RSpace v-else>
+                <RButton size="small" color="error" filled @click="executeDelete(issue.id)" title="Confirm delete">Yes</RButton>
+                <RButton size="small" @click="cancelDelete" title="Cancel delete">No</RButton>
+              </RSpace>
+            </template>
+            <RButton
               v-else
-              @click="confirmDelete(issue.id)"
-              class="text-red-400 hover:text-red-600"
-              title="Delete permanently (removes all tracked time)"
+              size="small"
+              @click="issuesStore.archiveIssue(issue.id)"
+              title="Archive"
             >
-              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-              </svg>
-            </button>
-          </template>
-          <button
-            v-else
-            @click="issuesStore.archiveIssue(issue.id)"
-            class="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300"
-            title="Archive"
-          >
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
-            </svg>
-          </button>
+              📦
+            </RButton>
+          </RSpace>
         </div>
-      </li>
-    </ul>
-  </div>
+      </RListItem>
+    </RList>
+  </RCard>
 </template>
+
+<style scoped>
+.text-secondary {
+  color: var(--color-text-secondary);
+}
+
+.issue-item {
+  padding: 0.75rem 0;
+}
+</style>

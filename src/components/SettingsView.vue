@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, watch, onMounted } from 'vue'
 import { useSettingsStore } from '../stores/settings.store'
+import { RCard, RButton, RInput, RText, RSpace, RSwitch, RFormItem } from 'roughness'
 
 const settingsStore = useSettingsStore()
 
@@ -40,7 +41,7 @@ const issueTrackers: { value: 'gitlab' | 'github' | 'jira' | 'custom'; name: str
   { value: 'gitlab', name: 'GitLab', example: 'https://gitlab.com/.../issues/123' },
   { value: 'github', name: 'GitHub', example: 'https://github.com/.../issues/123' },
   { value: 'jira', name: 'Jira', example: 'https://company.atlassian.net/browse/PROJ-123' },
-  { value: 'custom', name: 'Custom Pattern', example: 'Define your own regex' }
+  { value: 'custom', name: 'Custom', example: 'Define your own regex' }
 ]
 
 // Load settings into form
@@ -107,280 +108,221 @@ async function saveSettings() {
 </script>
 
 <template>
-  <div class="space-y-6">
+  <RSpace vertical>
     <!-- Work Hours -->
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-      <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-4">Work Hours</h3>
+    <RCard>
+      <template #title><RText>Work Hours</RText></template>
 
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div>
-          <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-            Daily Target (hours)
-          </label>
+        <RFormItem label="Daily Target (hours)">
           <input
             v-model.number="form.dailyTargetHours"
             type="number"
             min="1"
             max="24"
             step="0.5"
-            class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+            class="settings-input"
           />
-          <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Hours per day for progress bar</p>
-        </div>
+          <RText size="small" class="text-secondary mt-1 block">Hours per day for progress bar</RText>
+        </RFormItem>
 
-        <div>
-          <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-            Monthly Target (hours)
-          </label>
+        <RFormItem label="Monthly Target (hours)">
           <input
             v-model.number="form.monthlyTargetHours"
             type="number"
             min="1"
             max="744"
             step="1"
-            class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+            class="settings-input"
           />
-          <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Total hours per month (e.g., 160 for full-time)</p>
-        </div>
+          <RText size="small" class="text-secondary mt-1 block">Total hours per month</RText>
+        </RFormItem>
       </div>
-    </div>
+    </RCard>
 
     <!-- Appearance -->
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-      <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-4">Appearance</h3>
+    <RCard>
+      <template #title><RText>Appearance</RText></template>
 
-      <div>
-        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-          Theme
-        </label>
-        <div class="flex gap-2">
-          <button
+      <RFormItem label="Theme">
+        <RSpace>
+          <RButton
+            :filled="form.theme === 'light'"
             @click="form.theme = 'light'"
-            :class="[
-              'flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-md border transition-colors',
-              form.theme === 'light'
-                ? 'bg-blue-500 text-white border-blue-500'
-                : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600'
-            ]"
           >
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
-            </svg>
             Light
-          </button>
-          <button
+          </RButton>
+          <RButton
+            :filled="form.theme === 'dark'"
             @click="form.theme = 'dark'"
-            :class="[
-              'flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-md border transition-colors',
-              form.theme === 'dark'
-                ? 'bg-blue-500 text-white border-blue-500'
-                : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600'
-            ]"
           >
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
-            </svg>
             Dark
-          </button>
-          <button
+          </RButton>
+          <RButton
+            :filled="form.theme === 'system'"
             @click="form.theme = 'system'"
-            :class="[
-              'flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-md border transition-colors',
-              form.theme === 'system'
-                ? 'bg-blue-500 text-white border-blue-500'
-                : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600'
-            ]"
           >
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-            </svg>
             System
-          </button>
-        </div>
-      </div>
+          </RButton>
+        </RSpace>
+      </RFormItem>
 
-      <!-- Notifications Toggle -->
-      <div class="flex items-center justify-between mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+      <RSpace justify="between" align="center" class="mt-4 pt-4 border-t border-color">
         <div>
-          <label class="text-sm font-medium text-gray-700 dark:text-gray-300">
-            Desktop Notifications
-          </label>
-          <p class="text-xs text-gray-500 dark:text-gray-400">Show notifications for idle pauses and daily target</p>
+          <RText>Desktop Notifications</RText>
+          <RText size="small" class="text-secondary block">Show notifications for idle pauses and daily target</RText>
         </div>
-        <button
-          @click="form.notificationsEnabled = !form.notificationsEnabled"
-          :class="[
-            'relative inline-flex h-6 w-11 items-center rounded-full transition-colors',
-            form.notificationsEnabled ? 'bg-blue-500' : 'bg-gray-300 dark:bg-gray-600'
-          ]"
-        >
-          <span
-            :class="[
-              'inline-block h-4 w-4 transform rounded-full bg-white transition-transform',
-              form.notificationsEnabled ? 'translate-x-6' : 'translate-x-1'
-            ]"
-          />
-        </button>
-      </div>
-    </div>
+        <RSwitch v-model="form.notificationsEnabled" />
+      </RSpace>
+    </RCard>
 
     <!-- Earnings -->
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-      <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-4">Earnings</h3>
+    <RCard>
+      <template #title><RText>Earnings</RText></template>
 
-      <div class="space-y-4">
-        <!-- Show Earnings Toggle -->
-        <div class="flex items-center justify-between">
-          <div>
-            <label class="text-sm font-medium text-gray-700 dark:text-gray-300">
-              Show Earnings Widget
-            </label>
-            <p class="text-xs text-gray-500 dark:text-gray-400">Display earnings on the main screen</p>
-          </div>
-          <button
-            @click="form.showEarnings = !form.showEarnings"
-            :class="[
-              'relative inline-flex h-6 w-11 items-center rounded-full transition-colors',
-              form.showEarnings ? 'bg-blue-500' : 'bg-gray-300 dark:bg-gray-600'
-            ]"
-          >
-            <span
-              :class="[
-                'inline-block h-4 w-4 transform rounded-full bg-white transition-transform',
-                form.showEarnings ? 'translate-x-6' : 'translate-x-1'
-              ]"
-            />
-          </button>
+      <RSpace justify="between" align="center" class="mb-4">
+        <div>
+          <RText>Show Earnings Widget</RText>
+          <RText size="small" class="text-secondary block">Display earnings on the main screen</RText>
         </div>
-
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Hourly Rate
-            </label>
-            <input
-              v-model.number="form.hourlyRate"
-              type="number"
-              min="0"
-              step="0.01"
-              class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
-
-          <div>
-            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Currency
-            </label>
-            <select
-              v-model="form.currency"
-              @change="onCurrencyChange"
-              class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option v-for="c in currencies" :key="c.code" :value="c.code">
-                {{ c.symbol }} - {{ c.name }} ({{ c.code }})
-              </option>
-            </select>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Idle Detection -->
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-      <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-4">Idle Detection</h3>
+        <RSwitch v-model="form.showEarnings" />
+      </RSpace>
 
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div>
-          <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-            Auto-pause after (minutes)
-          </label>
+        <RFormItem label="Hourly Rate">
+          <input
+            v-model.number="form.hourlyRate"
+            type="number"
+            min="0"
+            step="0.01"
+            class="settings-input"
+          />
+        </RFormItem>
+
+        <RFormItem label="Currency">
+          <select
+            v-model="form.currency"
+            @change="onCurrencyChange"
+            class="settings-select"
+          >
+            <option v-for="c in currencies" :key="c.code" :value="c.code">
+              {{ c.symbol }} - {{ c.name }}
+            </option>
+          </select>
+        </RFormItem>
+      </div>
+    </RCard>
+
+    <!-- Idle Detection -->
+    <RCard>
+      <template #title><RText>Idle Detection</RText></template>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <RFormItem label="Auto-pause after (minutes)">
           <input
             v-model.number="form.idleThresholdMinutes"
             type="number"
             min="1"
             max="60"
             step="1"
-            class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+            class="settings-input"
           />
-          <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Tracking pauses after this idle time</p>
-        </div>
+          <RText size="small" class="text-secondary mt-1 block">Tracking pauses after this idle time</RText>
+        </RFormItem>
 
-        <div>
-          <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-            Show idle warning after (seconds)
-          </label>
+        <RFormItem label="Show idle warning after (seconds)">
           <input
             v-model.number="form.idleIndicatorSeconds"
             type="number"
             min="5"
             max="300"
             step="5"
-            class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+            class="settings-input"
           />
-          <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Orange indicator appears after this time</p>
-        </div>
+          <RText size="small" class="text-secondary mt-1 block">Warning indicator appears after this time</RText>
+        </RFormItem>
       </div>
-    </div>
+    </RCard>
 
     <!-- Issue Tracker -->
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-      <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-4">Issue Tracker</h3>
+    <RCard>
+      <template #title><RText>Issue Tracker</RText></template>
 
-      <div class="space-y-4">
-        <div>
-          <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-            Issue Tracker Type
-          </label>
-          <div class="grid grid-cols-2 md:grid-cols-4 gap-2">
-            <button
-              v-for="tracker in issueTrackers"
-              :key="tracker.value"
-              @click="form.issueUrlPattern = tracker.value"
-              :class="[
-                'px-4 py-2 text-sm font-medium rounded-md border transition-colors',
-                form.issueUrlPattern === tracker.value
-                  ? 'bg-blue-500 text-white border-blue-500'
-                  : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600'
-              ]"
-            >
-              {{ tracker.name }}
-            </button>
-          </div>
-        </div>
+      <RFormItem label="Issue Tracker Type">
+        <RSpace wrap>
+          <RButton
+            v-for="tracker in issueTrackers"
+            :key="tracker.value"
+            :filled="form.issueUrlPattern === tracker.value"
+            @click="form.issueUrlPattern = tracker.value"
+          >
+            {{ tracker.name }}
+          </RButton>
+        </RSpace>
+      </RFormItem>
 
-        <div v-if="form.issueUrlPattern !== 'custom'" class="text-sm text-gray-500 dark:text-gray-400">
-          Example URL: {{ issueTrackers.find(t => t.value === form.issueUrlPattern)?.example }}
-        </div>
+      <RText v-if="form.issueUrlPattern !== 'custom'" size="small" class="text-secondary mt-2">
+        Example URL: {{ issueTrackers.find(t => t.value === form.issueUrlPattern)?.example }}
+      </RText>
 
-        <div v-if="form.issueUrlPattern === 'custom'">
-          <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-            Custom Regex Pattern
-          </label>
-          <input
-            v-model="form.customIssuePattern"
-            type="text"
-            placeholder="e.g., /ticket/(\d+)"
-            class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm"
-          />
-          <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
-            Regex to extract issue ID from URL. Use a capture group for the ID.
-          </p>
-        </div>
-      </div>
-    </div>
+      <RFormItem v-if="form.issueUrlPattern === 'custom'" label="Custom Regex Pattern" class="mt-4">
+        <RInput
+          v-model="form.customIssuePattern"
+          placeholder="e.g., /ticket/(\d+)"
+        />
+        <RText size="small" class="text-secondary mt-1">
+          Regex to extract issue ID from URL. Use a capture group for the ID.
+        </RText>
+      </RFormItem>
+    </RCard>
 
     <!-- Save Button -->
-    <div class="flex items-center justify-end gap-4">
-      <span v-if="saveMessage" :class="saveMessage.includes('Error') ? 'text-red-600' : 'text-green-600'" class="text-sm">
+    <RSpace justify="end" align="center">
+      <RText v-if="saveMessage" :class="saveMessage.includes('Error') ? 'text-danger' : 'text-success'">
         {{ saveMessage }}
-      </span>
-      <button
+      </RText>
+      <RButton
+        filled
         @click="saveSettings"
-        :disabled="isSaving"
-        class="px-6 py-2 text-sm font-medium text-white bg-blue-500 hover:bg-blue-600 rounded-md transition-colors disabled:opacity-50"
+        :loading="isSaving"
       >
         {{ isSaving ? 'Saving...' : 'Save Settings' }}
-      </button>
-    </div>
-  </div>
+      </RButton>
+    </RSpace>
+  </RSpace>
 </template>
+
+<style scoped>
+.text-secondary {
+  color: var(--color-text-secondary);
+}
+
+.text-success {
+  color: var(--color-success);
+}
+
+.text-danger {
+  color: var(--color-danger);
+}
+
+.border-color {
+  border-color: var(--color-border);
+}
+
+.settings-input,
+.settings-select {
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  border: 2px solid var(--color-border);
+  border-radius: 4px;
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: inherit;
+}
+
+.settings-input:focus,
+.settings-select:focus {
+  outline: none;
+  border-color: var(--color-accent);
+}
+</style>

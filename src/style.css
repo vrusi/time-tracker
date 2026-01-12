@@ -2,7 +2,72 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  /* Light mode - Warm paper tones */
+  --color-bg: #FDF8F3;
+  --color-bg-secondary: #F5EDE4;
+  --color-paper-line: #E8DFD5;
+  --color-text: #4A3728;
+  --color-text-secondary: #8B7355;
+  --color-accent: #C17F59;
+  --color-success: #6B8E5E;
+  --color-warning: #D4A84B;
+  --color-danger: #C25D4E;
+  --color-border: #D4C4B5;
+}
+
+.dark {
+  /* Dark mode - Dark paper */
+  --color-bg: #2C2520;
+  --color-bg-secondary: #3A322B;
+  --color-paper-line: #3D352E;
+  --color-text: #F0E6DC;
+  --color-text-secondary: #A89888;
+  --color-accent: #D4956A;
+  --color-success: #8AAF7A;
+  --color-warning: #E4B85B;
+  --color-danger: #D27062;
+  --color-border: #4A403A;
+}
+
 body {
   margin: 0;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background-color: var(--color-bg);
+  color: var(--color-text);
 }
+
+/* Override Roughness font */
+:root {
+  --r-common-font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+.r-text, .r-button, .r-input, .r-card, .r-tab-item, .r-tabs, .r-form-item, .r-list-item {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+}
+
+/* Lined paper background */
+.paper-bg {
+  background-color: var(--color-bg);
+  background-image: linear-gradient(var(--color-paper-line) 1px, transparent 1px);
+  background-size: 100% 28px;
+  background-position: 0 -1px;
+}
+
+/* Roughness overrides for warm theme */
+.r-box, .r-card, .r-button, .r-input {
+  --r-common-color: var(--color-text);
+  --r-common-background-color: var(--color-bg-secondary);
+}
+
+.r-button[filled] {
+  --r-button-color: var(--color-bg);
+  --r-button-background-color: var(--color-accent);
+}
+
+/* Color utilities */
+.text-accent { color: var(--color-accent); }
+.text-success { color: var(--color-success); }
+.text-warning { color: var(--color-warning); }
+.text-danger { color: var(--color-danger); }
+.bg-secondary { background-color: var(--color-bg-secondary); }

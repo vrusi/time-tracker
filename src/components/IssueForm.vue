@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { useIssuesStore } from '../stores/issues.store'
 import { useTrackerStore } from '../stores/tracker.store'
 import { useSettingsStore } from '../stores/settings.store'
+import { RCard, RButton, RText } from 'roughness'
 
 const issuesStore = useIssuesStore()
 const trackerStore = useTrackerStore()
@@ -11,6 +12,16 @@ const settingsStore = useSettingsStore()
 const link = ref('')
 const name = ref('')
 const isSubmitting = ref(false)
+
+const canSubmit = computed(() => link.value.trim() && name.value.trim())
+
+const submitTooltip = computed(() => {
+  if (canSubmit.value) return 'Add issue and start tracking'
+  const missing: string[] = []
+  if (!link.value.trim()) missing.push('issue URL')
+  if (!name.value.trim()) missing.push('name')
+  return `Enter ${missing.join(' and ')} to add issue`
+})
 
 async function handleSubmit() {
   const url = link.value.trim()
@@ -42,45 +53,92 @@ async function handleSubmit() {
 </script>
 
 <template>
-  <form @submit.prevent="handleSubmit" class="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
-    <h2 class="text-lg font-medium text-gray-900 dark:text-white mb-4">Add New Issue</h2>
+  <RCard>
+    <template #title>
+      <RText>Add New Issue</RText>
+    </template>
 
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-      <div>
-        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-          Issue URL
-        </label>
+    <form @submit.prevent="handleSubmit" class="form-row">
+      <div class="url-field">
+        <label class="field-label">Issue URL</label>
         <input
           v-model="link"
-          type="url"
-          placeholder="Paste issue URL from your tracker"
-          class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          required
+          type="text"
+          placeholder="https://github.com/org/repo/issues/123"
+          class="field-input"
         />
       </div>
 
-      <div>
-        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-          Name
-        </label>
+      <div class="name-field">
+        <label class="field-label">Name</label>
         <input
           v-model="name"
           type="text"
-          placeholder="Issue description"
-          class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          required
+          placeholder="Brief description"
+          class="field-input"
         />
       </div>
-    </div>
 
-    <div class="mt-4 flex justify-end">
-      <button
-        type="submit"
-        :disabled="isSubmitting || !link.trim() || !name.trim()"
-        class="px-4 py-2 text-sm font-medium text-white bg-blue-500 hover:bg-blue-600 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-      >
-        {{ isSubmitting ? 'Adding...' : 'Add Issue' }}
-      </button>
-    </div>
-  </form>
+      <span class="submit-wrapper" :title="submitTooltip">
+        <RButton
+          filled
+          type="submit"
+          :loading="isSubmitting"
+          :disabled="!canSubmit"
+        >
+          {{ isSubmitting ? 'Adding...' : 'Add Issue' }}
+        </RButton>
+      </span>
+    </form>
+  </RCard>
 </template>
+
+<style scoped>
+.form-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 1rem;
+}
+
+.url-field {
+  flex: 2;
+  min-width: 0;
+}
+
+.name-field {
+  flex: 1;
+  min-width: 0;
+}
+
+.submit-wrapper {
+  flex-shrink: 0;
+}
+
+.field-label {
+  display: block;
+  font-size: 0.875rem;
+  margin-bottom: 0.25rem;
+  color: var(--color-text);
+}
+
+.field-input {
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  border: 2px solid var(--color-border);
+  border-radius: 4px;
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: inherit;
+  font-size: 1rem;
+  box-sizing: border-box;
+}
+
+.field-input:focus {
+  outline: none;
+  border-color: var(--color-accent);
+}
+
+.field-input::placeholder {
+  color: var(--color-text-secondary);
+}
+</style>
