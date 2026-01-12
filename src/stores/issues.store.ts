@@ -34,6 +34,15 @@ export const useIssuesStore = defineStore('issues', () => {
     return newIssue
   }
 
+  async function updateIssue(id: number, updates: { externalId?: string; name?: string; link?: string | null }) {
+    const updated = await window.electronAPI.updateIssue(id, updates)
+    const index = issues.value.findIndex(i => i.id === id)
+    if (index !== -1) {
+      issues.value[index] = updated
+    }
+    return updated
+  }
+
   async function archiveIssue(id: number) {
     await window.electronAPI.archiveIssue(id)
     const issue = issues.value.find(i => i.id === id)
@@ -55,6 +64,7 @@ export const useIssuesStore = defineStore('issues', () => {
     displayedIssues,
     loadIssues,
     createIssue,
+    updateIssue,
     archiveIssue,
     unarchiveIssue
   }

@@ -5,6 +5,7 @@ const electronAPI: ElectronAPI = {
   // Issues
   getIssues: (includeArchived = false) => ipcRenderer.invoke('get-issues', includeArchived),
   createIssue: (issue) => ipcRenderer.invoke('create-issue', issue),
+  updateIssue: (id, updates) => ipcRenderer.invoke('update-issue', id, updates),
   archiveIssue: (id) => ipcRenderer.invoke('archive-issue', id),
   unarchiveIssue: (id) => ipcRenderer.invoke('unarchive-issue', id),
 

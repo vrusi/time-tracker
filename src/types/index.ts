@@ -38,6 +38,7 @@ export interface ElectronAPI {
   // Issues
   getIssues: (includeArchived?: boolean) => Promise<Issue[]>
   createIssue: (issue: Omit<Issue, 'id' | 'createdAt'>) => Promise<Issue>
+  updateIssue: (id: number, updates: Partial<Pick<Issue, 'externalId' | 'name' | 'link'>>) => Promise<Issue>
   archiveIssue: (id: number) => Promise<void>
   unarchiveIssue: (id: number) => Promise<void>
 

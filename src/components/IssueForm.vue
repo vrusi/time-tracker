@@ -1,27 +1,44 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useIssuesStore } from '../stores/issues.store'
+import { useTrackerStore } from '../stores/tracker.store'
 
 const issuesStore = useIssuesStore()
+const trackerStore = useTrackerStore()
 
-const externalId = ref('')
-const name = ref('')
 const link = ref('')
+const name = ref('')
 const isSubmitting = ref(false)
 
+function extractIssueId(url: string): string | null {
+  // Match GitLab issue URLs like: https://gitlab.avvoka.com/avvoka/app/-/issues/8533
+  const match = url.match(/\/issues\/(\d+)/)
+  return match ? `#${match[1]}` : null
+}
+
 async function handleSubmit() {
-  if (!externalId.value.trim() || !name.value.trim()) return
+  const url = link.value.trim()
+  const issueName = name.value.trim()
+
+  if (!url || !issueName) return
+
+  const issueId = extractIssueId(url)
+  if (!issueId) {
+    alert('Could not extract issue ID from URL. Expected format: .../issues/1234')
+    return
+  }
 
   isSubmitting.value = true
   try {
-    await issuesStore.createIssue(
-      externalId.value.trim(),
-      name.value.trim(),
-      link.value.trim() || null
+    const newIssue = await issuesStore.createIssue(
+      issueId,
+      issueName,
+      url
     )
-    externalId.value = ''
-    name.value = ''
+    // Auto-start tracking the new issue
+    await trackerStore.startTracking(newIssue.id)
     link.value = ''
+    name.value = ''
   } finally {
     isSubmitting.value = false
   }
@@ -32,15 +49,15 @@ async function handleSubmit() {
   <form @submit.prevent="handleSubmit" class="bg-white rounded-lg shadow p-4">
     <h2 class="text-lg font-medium text-gray-900 mb-4">Add New Issue</h2>
 
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
       <div>
         <label class="block text-sm font-medium text-gray-700 mb-1">
-          Issue ID
+          GitLab URL
         </label>
         <input
-          v-model="externalId"
-          type="text"
-          placeholder="e.g. #1234"
+          v-model="link"
+          type="url"
+          placeholder="https://gitlab.avvoka.com/.../issues/1234"
           class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           required
         />
@@ -58,24 +75,12 @@ async function handleSubmit() {
           required
         />
       </div>
-
-      <div>
-        <label class="block text-sm font-medium text-gray-700 mb-1">
-          Link (optional)
-        </label>
-        <input
-          v-model="link"
-          type="url"
-          placeholder="https://gitlab.com/..."
-          class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-        />
-      </div>
     </div>
 
     <div class="mt-4 flex justify-end">
       <button
         type="submit"
-        :disabled="isSubmitting || !externalId.trim() || !name.trim()"
+        :disabled="isSubmitting || !link.trim() || !name.trim()"
         class="px-4 py-2 text-sm font-medium text-white bg-blue-500 hover:bg-blue-600 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
       >
         {{ isSubmitting ? 'Adding...' : 'Add Issue' }}

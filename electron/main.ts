@@ -239,6 +239,39 @@ function setupIpcHandlers() {
     }
   })
 
+  ipcMain.handle('update-issue', (_, id: number, updates: { externalId?: string; name?: string; link?: string | null }) => {
+    const fields: string[] = []
+    const values: any[] = []
+
+    if (updates.externalId !== undefined) {
+      fields.push('external_id = ?')
+      values.push(updates.externalId)
+    }
+    if (updates.name !== undefined) {
+      fields.push('name = ?')
+      values.push(updates.name)
+    }
+    if (updates.link !== undefined) {
+      fields.push('link = ?')
+      values.push(updates.link)
+    }
+
+    if (fields.length > 0) {
+      values.push(id)
+      db.prepare(`UPDATE issues SET ${fields.join(', ')} WHERE id = ?`).run(...values)
+    }
+
+    const row = db.prepare('SELECT * FROM issues WHERE id = ?').get(id) as any
+    return {
+      id: row.id,
+      externalId: row.external_id,
+      name: row.name,
+      link: row.link,
+      archived: !!row.archived,
+      createdAt: row.created_at
+    }
+  })
+
   ipcMain.handle('archive-issue', (_, id: number) => {
     db.prepare('UPDATE issues SET archived = 1 WHERE id = ?').run(id)
   })

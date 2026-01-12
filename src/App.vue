@@ -7,11 +7,14 @@ import IssueList from './components/IssueList.vue'
 import IssueForm from './components/IssueForm.vue'
 import HistoryView from './components/HistoryView.vue'
 import ExportDialog from './components/ExportDialog.vue'
+import ProgressBars from './components/ProgressBars.vue'
+import CalendarView from './components/CalendarView.vue'
 
 const trackerStore = useTrackerStore()
 const issuesStore = useIssuesStore()
 
 const activeTab = ref<'issues' | 'history'>('issues')
+const historyView = ref<'list' | 'calendar'>('list')
 const showExportDialog = ref(false)
 
 onMounted(async () => {
@@ -72,13 +75,45 @@ onMounted(async () => {
 
     <!-- Main content -->
     <main class="max-w-4xl mx-auto px-4 py-6">
+      <!-- Progress bars -->
+      <ProgressBars class="mb-6" />
+
       <template v-if="activeTab === 'issues'">
         <IssueForm class="mb-6" />
         <IssueList />
       </template>
 
       <template v-else-if="activeTab === 'history'">
-        <HistoryView />
+        <!-- View toggle -->
+        <div class="flex justify-end mb-4">
+          <div class="inline-flex rounded-lg border border-gray-200 bg-white p-1">
+            <button
+              @click="historyView = 'list'"
+              :class="[
+                'px-3 py-1.5 text-sm font-medium rounded-md transition-colors',
+                historyView === 'list'
+                  ? 'bg-blue-500 text-white'
+                  : 'text-gray-600 hover:text-gray-900'
+              ]"
+            >
+              List
+            </button>
+            <button
+              @click="historyView = 'calendar'"
+              :class="[
+                'px-3 py-1.5 text-sm font-medium rounded-md transition-colors',
+                historyView === 'calendar'
+                  ? 'bg-blue-500 text-white'
+                  : 'text-gray-600 hover:text-gray-900'
+              ]"
+            >
+              Calendar
+            </button>
+          </div>
+        </div>
+
+        <HistoryView v-if="historyView === 'list'" />
+        <CalendarView v-else />
       </template>
     </main>
 
