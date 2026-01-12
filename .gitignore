@@ -5,3 +5,9 @@ dist-electron/
 .DS_Store
 *.db
 *.db-journal
+
+# Claude AI files
+CLAUDE.md
+**/CLAUDE.md
+HANDOFF.md
+PLAN.md
