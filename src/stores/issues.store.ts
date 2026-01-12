@@ -11,7 +11,7 @@ export const useIssuesStore = defineStore('issues', () => {
   const archivedIssues = computed(() => issues.value.filter(i => i.archived))
 
   const displayedIssues = computed(() =>
-    showArchived.value ? issues.value : activeIssues.value
+    showArchived.value ? archivedIssues.value : activeIssues.value
   )
 
   async function loadIssues() {
@@ -55,6 +55,11 @@ export const useIssuesStore = defineStore('issues', () => {
     if (issue) issue.archived = false
   }
 
+  async function deleteIssue(id: number) {
+    await window.electronAPI.deleteIssue(id)
+    issues.value = issues.value.filter(i => i.id !== id)
+  }
+
   return {
     issues,
     showArchived,
@@ -66,6 +71,7 @@ export const useIssuesStore = defineStore('issues', () => {
     createIssue,
     updateIssue,
     archiveIssue,
-    unarchiveIssue
+    unarchiveIssue,
+    deleteIssue
   }
 })

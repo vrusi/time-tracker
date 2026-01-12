@@ -83,14 +83,30 @@ async function saveEdit() {
   <div class="bg-white rounded-lg shadow">
     <div class="px-4 py-3 border-b flex items-center justify-between">
       <h2 class="text-lg font-medium text-gray-900">Issues</h2>
-      <label class="flex items-center gap-2 text-sm text-gray-600">
-        <input
-          type="checkbox"
-          v-model="issuesStore.showArchived"
-          class="rounded border-gray-300"
-        />
-        Show archived
-      </label>
+      <div class="inline-flex rounded-lg border border-gray-200 bg-gray-50 p-1">
+        <button
+          @click="issuesStore.showArchived = false"
+          :class="[
+            'px-3 py-1 text-sm font-medium rounded-md transition-colors',
+            !issuesStore.showArchived
+              ? 'bg-white text-gray-900 shadow-sm'
+              : 'text-gray-600 hover:text-gray-900'
+          ]"
+        >
+          Active
+        </button>
+        <button
+          @click="issuesStore.showArchived = true"
+          :class="[
+            'px-3 py-1 text-sm font-medium rounded-md transition-colors',
+            issuesStore.showArchived
+              ? 'bg-white text-gray-900 shadow-sm'
+              : 'text-gray-600 hover:text-gray-900'
+          ]"
+        >
+          Archived
+        </button>
+      </div>
     </div>
 
     <div v-if="issuesStore.isLoading" class="p-8 text-center text-gray-500">
@@ -105,10 +121,7 @@ async function saveEdit() {
       <li
         v-for="issue in issuesStore.displayedIssues"
         :key="issue.id"
-        :class="[
-          'px-4 py-3 hover:bg-gray-50 transition-colors',
-          issue.archived && 'opacity-50'
-        ]"
+        class="px-4 py-3 hover:bg-gray-50 transition-colors"
       >
         <!-- Edit mode -->
         <form v-if="editingIssue?.id === issue.id" @submit.prevent="saveEdit" class="flex items-center gap-3">
@@ -187,17 +200,27 @@ async function saveEdit() {
             </svg>
           </button>
 
-          <!-- Archive/Unarchive button -->
-          <button
-            v-if="issue.archived"
-            @click="issuesStore.unarchiveIssue(issue.id)"
-            class="text-gray-400 hover:text-gray-600"
-            title="Unarchive"
-          >
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
-            </svg>
-          </button>
+          <!-- Archive/Unarchive/Delete buttons -->
+          <template v-if="issue.archived">
+            <button
+              @click="issuesStore.unarchiveIssue(issue.id)"
+              class="text-gray-400 hover:text-gray-600"
+              title="Restore"
+            >
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
+              </svg>
+            </button>
+            <button
+              @click="issuesStore.deleteIssue(issue.id)"
+              class="text-red-400 hover:text-red-600"
+              title="Delete permanently"
+            >
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+            </button>
+          </template>
           <button
             v-else
             @click="issuesStore.archiveIssue(issue.id)"

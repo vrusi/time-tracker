@@ -8,6 +8,7 @@ const electronAPI: ElectronAPI = {
   updateIssue: (id, updates) => ipcRenderer.invoke('update-issue', id, updates),
   archiveIssue: (id) => ipcRenderer.invoke('archive-issue', id),
   unarchiveIssue: (id) => ipcRenderer.invoke('unarchive-issue', id),
+  deleteIssue: (id) => ipcRenderer.invoke('delete-issue', id),
 
   // Tracking
   startTracking: (issueId) => ipcRenderer.invoke('start-tracking', issueId),

@@ -280,6 +280,12 @@ function setupIpcHandlers() {
     db.prepare('UPDATE issues SET archived = 0 WHERE id = ?').run(id)
   })
 
+  ipcMain.handle('delete-issue', (_, id: number) => {
+    // Delete time entries first (foreign key constraint)
+    db.prepare('DELETE FROM time_entries WHERE issue_id = ?').run(id)
+    db.prepare('DELETE FROM issues WHERE id = ?').run(id)
+  })
+
   // Tracking
   ipcMain.handle('start-tracking', (_, issueId: number) => {
     return startTracking(issueId)

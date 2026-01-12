@@ -41,6 +41,7 @@ export interface ElectronAPI {
   updateIssue: (id: number, updates: Partial<Pick<Issue, 'externalId' | 'name' | 'link'>>) => Promise<Issue>
   archiveIssue: (id: number) => Promise<void>
   unarchiveIssue: (id: number) => Promise<void>
+  deleteIssue: (id: number) => Promise<void>
 
   // Tracking
   startTracking: (issueId: number) => Promise<TimeEntry>
