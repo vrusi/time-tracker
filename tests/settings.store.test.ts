@@ -39,6 +39,11 @@ describe('Settings Store', () => {
 
       expect(store.extractIssueId('https://google.com')).toBeNull()
       expect(store.extractIssueId('not a url')).toBeNull()
+    })
+
+    it('returns null for empty string', () => {
+      const store = useSettingsStore()
+      store.settings.issueUrlPattern = 'gitlab'
       expect(store.extractIssueId('')).toBeNull()
     })
 
@@ -58,6 +63,22 @@ describe('Settings Store', () => {
       // Falls back to /issues/(\d+)
       expect(store.extractIssueId('https://example.com/issues/123')).toBe('#123')
     })
-  })
 
+    it('falls back to default pattern if custom pattern is empty', () => {
+      const store = useSettingsStore()
+      store.settings.issueUrlPattern = 'custom'
+      store.settings.customIssuePattern = ''
+
+      // Falls back to /issues/(\d+)
+      expect(store.extractIssueId('https://example.com/issues/456')).toBe('#456')
+    })
+
+    it('falls back to default pattern if custom pattern is undefined', () => {
+      const store = useSettingsStore()
+      store.settings.issueUrlPattern = 'custom'
+      store.settings.customIssuePattern = undefined
+
+      expect(store.extractIssueId('https://example.com/issues/789')).toBe('#789')
+    })
+  })
 })

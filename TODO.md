@@ -1,6 +1,6 @@
 # TODO
 
-- [ ] Add tests
+- [x] Add tests (27 unit tests: format utils, settings store, tracker store)
 - [ ] Use sketch-looking icons instead of emojis
 - [ ] Handle app closed while tracking - recover lost time
 - [ ] Add timezone setting

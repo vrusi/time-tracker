@@ -28,6 +28,12 @@ describe('Format Utilities', () => {
       expect(formatDuration(36000)).toBe('10h 0m')
       expect(formatDuration(86400)).toBe('24h 0m')
     })
+
+    it('handles negative values (edge case)', () => {
+      // Negative values shouldn't occur in normal usage
+      // Documents current behavior: -60 seconds = -1m (hours check fails since -1 > 0 is false)
+      expect(formatDuration(-60)).toBe('-1m')
+    })
   })
 
   describe('formatHours', () => {
@@ -113,6 +119,18 @@ describe('Format Utilities', () => {
     it('caps at 100%', () => {
       expect(calculateIdleProgress(700, 600)).toBe(100)
       expect(calculateIdleProgress(1200, 600)).toBe(100)
+    })
+
+    it('handles zero threshold', () => {
+      // Zero threshold would cause division by zero - returns Infinity capped to 100
+      expect(calculateIdleProgress(100, 0)).toBe(100)
+    })
+
+    it('handles negative values (edge case)', () => {
+      // Negative idle time shouldn't occur, but Math.min caps correctly
+      // -100/600 * 100 = -16.67, Math.min(100, -16.67) = -16.67
+      const result = calculateIdleProgress(-100, 600)
+      expect(result).toBeLessThan(0)
     })
   })
 })

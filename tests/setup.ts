@@ -1,4 +1,5 @@
 import { vi } from 'vitest'
+import { createMockSettings } from './fixtures'
 
 // Mock electronAPI for all tests
 export const mockElectronAPI = {
@@ -35,23 +36,11 @@ export const mockElectronAPI = {
   getIdleTime: vi.fn().mockResolvedValue(0),
   resetIdleTime: vi.fn(),
 
-  // Settings
-  getSettings: vi.fn().mockResolvedValue({
-    dailyTargetHours: 8,
-    monthlyTargetHours: 160,
-    hourlyRate: 18.67,
-    currency: 'GBP',
-    currencySymbol: '£',
-    idleThresholdMinutes: 10,
-    idleIndicatorSeconds: 30,
-    issueUrlPattern: 'gitlab',
-    theme: 'light',
-    showEarnings: false,
-    notificationsEnabled: true,
-  }),
+  // Settings - use fixture for default values
+  getSettings: vi.fn().mockResolvedValue(createMockSettings()),
   updateSettings: vi.fn(),
 
-  // Events - these are callbacks, return cleanup functions
+  // Events
   onIdlePause: vi.fn(),
   onTrackingUpdate: vi.fn(),
   onHandsoffModeChange: vi.fn(),
@@ -71,12 +60,3 @@ vi.stubGlobal('window', {
   setTimeout: vi.fn(() => 1),
   clearTimeout: vi.fn(),
 })
-
-// Reset all mocks before each test
-export function resetMocks() {
-  Object.values(mockElectronAPI).forEach(mock => {
-    if (typeof mock.mockReset === 'function') {
-      mock.mockReset()
-    }
-  })
-}
