@@ -31,7 +31,8 @@ function getSettings() {
     idleIndicatorSeconds: parseFloat(settings.idleIndicatorSeconds) || 30,
     issueUrlPattern: settings.issueUrlPattern || 'gitlab',
     customIssuePattern: settings.customIssuePattern,
-    theme: settings.theme || 'light'
+    theme: settings.theme || 'light',
+    showEarnings: settings.showEarnings === 'true'
   }
 }
 

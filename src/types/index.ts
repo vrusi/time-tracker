@@ -46,6 +46,7 @@ export interface AppSettings {
   issueUrlPattern: 'gitlab' | 'github' | 'jira' | 'custom'
   customIssuePattern?: string
   theme: 'light' | 'dark' | 'system'
+  showEarnings: boolean
 }
 
 // IPC API exposed to renderer
