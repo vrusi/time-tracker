@@ -59,10 +59,16 @@ function initDatabase() {
     insertSetting.run(key, value)
   }
 
-  // Migration: Add notes column if it doesn't exist
-  const columns = db.prepare("PRAGMA table_info(time_entries)").all() as { name: string }[]
-  if (!columns.some(col => col.name === 'notes')) {
+  // Migration: Add notes column to time_entries if it doesn't exist
+  const timeEntryColumns = db.prepare("PRAGMA table_info(time_entries)").all() as { name: string }[]
+  if (!timeEntryColumns.some(col => col.name === 'notes')) {
     db.exec('ALTER TABLE time_entries ADD COLUMN notes TEXT')
+  }
+
+  // Migration: Add notes column to issues if it doesn't exist
+  const issueColumns = db.prepare("PRAGMA table_info(issues)").all() as { name: string }[]
+  if (!issueColumns.some(col => col.name === 'notes')) {
+    db.exec('ALTER TABLE issues ADD COLUMN notes TEXT')
   }
 
   return db

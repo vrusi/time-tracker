@@ -24,6 +24,10 @@ const editForm = ref({ startedAt: '', endedAt: '' })
 const editingNotesId = ref<number | null>(null)
 const notesForm = ref('')
 
+// Issue edit state
+const editingIssueId = ref<number | null>(null)
+const issueEditForm = ref({ name: '', link: '' })
+
 // Delete confirmation state
 const confirmingDeleteId = ref<number | null>(null)
 
@@ -153,6 +157,30 @@ async function saveNotes() {
 
   await window.electronAPI.updateTimeEntry(editingNotesId.value, { notes: notesForm.value || undefined })
   editingNotesId.value = null
+  await loadEntries()
+}
+
+// Issue edit functions
+function startEditingIssue(entry: TimeEntry & { issue: Issue }) {
+  editingIssueId.value = entry.issue.id
+  issueEditForm.value = {
+    name: entry.issue.name,
+    link: entry.issue.link || ''
+  }
+}
+
+function cancelEditingIssue() {
+  editingIssueId.value = null
+}
+
+async function saveIssueEdit() {
+  if (!editingIssueId.value) return
+
+  await issuesStore.updateIssue(editingIssueId.value, {
+    name: issueEditForm.value.name.trim(),
+    link: issueEditForm.value.link.trim() || null
+  })
+  editingIssueId.value = null
   await loadEntries()
 }
 
@@ -327,6 +355,25 @@ onMounted(() => {
               </div>
             </div>
 
+            <!-- Edit issue mode -->
+            <form v-else-if="editingIssueId === entry.issue.id" @submit.prevent="saveIssueEdit" class="flex items-center gap-3">
+              <input
+                v-model="issueEditForm.link"
+                type="url"
+                class="w-64 px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="Issue URL"
+              />
+              <input
+                v-model="issueEditForm.name"
+                type="text"
+                class="flex-1 px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="Name"
+                required
+              />
+              <button type="submit" class="px-3 py-1 text-sm text-white bg-blue-500 hover:bg-blue-600 rounded">Save</button>
+              <button type="button" @click="cancelEditingIssue" class="px-3 py-1 text-sm text-gray-600 hover:text-gray-800">Cancel</button>
+            </form>
+
             <!-- Normal display mode -->
             <div v-else class="flex items-center gap-4">
               <div class="flex-1">
@@ -370,6 +417,17 @@ onMounted(() => {
               >
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </button>
+
+              <!-- Edit issue button -->
+              <button
+                @click="startEditingIssue(entry)"
+                class="text-gray-400 hover:text-gray-600"
+                title="Edit issue name/link"
+              >
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                 </svg>
               </button>
 

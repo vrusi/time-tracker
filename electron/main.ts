@@ -199,6 +199,7 @@ function getCurrentTracking(): { entry: TimeEntry; issue: Issue } | null {
       externalId: issue.external_id,
       name: issue.name,
       link: issue.link,
+      notes: issue.notes,
       archived: !!issue.archived,
       createdAt: issue.created_at
     }
@@ -248,6 +249,7 @@ function startTracking(issueId: number): TimeEntry {
       externalId: issue.external_id,
       name: issue.name,
       link: issue.link,
+      notes: issue.notes,
       archived: !!issue.archived,
       createdAt: issue.created_at
     }
@@ -269,6 +271,7 @@ function setupIpcHandlers() {
       externalId: row.external_id,
       name: row.name,
       link: row.link,
+      notes: row.notes,
       archived: !!row.archived,
       createdAt: row.created_at
     }))
@@ -277,18 +280,19 @@ function setupIpcHandlers() {
   ipcMain.handle('create-issue', (_, issue: Omit<Issue, 'id' | 'createdAt'>) => {
     const now = new Date().toISOString()
     const result = db.prepare(`
-      INSERT INTO issues (external_id, name, link, archived, created_at)
-      VALUES (?, ?, ?, ?, ?)
-    `).run(issue.externalId, issue.name, issue.link, issue.archived ? 1 : 0, now)
+      INSERT INTO issues (external_id, name, link, notes, archived, created_at)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `).run(issue.externalId, issue.name, issue.link, issue.notes || null, issue.archived ? 1 : 0, now)
 
     return {
       id: result.lastInsertRowid as number,
       ...issue,
+      notes: issue.notes || null,
       createdAt: now
     }
   })
 
-  ipcMain.handle('update-issue', (_, id: number, updates: { externalId?: string; name?: string; link?: string | null }) => {
+  ipcMain.handle('update-issue', (_, id: number, updates: { externalId?: string; name?: string; link?: string | null; notes?: string | null }) => {
     const fields: string[] = []
     const values: any[] = []
 
@@ -304,6 +308,10 @@ function setupIpcHandlers() {
       fields.push('link = ?')
       values.push(updates.link)
     }
+    if (updates.notes !== undefined) {
+      fields.push('notes = ?')
+      values.push(updates.notes)
+    }
 
     if (fields.length > 0) {
       values.push(id)
@@ -316,6 +324,7 @@ function setupIpcHandlers() {
       externalId: row.external_id,
       name: row.name,
       link: row.link,
+      notes: row.notes,
       archived: !!row.archived,
       createdAt: row.created_at
     }
@@ -351,7 +360,7 @@ function setupIpcHandlers() {
   // History
   ipcMain.handle('get-time-entries', (_, startDate: string, endDate: string) => {
     const entries = db.prepare(`
-      SELECT te.*, i.external_id, i.name, i.link, i.archived, i.created_at as issue_created_at
+      SELECT te.*, i.external_id, i.name, i.link, i.notes as issue_notes, i.archived, i.created_at as issue_created_at
       FROM time_entries te
       JOIN issues i ON te.issue_id = i.id
       WHERE te.started_at >= ? AND te.started_at <= ?
@@ -370,6 +379,7 @@ function setupIpcHandlers() {
         externalId: row.external_id,
         name: row.name,
         link: row.link,
+        notes: row.issue_notes,
         archived: !!row.archived,
         createdAt: row.issue_created_at
       }

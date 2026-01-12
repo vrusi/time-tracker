@@ -14,6 +14,10 @@ const editingIssue = ref<Issue | null>(null)
 const editForm = ref({ name: '', link: '' })
 const confirmingDeleteId = ref<number | null>(null)
 
+// Notes state
+const editingNotesId = ref<number | null>(null)
+const notesForm = ref('')
+
 async function loadIssueTimes() {
   for (const issue of issuesStore.issues) {
     const seconds = await window.electronAPI.getIssueTime(issue.id)
@@ -88,6 +92,23 @@ async function executeDelete(issueId: number) {
   await issuesStore.deleteIssue(issueId)
   confirmingDeleteId.value = null
 }
+
+// Notes functions
+function startEditingNotes(issue: Issue) {
+  editingNotesId.value = issue.id
+  notesForm.value = issue.notes || ''
+}
+
+function cancelEditingNotes() {
+  editingNotesId.value = null
+}
+
+async function saveNotes() {
+  if (!editingNotesId.value) return
+
+  await issuesStore.updateIssue(editingNotesId.value, { notes: notesForm.value || null })
+  editingNotesId.value = null
+}
 </script>
 
 <template>
@@ -153,6 +174,24 @@ async function executeDelete(issueId: number) {
           <button type="button" @click="cancelEditing" class="px-3 py-1 text-sm text-gray-600 hover:text-gray-800">Cancel</button>
         </form>
 
+        <!-- Notes edit mode -->
+        <div v-else-if="editingNotesId === issue.id" class="space-y-2">
+          <div class="flex items-center gap-2 text-sm text-gray-600">
+            <span class="font-medium">{{ issue.externalId }}</span>
+            <span>{{ issue.name }}</span>
+          </div>
+          <textarea
+            v-model="notesForm"
+            rows="4"
+            class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+            placeholder="Add notes about this issue (e.g., investigation findings, handoff notes)..."
+          ></textarea>
+          <div class="flex items-center gap-2">
+            <button @click="saveNotes" class="px-3 py-1 text-sm text-white bg-blue-500 hover:bg-blue-600 rounded">Save Notes</button>
+            <button @click="cancelEditingNotes" class="px-3 py-1 text-sm text-gray-600 hover:text-gray-800">Cancel</button>
+          </div>
+        </div>
+
         <!-- Normal display mode -->
         <div v-else class="flex items-center gap-4">
           <!-- Play/Pause button -->
@@ -201,6 +240,20 @@ async function executeDelete(issueId: number) {
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
             </svg>
           </a>
+
+          <!-- Notes button -->
+          <button
+            @click="startEditingNotes(issue)"
+            :class="[
+              'hover:text-blue-600',
+              issue.notes ? 'text-blue-500' : 'text-gray-400'
+            ]"
+            :title="issue.notes ? 'View/edit notes' : 'Add notes'"
+          >
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+          </button>
 
           <!-- Edit button -->
           <button
