@@ -1,7 +1,6 @@
 {
   "name": "time-tracker",
   "version": "1.0.0",
-  "type": "module",
   "description": "Issue time tracking with idle detection",
   "main": "dist-electron/main.js",
   "scripts": {
