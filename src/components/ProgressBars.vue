@@ -2,6 +2,7 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useTrackerStore } from '../stores/tracker.store'
 import { useSettingsStore } from '../stores/settings.store'
+import { RCard, RProgress, RText, RSpace, RDivider } from 'roughness'
 
 const trackerStore = useTrackerStore()
 const settingsStore = useSettingsStore()
@@ -112,54 +113,100 @@ trackerStore.$subscribe(() => {
 </script>
 
 <template>
-  <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4 space-y-4">
-    <!-- Earnings highlight (enabled via settings) -->
+  <RCard class="progress-card">
+    <!-- Earnings inline (enabled via settings) -->
     <div
       v-if="settingsStore.settings.showEarnings"
-      class="text-center py-2 border-b border-gray-100 dark:border-gray-700"
+      class="earnings-row"
       :title="`${monthlyHours.toFixed(1)} hours × ${formatMoney(settingsStore.settings.hourlyRate)}/hour`"
     >
-      <div class="text-3xl font-bold text-green-600 dark:text-green-400">{{ formatMoney(monthlyEarnings) }}</div>
-      <div class="text-sm text-gray-500 dark:text-gray-400">earned this month (of {{ formatMoney(targetEarnings) }})</div>
+      <RText class="text-success font-bold text-xl">{{ formatMoney(monthlyEarnings) }}</RText>
+      <RText class="text-secondary text-sm">
+        of {{ formatMoney(targetEarnings) }} target
+      </RText>
     </div>
 
     <!-- Daily Progress -->
-    <div>
-      <div class="flex justify-between text-sm mb-1">
-        <span class="font-medium text-gray-700 dark:text-gray-300">Today</span>
-        <span class="text-gray-500 dark:text-gray-400">
+    <div class="progress-row">
+      <div class="progress-label">
+        <RText size="small">Today</RText>
+        <RText size="small" class="text-secondary">
           {{ formatHours(todaySeconds) }} / {{ settingsStore.settings.dailyTargetHours }}h
-          <span class="text-gray-400 dark:text-gray-500 ml-1">({{ dailyProgress.toFixed(0) }}%)</span>
-        </span>
+        </RText>
       </div>
-      <div class="h-3 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
-        <div
-          class="h-full transition-all duration-300 rounded-full"
-          :class="dailyProgress >= 100 ? 'bg-green-500' : 'bg-blue-500'"
-          :style="{ width: `${dailyProgress}%` }"
+      <div class="progress-bar-wrapper">
+        <RProgress
+          :value="dailyProgress / 100"
+          :color="dailyProgress >= 100 ? 'success' : 'primary'"
         />
       </div>
     </div>
 
     <!-- Monthly Progress -->
-    <div>
-      <div class="flex justify-between text-sm mb-1">
-        <span class="font-medium text-gray-700 dark:text-gray-300">This Month</span>
-        <span class="text-gray-500 dark:text-gray-400">
+    <div class="progress-row">
+      <div class="progress-label">
+        <RText size="small">Month</RText>
+        <RText size="small" class="text-secondary">
           {{ formatHours(monthSeconds) }} / {{ settingsStore.settings.monthlyTargetHours }}h
-          <span class="text-gray-400 dark:text-gray-500 ml-1">({{ monthlyProgress.toFixed(0) }}%)</span>
-        </span>
+        </RText>
       </div>
-      <div class="h-3 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
-        <div
-          class="h-full transition-all duration-300 rounded-full"
-          :class="monthlyProgress >= 100 ? 'bg-green-500' : 'bg-blue-500'"
-          :style="{ width: `${monthlyProgress}%` }"
+      <div class="progress-bar-wrapper">
+        <RProgress
+          :value="monthlyProgress / 100"
+          :color="monthlyProgress >= 100 ? 'success' : 'primary'"
         />
       </div>
-      <div class="text-xs text-gray-400 dark:text-gray-500 mt-1">
-        {{ workdaysInMonth }} workdays this month ({{ workdaysHours }}h if {{ settingsStore.settings.dailyTargetHours }}h/day)
-      </div>
     </div>
-  </div>
+  </RCard>
 </template>
+
+<style scoped>
+.progress-card {
+  --r-card-padding: 0.75rem;
+}
+
+.earnings-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.progress-row {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 0.5rem;
+}
+
+.progress-row:last-child {
+  margin-bottom: 0;
+}
+
+.progress-label {
+  display: flex;
+  justify-content: space-between;
+  min-width: 180px;
+  gap: 0.5rem;
+}
+
+.progress-bar-wrapper {
+  flex: 1;
+}
+
+/* Force RProgress to take full width */
+.progress-bar-wrapper :deep(.r-progress) {
+  width: 100%;
+}
+
+.text-secondary {
+  color: var(--color-text-secondary);
+}
+
+.text-success {
+  color: var(--color-success);
+}
+</style>

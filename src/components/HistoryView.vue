@@ -2,6 +2,7 @@
 import { ref, computed, watch, onMounted } from 'vue'
 import type { TimeEntry, Issue, DayGroup } from '../types'
 import { useIssuesStore } from '../stores/issues.store'
+import { RCard, RButton, RInput, RText, RSpace, RList, RListItem, RDialog, RFormItem, RSelect } from 'roughness'
 
 const issuesStore = useIssuesStore()
 
@@ -248,315 +249,276 @@ onMounted(() => {
 </script>
 
 <template>
-  <div>
+  <RSpace vertical>
     <!-- Date filter and Add button -->
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4 mb-6">
-      <div class="flex items-center justify-between">
-        <div class="flex items-center gap-4">
-          <div>
-            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">From</label>
+    <RCard>
+      <RSpace align="center" justify="between">
+        <RSpace>
+          <RFormItem label="From">
             <input
               v-model="startDate"
               type="date"
-              class="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              class="date-input"
             />
-          </div>
-          <div>
-            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">To</label>
+          </RFormItem>
+          <RFormItem label="To">
             <input
               v-model="endDate"
               type="date"
-              class="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              class="date-input"
             />
-          </div>
-        </div>
-        <button
-          @click="openAddEntryModal"
-          class="px-4 py-2 text-sm font-medium text-white bg-blue-500 hover:bg-blue-600 rounded-md transition-colors"
-          title="Add a manual time entry"
-        >
+          </RFormItem>
+        </RSpace>
+        <RButton filled @click="openAddEntryModal" title="Add a manual time entry">
           + Add Entry
-        </button>
-      </div>
-    </div>
+        </RButton>
+      </RSpace>
+    </RCard>
 
     <!-- Loading -->
-    <div v-if="isLoading" class="bg-white dark:bg-gray-800 rounded-lg shadow p-8 text-center text-gray-500 dark:text-gray-400">
-      Loading...
-    </div>
+    <RCard v-if="isLoading">
+      <div class="p-8 text-center">
+        <RText class="text-secondary">Loading...</RText>
+      </div>
+    </RCard>
 
     <!-- Empty state -->
-    <div v-else-if="groupedEntries.length === 0" class="bg-white dark:bg-gray-800 rounded-lg shadow p-8 text-center text-gray-500 dark:text-gray-400">
-      No time entries for this period.
-    </div>
+    <RCard v-else-if="groupedEntries.length === 0">
+      <div class="p-8 text-center">
+        <RText class="text-secondary">No time entries for this period.</RText>
+      </div>
+    </RCard>
 
     <!-- Entries grouped by day -->
-    <div v-else class="space-y-4">
-      <div
-        v-for="group in groupedEntries"
-        :key="group.date"
-        class="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden"
-      >
-        <!-- Day header -->
-        <div class="px-4 py-3 bg-gray-50 dark:bg-gray-900 border-b dark:border-gray-700 flex items-center justify-between">
-          <span class="font-medium text-gray-900 dark:text-white">{{ formatDate(group.date) }}</span>
-          <span class="text-sm text-gray-500 dark:text-gray-400">Total: {{ formatDuration(group.totalSeconds) }}</span>
-        </div>
-
-        <!-- Entries -->
-        <ul class="divide-y dark:divide-gray-700">
-          <li
-            v-for="entry in group.entries"
-            :key="entry.id"
-            class="px-4 py-3"
-          >
-            <!-- Edit time mode -->
-            <form v-if="editingEntryId === entry.id" @submit.prevent="saveEdit" class="space-y-3">
-              <div class="flex items-center gap-3">
-                <div>
-                  <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">Start</label>
-                  <input
-                    v-model="editForm.startedAt"
-                    type="datetime-local"
-                    class="px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    required
-                  />
-                </div>
-                <div>
-                  <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">End</label>
-                  <input
-                    v-model="editForm.endedAt"
-                    type="datetime-local"
-                    class="px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-                <div class="flex items-center gap-2 self-end">
-                  <button type="submit" class="px-3 py-1 text-sm text-white bg-blue-500 hover:bg-blue-600 rounded">Save</button>
-                  <button type="button" @click="cancelEditing" class="px-3 py-1 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200">Cancel</button>
-                </div>
-              </div>
-            </form>
-
-            <!-- Edit notes mode -->
-            <div v-else-if="editingNotesId === entry.id" class="space-y-2">
-              <div class="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
-                <span class="font-medium">{{ entry.issue.externalId }}</span>
-                <span>{{ entry.issue.name }}</span>
-              </div>
-              <textarea
-                v-model="notesForm"
-                rows="4"
-                class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="Add notes about what you worked on..."
-              ></textarea>
-              <div class="flex items-center gap-2">
-                <button @click="saveNotes" class="px-3 py-1 text-sm text-white bg-blue-500 hover:bg-blue-600 rounded">Save Notes</button>
-                <button @click="cancelEditingNotes" class="px-3 py-1 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200">Cancel</button>
-              </div>
-            </div>
-
-            <!-- Edit issue mode -->
-            <form v-else-if="editingIssueId === entry.issue.id" @submit.prevent="saveIssueEdit" class="flex items-center gap-3">
-              <input
-                v-model="issueEditForm.link"
-                type="url"
-                class="w-64 px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="Issue URL"
-              />
-              <input
-                v-model="issueEditForm.name"
-                type="text"
-                class="flex-1 px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="Name"
-                required
-              />
-              <button type="submit" class="px-3 py-1 text-sm text-white bg-blue-500 hover:bg-blue-600 rounded">Save</button>
-              <button type="button" @click="cancelEditingIssue" class="px-3 py-1 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200">Cancel</button>
-            </form>
-
-            <!-- Normal display mode -->
-            <div v-else class="flex items-center gap-4">
-              <div class="flex-1">
-                <div class="flex items-center gap-2">
-                  <span class="font-medium text-gray-900 dark:text-white">{{ entry.issue.externalId }}</span>
-                  <span class="text-gray-600 dark:text-gray-400">{{ entry.issue.name }}</span>
-                </div>
-                <div class="text-sm text-gray-400 dark:text-gray-500">
-                  {{ formatTime(entry.startedAt) }} - {{ entry.endedAt ? formatTime(entry.endedAt) : 'ongoing' }}
-                  <span v-if="entry.pausedReason" class="ml-2 text-xs">
-                    ({{ entry.pausedReason }})
-                  </span>
-                </div>
-                <div v-if="entry.notes" class="mt-1 text-sm text-gray-500 dark:text-gray-400 italic">
-                  {{ entry.notes }}
-                </div>
-              </div>
-              <span class="text-sm font-medium text-gray-900 dark:text-white">
-                {{ formatDuration(entryDuration(entry)) }}
-              </span>
-
-              <!-- Notes button -->
-              <button
-                @click="startEditingNotes(entry)"
-                :class="[
-                  'hover:text-blue-600',
-                  entry.notes ? 'text-blue-500' : 'text-gray-400 dark:text-gray-500'
-                ]"
-                :title="entry.notes ? 'View/edit notes' : 'Add notes'"
-              >
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
-              </button>
-
-              <!-- Edit time button -->
-              <button
-                @click="startEditing(entry)"
-                class="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300"
-                title="Edit start/end time"
-              >
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </button>
-
-              <!-- Edit issue button -->
-              <button
-                @click="startEditingIssue(entry)"
-                class="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300"
-                title="Edit issue name/link"
-              >
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                </svg>
-              </button>
-
-              <!-- Delete with confirmation -->
-              <div v-if="confirmingDeleteId === entry.id" class="flex items-center gap-2 bg-red-50 dark:bg-red-900/30 px-2 py-1 rounded">
-                <span class="text-xs text-red-600 dark:text-red-400">Delete?</span>
-                <button
-                  @click="executeDelete(entry.id)"
-                  class="px-2 py-0.5 text-xs text-white bg-red-500 hover:bg-red-600 rounded"
-                >
-                  Yes
-                </button>
-                <button
-                  @click="cancelDelete"
-                  class="px-2 py-0.5 text-xs text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200"
-                >
-                  No
-                </button>
-              </div>
-              <button
-                v-else
-                @click="confirmDelete(entry.id)"
-                class="text-gray-400 dark:text-gray-500 hover:text-red-600"
-                title="Delete entry"
-              >
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                </svg>
-              </button>
-            </div>
-          </li>
-        </ul>
-      </div>
-    </div>
-
-    <!-- Add Entry Modal -->
-    <div
-      v-if="showAddEntryModal"
-      class="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
-      @click.self="closeAddEntryModal"
+    <RCard
+      v-for="group in groupedEntries"
+      :key="group.date"
     >
-      <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-md">
-        <div class="px-6 py-4 border-b dark:border-gray-700 flex items-center justify-between">
-          <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Add Manual Entry</h2>
-          <button @click="closeAddEntryModal" class="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
+      <template #title>
+        <RSpace justify="between" class="w-full">
+          <RText>{{ formatDate(group.date) }}</RText>
+          <RText class="text-secondary">Total: {{ formatDuration(group.totalSeconds) }}</RText>
+        </RSpace>
+      </template>
 
-        <form @submit.prevent="submitAddEntry" class="px-6 py-4 space-y-4">
-          <div>
-            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Issue</label>
-            <select
-              v-model="addEntryForm.issueId"
-              class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-              required
-            >
-              <option value="0" disabled>Select an issue</option>
-              <option v-for="issue in issuesStore.activeIssues" :key="issue.id" :value="issue.id">
-                {{ issue.externalId }} - {{ issue.name }}
-              </option>
-            </select>
+      <RList>
+        <RListItem
+          v-for="entry in group.entries"
+          :key="entry.id"
+          class="entry-item"
+        >
+          <!-- Edit time mode -->
+          <form v-if="editingEntryId === entry.id" @submit.prevent="saveEdit" class="space-y-3 w-full">
+            <RSpace>
+              <RFormItem label="Start">
+                <input
+                  v-model="editForm.startedAt"
+                  type="datetime-local"
+                  class="date-input"
+                  required
+                />
+              </RFormItem>
+              <RFormItem label="End">
+                <input
+                  v-model="editForm.endedAt"
+                  type="datetime-local"
+                  class="date-input"
+                />
+              </RFormItem>
+              <RSpace class="self-end">
+                <RButton type="submit" size="small" filled>Save</RButton>
+                <RButton type="button" size="small" @click="cancelEditing">Cancel</RButton>
+              </RSpace>
+            </RSpace>
+          </form>
+
+          <!-- Edit notes mode -->
+          <div v-else-if="editingNotesId === entry.id" class="space-y-2 w-full">
+            <RText class="text-secondary text-sm">
+              <strong>{{ entry.issue.externalId }}</strong> {{ entry.issue.name }}
+            </RText>
+            <RInput
+              v-model="notesForm"
+              :lines="4"
+              placeholder="Add notes about what you worked on..."
+            />
+            <RSpace>
+              <RButton size="small" filled @click="saveNotes">Save Notes</RButton>
+              <RButton size="small" @click="cancelEditingNotes">Cancel</RButton>
+            </RSpace>
           </div>
 
-          <div>
-            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Date</label>
+          <!-- Edit issue mode -->
+          <form v-else-if="editingIssueId === entry.issue.id" @submit.prevent="saveIssueEdit" class="flex items-center gap-3 w-full">
+            <RInput
+              v-model="issueEditForm.link"
+              placeholder="Issue URL"
+              class="w-48"
+            />
+            <RInput
+              v-model="issueEditForm.name"
+              placeholder="Name"
+              class="flex-1"
+            />
+            <RButton type="submit" size="small" filled>Save</RButton>
+            <RButton type="button" size="small" @click="cancelEditingIssue">Cancel</RButton>
+          </form>
+
+          <!-- Normal display mode -->
+          <div v-else class="flex items-center gap-4 w-full">
+            <div class="flex-1">
+              <div class="flex items-center gap-2">
+                <RText class="font-medium">{{ entry.issue.externalId }}</RText>
+                <RText class="text-secondary">{{ entry.issue.name }}</RText>
+              </div>
+              <RText size="small" class="text-secondary">
+                {{ formatTime(entry.startedAt) }} - {{ entry.endedAt ? formatTime(entry.endedAt) : 'ongoing' }}
+                <span v-if="entry.pausedReason" class="ml-2">({{ entry.pausedReason }})</span>
+              </RText>
+              <RText v-if="entry.notes" size="small" class="text-secondary italic block mt-1">
+                {{ entry.notes }}
+              </RText>
+            </div>
+            <RText class="font-medium">
+              {{ formatDuration(entryDuration(entry)) }}
+            </RText>
+
+            <!-- Action buttons -->
+            <RSpace>
+              <RButton
+                size="small"
+                :filled="!!entry.notes"
+                @click="startEditingNotes(entry)"
+                title="Notes"
+              >
+                📝
+              </RButton>
+              <RButton
+                size="small"
+                @click="startEditing(entry)"
+                title="Edit time"
+              >
+                🕐
+              </RButton>
+              <RButton
+                size="small"
+                @click="startEditingIssue(entry)"
+                title="Edit issue"
+              >
+                ✏️
+              </RButton>
+              <RButton
+                v-if="confirmingDeleteId !== entry.id"
+                size="small"
+                color="error"
+                @click="confirmDelete(entry.id)"
+                title="Delete"
+              >
+                🗑
+              </RButton>
+              <RSpace v-else>
+                <RButton size="small" color="error" filled @click="executeDelete(entry.id)" title="Confirm delete">Yes</RButton>
+                <RButton size="small" @click="cancelDelete" title="Cancel delete">No</RButton>
+              </RSpace>
+            </RSpace>
+          </div>
+        </RListItem>
+      </RList>
+    </RCard>
+
+    <!-- Add Entry Dialog -->
+    <RDialog v-model:open="showAddEntryModal">
+      <template #title>Add Manual Entry</template>
+
+      <form @submit.prevent="submitAddEntry" class="space-y-4">
+        <RFormItem label="Issue">
+          <select
+            v-model="addEntryForm.issueId"
+            class="select-input"
+            required
+          >
+            <option value="0" disabled>Select an issue</option>
+            <option v-for="issue in issuesStore.activeIssues" :key="issue.id" :value="issue.id">
+              {{ issue.externalId }} - {{ issue.name }}
+            </option>
+          </select>
+        </RFormItem>
+
+        <RFormItem label="Date">
+          <input
+            v-model="addEntryForm.date"
+            type="date"
+            class="date-input w-full"
+            required
+          />
+        </RFormItem>
+
+        <RSpace>
+          <RFormItem label="Start Time">
             <input
-              v-model="addEntryForm.date"
-              type="date"
-              class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              v-model="addEntryForm.startTime"
+              type="time"
+              class="date-input"
               required
             />
-          </div>
+          </RFormItem>
+          <RFormItem label="End Time">
+            <input
+              v-model="addEntryForm.endTime"
+              type="time"
+              class="date-input"
+              required
+            />
+          </RFormItem>
+        </RSpace>
 
-          <div class="grid grid-cols-2 gap-4">
-            <div>
-              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Start Time</label>
-              <input
-                v-model="addEntryForm.startTime"
-                type="time"
-                class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                required
-              />
-            </div>
-            <div>
-              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">End Time</label>
-              <input
-                v-model="addEntryForm.endTime"
-                type="time"
-                class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                required
-              />
-            </div>
-          </div>
+        <RText v-if="addEntryDuration" size="small" class="text-secondary">
+          Duration: <strong>{{ addEntryDuration }}</strong>
+        </RText>
 
-          <div v-if="addEntryDuration" class="text-sm text-gray-500 dark:text-gray-400">
-            Duration: <span class="font-medium">{{ addEntryDuration }}</span>
-          </div>
+        <RFormItem label="Notes (optional)">
+          <RInput
+            v-model="addEntryForm.notes"
+            :lines="3"
+            placeholder="What did you work on?"
+          />
+        </RFormItem>
 
-          <div>
-            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Notes (optional, markdown)</label>
-            <textarea
-              v-model="addEntryForm.notes"
-              rows="3"
-              class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="What did you work on?"
-            ></textarea>
-          </div>
-
-          <div class="flex justify-end gap-3 pt-2">
-            <button
-              type="button"
-              @click="closeAddEntryModal"
-              class="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-md transition-colors"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              :disabled="!addEntryForm.issueId"
-              class="px-4 py-2 text-sm font-medium text-white bg-blue-500 hover:bg-blue-600 rounded-md transition-colors disabled:opacity-50"
-            >
-              Add Entry
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-  </div>
+        <RSpace justify="end">
+          <RButton type="button" @click="closeAddEntryModal">Cancel</RButton>
+          <RButton type="submit" filled :disabled="!addEntryForm.issueId">Add Entry</RButton>
+        </RSpace>
+      </form>
+    </RDialog>
+  </RSpace>
 </template>
+
+<style scoped>
+.text-secondary {
+  color: var(--color-text-secondary);
+}
+
+.entry-item {
+  padding: 0.75rem 0;
+}
+
+.date-input,
+.select-input {
+  padding: 0.5rem 0.75rem;
+  border: 2px solid var(--color-border);
+  border-radius: 4px;
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: inherit;
+}
+
+.date-input:focus,
+.select-input:focus {
+  outline: none;
+  border-color: var(--color-accent);
+}
+
+.select-input {
+  width: 100%;
+}
+</style>
