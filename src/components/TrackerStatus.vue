@@ -62,8 +62,8 @@ watch(() => trackerStore.currentEntry?.id, () => {
       :class="[
         'px-2 py-1 text-xs font-medium rounded-md transition-colors border',
         trackerStore.handsoffMode
-          ? 'bg-amber-100 text-amber-700 border-amber-300 hover:bg-amber-200'
-          : 'bg-gray-100 text-gray-500 border-gray-200 hover:bg-gray-200'
+          ? 'bg-amber-100 text-amber-700 border-amber-300 hover:bg-amber-200 dark:bg-amber-900/50 dark:text-amber-300 dark:border-amber-700 dark:hover:bg-amber-800/50'
+          : 'bg-gray-100 text-gray-500 border-gray-200 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-400 dark:border-gray-600 dark:hover:bg-gray-600'
       ]"
       :title="trackerStore.handsoffMode ? 'Handsoff mode ON - click to re-enable idle detection' : 'Enable handsoff mode: keeps tracking even when idle (useful for meetings, reading, or away-from-keyboard work)'"
     >
