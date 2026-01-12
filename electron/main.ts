@@ -30,7 +30,8 @@ function getSettings() {
     idleThresholdMinutes: parseFloat(settings.idleThresholdMinutes) || 10,
     idleIndicatorSeconds: parseFloat(settings.idleIndicatorSeconds) || 30,
     issueUrlPattern: settings.issueUrlPattern || 'gitlab',
-    customIssuePattern: settings.customIssuePattern
+    customIssuePattern: settings.customIssuePattern,
+    theme: settings.theme || 'light'
   }
 }
 

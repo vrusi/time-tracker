@@ -84,10 +84,10 @@ function formatHours(seconds: number): string {
 function getHoursColor(seconds: number): string {
   if (seconds === 0) return ''
   const hours = seconds / 3600
-  if (hours >= 8) return 'bg-green-100 text-green-800'
-  if (hours >= 6) return 'bg-blue-100 text-blue-800'
-  if (hours >= 4) return 'bg-yellow-100 text-yellow-800'
-  return 'bg-gray-100 text-gray-600'
+  if (hours >= 8) return 'bg-green-100 dark:bg-green-900/50 text-green-800 dark:text-green-300'
+  if (hours >= 6) return 'bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-300'
+  if (hours >= 4) return 'bg-yellow-100 dark:bg-yellow-900/50 text-yellow-800 dark:text-yellow-300'
+  return 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400'
 }
 
 function isToday(dateStr: string): boolean {
@@ -140,35 +140,35 @@ onMounted(loadEntries)
 </script>
 
 <template>
-  <div class="bg-white rounded-lg shadow overflow-hidden">
+  <div class="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
     <!-- Header with navigation -->
-    <div class="px-4 py-3 border-b flex items-center justify-between bg-gray-50">
+    <div class="px-4 py-3 border-b dark:border-gray-700 flex items-center justify-between bg-gray-50 dark:bg-gray-700">
       <button
         @click="prevMonth"
-        class="p-2 hover:bg-gray-200 rounded-full transition-colors"
+        class="p-2 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-full transition-colors"
       >
-        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg class="w-5 h-5 text-gray-600 dark:text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
         </svg>
       </button>
 
       <div class="text-center">
-        <h3 class="font-semibold text-gray-900">{{ monthName }}</h3>
-        <p class="text-sm text-gray-500">Total: {{ formatHours(monthTotal) || '0h' }}</p>
+        <h3 class="font-semibold text-gray-900 dark:text-white">{{ monthName }}</h3>
+        <p class="text-sm text-gray-500 dark:text-gray-400">Total: {{ formatHours(monthTotal) || '0h' }}</p>
       </div>
 
       <div class="flex items-center gap-2">
         <button
           @click="goToToday"
-          class="px-3 py-1 text-sm text-gray-600 hover:bg-gray-200 rounded transition-colors"
+          class="px-3 py-1 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 rounded transition-colors"
         >
           Today
         </button>
         <button
           @click="nextMonth"
-          class="p-2 hover:bg-gray-200 rounded-full transition-colors"
+          class="p-2 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-full transition-colors"
         >
-          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg class="w-5 h-5 text-gray-600 dark:text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
           </svg>
         </button>
@@ -176,7 +176,7 @@ onMounted(loadEntries)
     </div>
 
     <!-- Loading -->
-    <div v-if="isLoading" class="p-8 text-center text-gray-500">
+    <div v-if="isLoading" class="p-8 text-center text-gray-500 dark:text-gray-400">
       Loading...
     </div>
 
@@ -187,7 +187,7 @@ onMounted(loadEntries)
         <div
           v-for="day in weekDays"
           :key="day"
-          class="text-center text-sm font-medium text-gray-500 py-2"
+          class="text-center text-sm font-medium text-gray-500 dark:text-gray-400 py-2"
         >
           {{ day }}
         </div>
@@ -204,18 +204,18 @@ onMounted(loadEntries)
             v-for="dayInfo in week"
             :key="dayInfo.dateStr"
             :class="[
-              'min-h-[60px] p-2 rounded border text-sm',
-              dayInfo.isCurrentMonth ? 'bg-white' : 'bg-gray-50',
+              'min-h-[60px] p-2 rounded border dark:border-gray-700 text-sm',
+              dayInfo.isCurrentMonth ? 'bg-white dark:bg-gray-800' : 'bg-gray-50 dark:bg-gray-900',
               isToday(dayInfo.dateStr) && 'ring-2 ring-blue-500',
-              isWeekend(dayInfo.date) && dayInfo.isCurrentMonth && 'bg-gray-50'
+              isWeekend(dayInfo.date) && dayInfo.isCurrentMonth && 'bg-gray-50 dark:bg-gray-900'
             ]"
           >
             <div class="flex justify-between items-start">
               <span
                 :class="[
                   'font-medium',
-                  dayInfo.isCurrentMonth ? 'text-gray-900' : 'text-gray-400',
-                  isToday(dayInfo.dateStr) && 'text-blue-600'
+                  dayInfo.isCurrentMonth ? 'text-gray-900 dark:text-white' : 'text-gray-400 dark:text-gray-600',
+                  isToday(dayInfo.dateStr) && 'text-blue-600 dark:text-blue-400'
                 ]"
               >
                 {{ dayInfo.day }}

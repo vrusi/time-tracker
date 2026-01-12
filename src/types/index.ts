@@ -45,6 +45,7 @@ export interface AppSettings {
   idleIndicatorSeconds: number
   issueUrlPattern: 'gitlab' | 'github' | 'jira' | 'custom'
   customIssuePattern?: string
+  theme: 'light' | 'dark' | 'system'
 }
 
 // IPC API exposed to renderer

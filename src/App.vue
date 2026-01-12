@@ -29,19 +29,19 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="min-h-screen bg-gray-100">
+  <div class="min-h-screen bg-gray-100 dark:bg-gray-900">
     <!-- Header with tracker status -->
-    <header class="bg-white shadow-sm border-b">
+    <header class="bg-white dark:bg-gray-800 shadow-sm border-b dark:border-gray-700">
       <div class="max-w-4xl mx-auto px-4 py-3">
         <div class="flex items-center justify-between">
-          <h1 class="text-xl font-semibold text-gray-900">Time Tracker</h1>
+          <h1 class="text-xl font-semibold text-gray-900 dark:text-white">Time Tracker</h1>
           <TrackerStatus />
         </div>
       </div>
     </header>
 
     <!-- Navigation -->
-    <nav class="bg-white border-b">
+    <nav class="bg-white dark:bg-gray-800 border-b dark:border-gray-700">
       <div class="max-w-4xl mx-auto px-4">
         <div class="flex space-x-4">
           <button
@@ -49,8 +49,8 @@ onMounted(async () => {
             :class="[
               'px-4 py-3 text-sm font-medium border-b-2 -mb-px',
               activeTab === 'issues'
-                ? 'border-blue-500 text-blue-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700'
+                ? 'border-blue-500 text-blue-600 dark:text-blue-400'
+                : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
             ]"
           >
             Issues
@@ -60,8 +60,8 @@ onMounted(async () => {
             :class="[
               'px-4 py-3 text-sm font-medium border-b-2 -mb-px',
               activeTab === 'history'
-                ? 'border-blue-500 text-blue-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700'
+                ? 'border-blue-500 text-blue-600 dark:text-blue-400'
+                : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
             ]"
           >
             History
@@ -71,8 +71,8 @@ onMounted(async () => {
             :class="[
               'px-4 py-3 text-sm font-medium border-b-2 -mb-px',
               activeTab === 'settings'
-                ? 'border-blue-500 text-blue-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700'
+                ? 'border-blue-500 text-blue-600 dark:text-blue-400'
+                : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
             ]"
           >
             Settings
@@ -80,7 +80,7 @@ onMounted(async () => {
           <div class="flex-1" />
           <button
             @click="showExportDialog = true"
-            class="px-4 py-3 text-sm font-medium text-gray-500 hover:text-gray-700"
+            class="px-4 py-3 text-sm font-medium text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
           >
             Export
           </button>
@@ -101,14 +101,14 @@ onMounted(async () => {
       <template v-else-if="activeTab === 'history'">
         <!-- View toggle -->
         <div class="flex justify-end mb-4">
-          <div class="inline-flex rounded-lg border border-gray-200 bg-white p-1">
+          <div class="inline-flex rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-1">
             <button
               @click="historyView = 'list'"
               :class="[
                 'px-3 py-1.5 text-sm font-medium rounded-md transition-colors',
                 historyView === 'list'
                   ? 'bg-blue-500 text-white'
-                  : 'text-gray-600 hover:text-gray-900'
+                  : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
               ]"
             >
               List
@@ -119,7 +119,7 @@ onMounted(async () => {
                 'px-3 py-1.5 text-sm font-medium rounded-md transition-colors',
                 historyView === 'calendar'
                   ? 'bg-blue-500 text-white'
-                  : 'text-gray-600 hover:text-gray-900'
+                  : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
               ]"
             >
               Calendar

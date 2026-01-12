@@ -112,23 +112,23 @@ trackerStore.$subscribe(() => {
 </script>
 
 <template>
-  <div class="bg-white rounded-lg shadow p-4 space-y-4">
+  <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4 space-y-4">
     <!-- Earnings highlight -->
-    <div class="text-center py-2 border-b border-gray-100" :title="`${monthlyHours.toFixed(1)} hours × ${formatMoney(settingsStore.settings.hourlyRate)}/hour`">
-      <div class="text-3xl font-bold text-green-600">{{ formatMoney(monthlyEarnings) }}</div>
-      <div class="text-sm text-gray-500">earned this month (of {{ formatMoney(targetEarnings) }})</div>
+    <div class="text-center py-2 border-b border-gray-100 dark:border-gray-700" :title="`${monthlyHours.toFixed(1)} hours × ${formatMoney(settingsStore.settings.hourlyRate)}/hour`">
+      <div class="text-3xl font-bold text-green-600 dark:text-green-400">{{ formatMoney(monthlyEarnings) }}</div>
+      <div class="text-sm text-gray-500 dark:text-gray-400">earned this month (of {{ formatMoney(targetEarnings) }})</div>
     </div>
 
     <!-- Daily Progress -->
     <div>
       <div class="flex justify-between text-sm mb-1">
-        <span class="font-medium text-gray-700">Today</span>
-        <span class="text-gray-500">
+        <span class="font-medium text-gray-700 dark:text-gray-300">Today</span>
+        <span class="text-gray-500 dark:text-gray-400">
           {{ formatHours(todaySeconds) }} / {{ settingsStore.settings.dailyTargetHours }}h
-          <span class="text-gray-400 ml-1">({{ dailyProgress.toFixed(0) }}%)</span>
+          <span class="text-gray-400 dark:text-gray-500 ml-1">({{ dailyProgress.toFixed(0) }}%)</span>
         </span>
       </div>
-      <div class="h-3 bg-gray-200 rounded-full overflow-hidden">
+      <div class="h-3 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
         <div
           class="h-full transition-all duration-300 rounded-full"
           :class="dailyProgress >= 100 ? 'bg-green-500' : 'bg-blue-500'"
@@ -140,20 +140,20 @@ trackerStore.$subscribe(() => {
     <!-- Monthly Progress -->
     <div>
       <div class="flex justify-between text-sm mb-1">
-        <span class="font-medium text-gray-700">This Month</span>
-        <span class="text-gray-500">
+        <span class="font-medium text-gray-700 dark:text-gray-300">This Month</span>
+        <span class="text-gray-500 dark:text-gray-400">
           {{ formatHours(monthSeconds) }} / {{ settingsStore.settings.monthlyTargetHours }}h
-          <span class="text-gray-400 ml-1">({{ monthlyProgress.toFixed(0) }}%)</span>
+          <span class="text-gray-400 dark:text-gray-500 ml-1">({{ monthlyProgress.toFixed(0) }}%)</span>
         </span>
       </div>
-      <div class="h-3 bg-gray-200 rounded-full overflow-hidden">
+      <div class="h-3 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
         <div
           class="h-full transition-all duration-300 rounded-full"
           :class="monthlyProgress >= 100 ? 'bg-green-500' : 'bg-blue-500'"
           :style="{ width: `${monthlyProgress}%` }"
         />
       </div>
-      <div class="text-xs text-gray-400 mt-1">
+      <div class="text-xs text-gray-400 dark:text-gray-500 mt-1">
         {{ workdaysInMonth }} workdays this month ({{ workdaysHours }}h if {{ settingsStore.settings.dailyTargetHours }}h/day)
       </div>
     </div>

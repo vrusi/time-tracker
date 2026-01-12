@@ -87,10 +87,10 @@ watch(() => trackerStore.currentEntry?.id, () => {
             :class="trackerStore.isIdle && !trackerStore.handsoffMode ? 'bg-orange-500' : 'bg-green-500'"
           ></span>
         </span>
-        <span class="text-sm text-gray-600">
+        <span class="text-sm text-gray-600 dark:text-gray-400">
           {{ trackerStore.currentIssue.externalId }}
         </span>
-        <span class="font-mono text-lg font-semibold text-gray-900">
+        <span class="font-mono text-lg font-semibold text-gray-900 dark:text-white">
           {{ trackerStore.formattedTime }}
         </span>
       </div>
@@ -100,7 +100,7 @@ watch(() => trackerStore.currentEntry?.id, () => {
         @click="showNotes = !showNotes"
         :class="[
           'p-1.5 rounded-md transition-colors',
-          showNotes || currentNotes ? 'text-blue-500 bg-blue-50' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'
+          showNotes || currentNotes ? 'text-blue-500 bg-blue-50 dark:bg-blue-900/30' : 'text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
         ]"
         :title="showNotes ? 'Hide notes' : 'Add notes before pausing'"
       >
@@ -118,7 +118,7 @@ watch(() => trackerStore.currentEntry?.id, () => {
       </button>
     </template>
     <template v-else>
-      <span class="text-sm text-gray-400">Not tracking</span>
+      <span class="text-sm text-gray-400 dark:text-gray-500">Not tracking</span>
     </template>
     </div>
 
@@ -127,7 +127,7 @@ watch(() => trackerStore.currentEntry?.id, () => {
       <textarea
         v-model="currentNotes"
         rows="3"
-        class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+        class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
         placeholder="Add notes about what you're working on... (saved when you pause)"
       ></textarea>
     </div>

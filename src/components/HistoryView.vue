@@ -250,23 +250,23 @@ onMounted(() => {
 <template>
   <div>
     <!-- Date filter and Add button -->
-    <div class="bg-white rounded-lg shadow p-4 mb-6">
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4 mb-6">
       <div class="flex items-center justify-between">
         <div class="flex items-center gap-4">
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">From</label>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">From</label>
             <input
               v-model="startDate"
               type="date"
-              class="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              class="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">To</label>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">To</label>
             <input
               v-model="endDate"
               type="date"
-              class="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              class="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
         </div>
@@ -281,12 +281,12 @@ onMounted(() => {
     </div>
 
     <!-- Loading -->
-    <div v-if="isLoading" class="bg-white rounded-lg shadow p-8 text-center text-gray-500">
+    <div v-if="isLoading" class="bg-white dark:bg-gray-800 rounded-lg shadow p-8 text-center text-gray-500 dark:text-gray-400">
       Loading...
     </div>
 
     <!-- Empty state -->
-    <div v-else-if="groupedEntries.length === 0" class="bg-white rounded-lg shadow p-8 text-center text-gray-500">
+    <div v-else-if="groupedEntries.length === 0" class="bg-white dark:bg-gray-800 rounded-lg shadow p-8 text-center text-gray-500 dark:text-gray-400">
       No time entries for this period.
     </div>
 
@@ -295,16 +295,16 @@ onMounted(() => {
       <div
         v-for="group in groupedEntries"
         :key="group.date"
-        class="bg-white rounded-lg shadow overflow-hidden"
+        class="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden"
       >
         <!-- Day header -->
-        <div class="px-4 py-3 bg-gray-50 border-b flex items-center justify-between">
-          <span class="font-medium text-gray-900">{{ formatDate(group.date) }}</span>
-          <span class="text-sm text-gray-500">Total: {{ formatDuration(group.totalSeconds) }}</span>
+        <div class="px-4 py-3 bg-gray-50 dark:bg-gray-900 border-b dark:border-gray-700 flex items-center justify-between">
+          <span class="font-medium text-gray-900 dark:text-white">{{ formatDate(group.date) }}</span>
+          <span class="text-sm text-gray-500 dark:text-gray-400">Total: {{ formatDuration(group.totalSeconds) }}</span>
         </div>
 
         <!-- Entries -->
-        <ul class="divide-y">
+        <ul class="divide-y dark:divide-gray-700">
           <li
             v-for="entry in group.entries"
             :key="entry.id"
@@ -314,44 +314,44 @@ onMounted(() => {
             <form v-if="editingEntryId === entry.id" @submit.prevent="saveEdit" class="space-y-3">
               <div class="flex items-center gap-3">
                 <div>
-                  <label class="block text-xs text-gray-500 mb-1">Start</label>
+                  <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">Start</label>
                   <input
                     v-model="editForm.startedAt"
                     type="datetime-local"
-                    class="px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    class="px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                     required
                   />
                 </div>
                 <div>
-                  <label class="block text-xs text-gray-500 mb-1">End</label>
+                  <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">End</label>
                   <input
                     v-model="editForm.endedAt"
                     type="datetime-local"
-                    class="px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    class="px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
                 <div class="flex items-center gap-2 self-end">
                   <button type="submit" class="px-3 py-1 text-sm text-white bg-blue-500 hover:bg-blue-600 rounded">Save</button>
-                  <button type="button" @click="cancelEditing" class="px-3 py-1 text-sm text-gray-600 hover:text-gray-800">Cancel</button>
+                  <button type="button" @click="cancelEditing" class="px-3 py-1 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200">Cancel</button>
                 </div>
               </div>
             </form>
 
             <!-- Edit notes mode -->
             <div v-else-if="editingNotesId === entry.id" class="space-y-2">
-              <div class="flex items-center gap-2 text-sm text-gray-600">
+              <div class="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
                 <span class="font-medium">{{ entry.issue.externalId }}</span>
                 <span>{{ entry.issue.name }}</span>
               </div>
               <textarea
                 v-model="notesForm"
                 rows="4"
-                class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                 placeholder="Add notes about what you worked on..."
               ></textarea>
               <div class="flex items-center gap-2">
                 <button @click="saveNotes" class="px-3 py-1 text-sm text-white bg-blue-500 hover:bg-blue-600 rounded">Save Notes</button>
-                <button @click="cancelEditingNotes" class="px-3 py-1 text-sm text-gray-600 hover:text-gray-800">Cancel</button>
+                <button @click="cancelEditingNotes" class="px-3 py-1 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200">Cancel</button>
               </div>
             </div>
 
@@ -360,38 +360,38 @@ onMounted(() => {
               <input
                 v-model="issueEditForm.link"
                 type="url"
-                class="w-64 px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                class="w-64 px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                 placeholder="Issue URL"
               />
               <input
                 v-model="issueEditForm.name"
                 type="text"
-                class="flex-1 px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                class="flex-1 px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                 placeholder="Name"
                 required
               />
               <button type="submit" class="px-3 py-1 text-sm text-white bg-blue-500 hover:bg-blue-600 rounded">Save</button>
-              <button type="button" @click="cancelEditingIssue" class="px-3 py-1 text-sm text-gray-600 hover:text-gray-800">Cancel</button>
+              <button type="button" @click="cancelEditingIssue" class="px-3 py-1 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200">Cancel</button>
             </form>
 
             <!-- Normal display mode -->
             <div v-else class="flex items-center gap-4">
               <div class="flex-1">
                 <div class="flex items-center gap-2">
-                  <span class="font-medium text-gray-900">{{ entry.issue.externalId }}</span>
-                  <span class="text-gray-600">{{ entry.issue.name }}</span>
+                  <span class="font-medium text-gray-900 dark:text-white">{{ entry.issue.externalId }}</span>
+                  <span class="text-gray-600 dark:text-gray-400">{{ entry.issue.name }}</span>
                 </div>
-                <div class="text-sm text-gray-400">
+                <div class="text-sm text-gray-400 dark:text-gray-500">
                   {{ formatTime(entry.startedAt) }} - {{ entry.endedAt ? formatTime(entry.endedAt) : 'ongoing' }}
                   <span v-if="entry.pausedReason" class="ml-2 text-xs">
                     ({{ entry.pausedReason }})
                   </span>
                 </div>
-                <div v-if="entry.notes" class="mt-1 text-sm text-gray-500 italic">
+                <div v-if="entry.notes" class="mt-1 text-sm text-gray-500 dark:text-gray-400 italic">
                   {{ entry.notes }}
                 </div>
               </div>
-              <span class="text-sm font-medium text-gray-900">
+              <span class="text-sm font-medium text-gray-900 dark:text-white">
                 {{ formatDuration(entryDuration(entry)) }}
               </span>
 
@@ -400,7 +400,7 @@ onMounted(() => {
                 @click="startEditingNotes(entry)"
                 :class="[
                   'hover:text-blue-600',
-                  entry.notes ? 'text-blue-500' : 'text-gray-400'
+                  entry.notes ? 'text-blue-500' : 'text-gray-400 dark:text-gray-500'
                 ]"
                 :title="entry.notes ? 'View/edit notes' : 'Add notes'"
               >
@@ -412,7 +412,7 @@ onMounted(() => {
               <!-- Edit time button -->
               <button
                 @click="startEditing(entry)"
-                class="text-gray-400 hover:text-gray-600"
+                class="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300"
                 title="Edit start/end time"
               >
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -423,7 +423,7 @@ onMounted(() => {
               <!-- Edit issue button -->
               <button
                 @click="startEditingIssue(entry)"
-                class="text-gray-400 hover:text-gray-600"
+                class="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300"
                 title="Edit issue name/link"
               >
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -432,8 +432,8 @@ onMounted(() => {
               </button>
 
               <!-- Delete with confirmation -->
-              <div v-if="confirmingDeleteId === entry.id" class="flex items-center gap-2 bg-red-50 px-2 py-1 rounded">
-                <span class="text-xs text-red-600">Delete?</span>
+              <div v-if="confirmingDeleteId === entry.id" class="flex items-center gap-2 bg-red-50 dark:bg-red-900/30 px-2 py-1 rounded">
+                <span class="text-xs text-red-600 dark:text-red-400">Delete?</span>
                 <button
                   @click="executeDelete(entry.id)"
                   class="px-2 py-0.5 text-xs text-white bg-red-500 hover:bg-red-600 rounded"
@@ -442,7 +442,7 @@ onMounted(() => {
                 </button>
                 <button
                   @click="cancelDelete"
-                  class="px-2 py-0.5 text-xs text-gray-600 hover:text-gray-800"
+                  class="px-2 py-0.5 text-xs text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200"
                 >
                   No
                 </button>
@@ -450,7 +450,7 @@ onMounted(() => {
               <button
                 v-else
                 @click="confirmDelete(entry.id)"
-                class="text-gray-400 hover:text-red-600"
+                class="text-gray-400 dark:text-gray-500 hover:text-red-600"
                 title="Delete entry"
               >
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -469,10 +469,10 @@ onMounted(() => {
       class="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
       @click.self="closeAddEntryModal"
     >
-      <div class="bg-white rounded-lg shadow-xl w-full max-w-md">
-        <div class="px-6 py-4 border-b flex items-center justify-between">
-          <h2 class="text-lg font-semibold text-gray-900">Add Manual Entry</h2>
-          <button @click="closeAddEntryModal" class="text-gray-400 hover:text-gray-600">
+      <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-md">
+        <div class="px-6 py-4 border-b dark:border-gray-700 flex items-center justify-between">
+          <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Add Manual Entry</h2>
+          <button @click="closeAddEntryModal" class="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
             </svg>
@@ -481,10 +481,10 @@ onMounted(() => {
 
         <form @submit.prevent="submitAddEntry" class="px-6 py-4 space-y-4">
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Issue</label>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Issue</label>
             <select
               v-model="addEntryForm.issueId"
-              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
               required
             >
               <option value="0" disabled>Select an issue</option>
@@ -495,46 +495,46 @@ onMounted(() => {
           </div>
 
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Date</label>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Date</label>
             <input
               v-model="addEntryForm.date"
               type="date"
-              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
               required
             />
           </div>
 
           <div class="grid grid-cols-2 gap-4">
             <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">Start Time</label>
+              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Start Time</label>
               <input
                 v-model="addEntryForm.startTime"
                 type="time"
-                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                 required
               />
             </div>
             <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">End Time</label>
+              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">End Time</label>
               <input
                 v-model="addEntryForm.endTime"
                 type="time"
-                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                 required
               />
             </div>
           </div>
 
-          <div v-if="addEntryDuration" class="text-sm text-gray-500">
+          <div v-if="addEntryDuration" class="text-sm text-gray-500 dark:text-gray-400">
             Duration: <span class="font-medium">{{ addEntryDuration }}</span>
           </div>
 
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Notes (optional, markdown)</label>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Notes (optional, markdown)</label>
             <textarea
               v-model="addEntryForm.notes"
               rows="3"
-              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
               placeholder="What did you work on?"
             ></textarea>
           </div>
@@ -543,7 +543,7 @@ onMounted(() => {
             <button
               type="button"
               @click="closeAddEntryModal"
-              class="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors"
+              class="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-md transition-colors"
             >
               Cancel
             </button>

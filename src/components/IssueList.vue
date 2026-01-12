@@ -112,17 +112,17 @@ async function saveNotes() {
 </script>
 
 <template>
-  <div class="bg-white rounded-lg shadow">
-    <div class="px-4 py-3 border-b flex items-center justify-between">
-      <h2 class="text-lg font-medium text-gray-900">Issues</h2>
-      <div class="inline-flex rounded-lg border border-gray-200 bg-gray-50 p-1">
+  <div class="bg-white dark:bg-gray-800 rounded-lg shadow">
+    <div class="px-4 py-3 border-b dark:border-gray-700 flex items-center justify-between">
+      <h2 class="text-lg font-medium text-gray-900 dark:text-white">Issues</h2>
+      <div class="inline-flex rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 p-1">
         <button
           @click="issuesStore.showArchived = false"
           :class="[
             'px-3 py-1 text-sm font-medium rounded-md transition-colors',
             !issuesStore.showArchived
-              ? 'bg-white text-gray-900 shadow-sm'
-              : 'text-gray-600 hover:text-gray-900'
+              ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm'
+              : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
           ]"
         >
           Active
@@ -132,8 +132,8 @@ async function saveNotes() {
           :class="[
             'px-3 py-1 text-sm font-medium rounded-md transition-colors',
             issuesStore.showArchived
-              ? 'bg-white text-gray-900 shadow-sm'
-              : 'text-gray-600 hover:text-gray-900'
+              ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm'
+              : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
           ]"
         >
           Archived
@@ -141,54 +141,54 @@ async function saveNotes() {
       </div>
     </div>
 
-    <div v-if="issuesStore.isLoading" class="p-8 text-center text-gray-500">
+    <div v-if="issuesStore.isLoading" class="p-8 text-center text-gray-500 dark:text-gray-400">
       Loading...
     </div>
 
-    <div v-else-if="issuesStore.displayedIssues.length === 0" class="p-8 text-center text-gray-500">
+    <div v-else-if="issuesStore.displayedIssues.length === 0" class="p-8 text-center text-gray-500 dark:text-gray-400">
       No issues yet. Add one above!
     </div>
 
-    <ul v-else class="divide-y">
+    <ul v-else class="divide-y dark:divide-gray-700">
       <li
         v-for="issue in issuesStore.displayedIssues"
         :key="issue.id"
-        class="px-4 py-3 hover:bg-gray-50 transition-colors"
+        class="px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
       >
         <!-- Edit mode -->
         <form v-if="editingIssue?.id === issue.id" @submit.prevent="saveEdit" class="flex items-center gap-3">
           <input
             v-model="editForm.link"
             type="url"
-            class="w-64 px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+            class="w-64 px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
             placeholder="GitLab URL"
           />
           <input
             v-model="editForm.name"
             type="text"
-            class="flex-1 px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+            class="flex-1 px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
             placeholder="Name"
             required
           />
           <button type="submit" class="px-3 py-1 text-sm text-white bg-blue-500 hover:bg-blue-600 rounded">Save</button>
-          <button type="button" @click="cancelEditing" class="px-3 py-1 text-sm text-gray-600 hover:text-gray-800">Cancel</button>
+          <button type="button" @click="cancelEditing" class="px-3 py-1 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200">Cancel</button>
         </form>
 
         <!-- Notes edit mode -->
         <div v-else-if="editingNotesId === issue.id" class="space-y-2">
-          <div class="flex items-center gap-2 text-sm text-gray-600">
+          <div class="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
             <span class="font-medium">{{ issue.externalId }}</span>
             <span>{{ issue.name }}</span>
           </div>
           <textarea
             v-model="notesForm"
             rows="4"
-            class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+            class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
             placeholder="Add notes about this issue (e.g., investigation findings, handoff notes)..."
           ></textarea>
           <div class="flex items-center gap-2">
             <button @click="saveNotes" class="px-3 py-1 text-sm text-white bg-blue-500 hover:bg-blue-600 rounded">Save Notes</button>
-            <button @click="cancelEditingNotes" class="px-3 py-1 text-sm text-gray-600 hover:text-gray-800">Cancel</button>
+            <button @click="cancelEditingNotes" class="px-3 py-1 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200">Cancel</button>
           </div>
         </div>
 
@@ -219,10 +219,10 @@ async function saveNotes() {
           <!-- Issue info -->
           <div class="flex-1 min-w-0">
             <div class="flex items-center gap-2">
-              <span class="font-medium text-gray-900">{{ issue.externalId }}</span>
-              <span class="text-gray-600 truncate">{{ issue.name }}</span>
+              <span class="font-medium text-gray-900 dark:text-white">{{ issue.externalId }}</span>
+              <span class="text-gray-600 dark:text-gray-400 truncate">{{ issue.name }}</span>
             </div>
-            <div class="text-sm text-gray-400">
+            <div class="text-sm text-gray-400 dark:text-gray-500">
               Total: {{ formatDuration(issueTimes.get(issue.id) || 0) }}
             </div>
           </div>
@@ -246,7 +246,7 @@ async function saveNotes() {
             @click="startEditingNotes(issue)"
             :class="[
               'hover:text-blue-600',
-              issue.notes ? 'text-blue-500' : 'text-gray-400'
+              issue.notes ? 'text-blue-500' : 'text-gray-400 dark:text-gray-500'
             ]"
             :title="issue.notes ? 'View/edit notes' : 'Add notes'"
           >
@@ -258,7 +258,7 @@ async function saveNotes() {
           <!-- Edit button -->
           <button
             @click="startEditing(issue)"
-            class="text-gray-400 hover:text-gray-600"
+            class="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300"
             title="Edit"
           >
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -270,7 +270,7 @@ async function saveNotes() {
           <template v-if="issue.archived">
             <button
               @click="issuesStore.unarchiveIssue(issue.id)"
-              class="text-gray-400 hover:text-gray-600"
+              class="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300"
               title="Restore"
             >
               <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -278,8 +278,8 @@ async function saveNotes() {
               </svg>
             </button>
             <!-- Delete with confirmation -->
-            <div v-if="confirmingDeleteId === issue.id" class="flex items-center gap-2 bg-red-50 px-2 py-1 rounded">
-              <span class="text-xs text-red-600">Delete?</span>
+            <div v-if="confirmingDeleteId === issue.id" class="flex items-center gap-2 bg-red-50 dark:bg-red-900/30 px-2 py-1 rounded">
+              <span class="text-xs text-red-600 dark:text-red-400">Delete?</span>
               <button
                 @click="executeDelete(issue.id)"
                 class="px-2 py-0.5 text-xs text-white bg-red-500 hover:bg-red-600 rounded"
@@ -288,7 +288,7 @@ async function saveNotes() {
               </button>
               <button
                 @click="cancelDelete"
-                class="px-2 py-0.5 text-xs text-gray-600 hover:text-gray-800"
+                class="px-2 py-0.5 text-xs text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200"
               >
                 No
               </button>
@@ -307,7 +307,7 @@ async function saveNotes() {
           <button
             v-else
             @click="issuesStore.archiveIssue(issue.id)"
-            class="text-gray-400 hover:text-gray-600"
+            class="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300"
             title="Archive"
           >
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

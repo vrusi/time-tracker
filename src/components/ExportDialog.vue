@@ -54,11 +54,11 @@ function downloadCSV() {
 
 <template>
   <div class="fixed inset-0 bg-black/50 flex items-center justify-center z-50" @click.self="emit('close')">
-    <div class="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[80vh] flex flex-col">
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-2xl max-h-[80vh] flex flex-col">
       <!-- Header -->
-      <div class="px-6 py-4 border-b flex items-center justify-between">
-        <h2 class="text-lg font-semibold text-gray-900">Export Monthly Report</h2>
-        <button @click="emit('close')" class="text-gray-400 hover:text-gray-600">
+      <div class="px-6 py-4 border-b dark:border-gray-700 flex items-center justify-between">
+        <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Export Monthly Report</h2>
+        <button @click="emit('close')" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
           </svg>
@@ -70,19 +70,19 @@ function downloadCSV() {
         <!-- Month/Year selection -->
         <div class="flex items-center gap-4 mb-6">
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Month</label>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Month</label>
             <select
               v-model="month"
-              class="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              class="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option v-for="(m, i) in months" :key="i" :value="i + 1">{{ m }}</option>
             </select>
           </div>
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Year</label>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Year</label>
             <select
               v-model="year"
-              class="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              class="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option v-for="y in years" :key="y" :value="y">{{ y }}</option>
             </select>
@@ -99,31 +99,31 @@ function downloadCSV() {
         </div>
 
         <!-- Report table -->
-        <div v-if="report" class="border rounded-lg overflow-hidden">
+        <div v-if="report" class="border dark:border-gray-700 rounded-lg overflow-hidden">
           <table class="w-full">
-            <thead class="bg-gray-50">
+            <thead class="bg-gray-50 dark:bg-gray-700">
               <tr>
-                <th class="px-4 py-2 text-left text-sm font-medium text-gray-700">Issue ID</th>
-                <th class="px-4 py-2 text-left text-sm font-medium text-gray-700">Name</th>
-                <th class="px-4 py-2 text-right text-sm font-medium text-gray-700">Hours</th>
+                <th class="px-4 py-2 text-left text-sm font-medium text-gray-700 dark:text-gray-300">Issue ID</th>
+                <th class="px-4 py-2 text-left text-sm font-medium text-gray-700 dark:text-gray-300">Name</th>
+                <th class="px-4 py-2 text-right text-sm font-medium text-gray-700 dark:text-gray-300">Hours</th>
               </tr>
             </thead>
-            <tbody class="divide-y">
+            <tbody class="divide-y dark:divide-gray-700">
               <tr v-for="item in report" :key="item.issueId">
-                <td class="px-4 py-2 text-sm text-gray-900">{{ item.externalId }}</td>
-                <td class="px-4 py-2 text-sm text-gray-600">{{ item.name }}</td>
-                <td class="px-4 py-2 text-sm text-gray-900 text-right">{{ item.totalHours.toFixed(2) }}</td>
+                <td class="px-4 py-2 text-sm text-gray-900 dark:text-white">{{ item.externalId }}</td>
+                <td class="px-4 py-2 text-sm text-gray-600 dark:text-gray-400">{{ item.name }}</td>
+                <td class="px-4 py-2 text-sm text-gray-900 dark:text-white text-right">{{ item.totalHours.toFixed(2) }}</td>
               </tr>
               <tr v-if="report.length === 0">
-                <td colspan="3" class="px-4 py-8 text-center text-gray-500">
+                <td colspan="3" class="px-4 py-8 text-center text-gray-500 dark:text-gray-400">
                   No time tracked for this month.
                 </td>
               </tr>
             </tbody>
-            <tfoot v-if="report.length > 0" class="bg-gray-50">
+            <tfoot v-if="report.length > 0" class="bg-gray-50 dark:bg-gray-700">
               <tr>
-                <td colspan="2" class="px-4 py-2 text-sm font-medium text-gray-900">Total</td>
-                <td class="px-4 py-2 text-sm font-semibold text-gray-900 text-right">{{ totalHours.toFixed(2) }}</td>
+                <td colspan="2" class="px-4 py-2 text-sm font-medium text-gray-900 dark:text-white">Total</td>
+                <td class="px-4 py-2 text-sm font-semibold text-gray-900 dark:text-white text-right">{{ totalHours.toFixed(2) }}</td>
               </tr>
             </tfoot>
           </table>
@@ -131,10 +131,10 @@ function downloadCSV() {
       </div>
 
       <!-- Footer -->
-      <div class="px-6 py-4 border-t flex justify-end gap-3">
+      <div class="px-6 py-4 border-t dark:border-gray-700 flex justify-end gap-3">
         <button
           @click="emit('close')"
-          class="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors"
+          class="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-md transition-colors"
         >
           Close
         </button>

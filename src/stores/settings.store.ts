@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import type { AppSettings } from '@/types'
 
 export const useSettingsStore = defineStore('settings', () => {
@@ -12,18 +12,39 @@ export const useSettingsStore = defineStore('settings', () => {
     idleThresholdMinutes: 10,
     idleIndicatorSeconds: 30,
     issueUrlPattern: 'gitlab',
-    customIssuePattern: undefined
+    customIssuePattern: undefined,
+    theme: 'light'
   })
 
   const isLoaded = ref(false)
 
+  // Apply theme to document
+  function applyTheme(theme: 'light' | 'dark' | 'system') {
+    const root = document.documentElement
+    if (theme === 'system') {
+      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches
+      root.classList.toggle('dark', prefersDark)
+    } else {
+      root.classList.toggle('dark', theme === 'dark')
+    }
+  }
+
+  // Watch for theme changes
+  watch(() => settings.value.theme, (newTheme) => {
+    applyTheme(newTheme)
+  })
+
   async function loadSettings() {
     settings.value = await window.electronAPI.getSettings()
+    applyTheme(settings.value.theme)
     isLoaded.value = true
   }
 
   async function updateSettings(updates: Partial<AppSettings>) {
     settings.value = await window.electronAPI.updateSettings(updates)
+    if (updates.theme) {
+      applyTheme(updates.theme)
+    }
   }
 
   // Helper to get issue ID regex based on pattern
