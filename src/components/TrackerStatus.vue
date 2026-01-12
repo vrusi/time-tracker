@@ -1,11 +1,34 @@
 <script setup lang="ts">
+import { ref, watch } from 'vue'
 import { useTrackerStore } from '../stores/tracker.store'
 
 const trackerStore = useTrackerStore()
+
+const showNotes = ref(false)
+const currentNotes = ref('')
+
+// Save notes to current entry when pausing
+async function pauseWithNotes() {
+  if (trackerStore.currentEntry && currentNotes.value.trim()) {
+    await window.electronAPI.updateTimeEntry(trackerStore.currentEntry.id, {
+      notes: currentNotes.value.trim()
+    })
+  }
+  currentNotes.value = ''
+  showNotes.value = false
+  await trackerStore.pauseTracking()
+}
+
+// Reset notes when tracking changes
+watch(() => trackerStore.currentEntry?.id, () => {
+  currentNotes.value = ''
+  showNotes.value = false
+})
 </script>
 
 <template>
-  <div class="flex items-center gap-3">
+  <div class="space-y-2">
+    <div class="flex items-center gap-3">
     <!-- Idle indicator (when tracking and idle) -->
     <div
       v-if="trackerStore.isTracking && trackerStore.isIdle && !trackerStore.handsoffMode"
@@ -71,8 +94,23 @@ const trackerStore = useTrackerStore()
           {{ trackerStore.formattedTime }}
         </span>
       </div>
+
+      <!-- Notes toggle -->
       <button
-        @click="trackerStore.pauseTracking()"
+        @click="showNotes = !showNotes"
+        :class="[
+          'p-1.5 rounded-md transition-colors',
+          showNotes || currentNotes ? 'text-blue-500 bg-blue-50' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'
+        ]"
+        :title="showNotes ? 'Hide notes' : 'Add notes before pausing'"
+      >
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+        </svg>
+      </button>
+
+      <button
+        @click="pauseWithNotes"
         class="px-3 py-1.5 text-sm font-medium text-white bg-red-500 hover:bg-red-600 rounded-md transition-colors"
         title="Stop the timer and save tracked time"
       >
@@ -82,5 +120,16 @@ const trackerStore = useTrackerStore()
     <template v-else>
       <span class="text-sm text-gray-400">Not tracking</span>
     </template>
+    </div>
+
+    <!-- Notes textarea (expandable) -->
+    <div v-if="showNotes && trackerStore.isTracking" class="mt-2">
+      <textarea
+        v-model="currentNotes"
+        rows="3"
+        class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+        placeholder="Add notes about what you're working on... (saved when you pause)"
+      ></textarea>
+    </div>
   </div>
 </template>

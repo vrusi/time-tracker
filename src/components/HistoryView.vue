@@ -16,9 +16,13 @@ weekStart.setDate(today.getDate() - today.getDay())
 const startDate = ref(weekStart.toISOString().split('T')[0])
 const endDate = ref(today.toISOString().split('T')[0])
 
-// Edit state
+// Edit state (for time only)
 const editingEntryId = ref<number | null>(null)
-const editForm = ref({ startedAt: '', endedAt: '', notes: '' })
+const editForm = ref({ startedAt: '', endedAt: '' })
+
+// Notes state (separate from time edit)
+const editingNotesId = ref<number | null>(null)
+const notesForm = ref('')
 
 // Delete confirmation state
 const confirmingDeleteId = ref<number | null>(null)
@@ -104,13 +108,12 @@ function entryDuration(entry: TimeEntry): number {
   return (end - start) / 1000
 }
 
-// Edit functions
+// Edit functions (time only)
 function startEditing(entry: TimeEntry & { issue: Issue }) {
   editingEntryId.value = entry.id
   editForm.value = {
     startedAt: entry.startedAt.slice(0, 16), // Format for datetime-local input
-    endedAt: entry.endedAt ? entry.endedAt.slice(0, 16) : '',
-    notes: entry.notes || ''
+    endedAt: entry.endedAt ? entry.endedAt.slice(0, 16) : ''
   }
 }
 
@@ -121,7 +124,7 @@ function cancelEditing() {
 async function saveEdit() {
   if (!editingEntryId.value) return
 
-  const updates: { startedAt?: string; endedAt?: string; notes?: string } = {}
+  const updates: { startedAt?: string; endedAt?: string } = {}
 
   if (editForm.value.startedAt) {
     updates.startedAt = new Date(editForm.value.startedAt).toISOString()
@@ -129,10 +132,27 @@ async function saveEdit() {
   if (editForm.value.endedAt) {
     updates.endedAt = new Date(editForm.value.endedAt).toISOString()
   }
-  updates.notes = editForm.value.notes || undefined
 
   await window.electronAPI.updateTimeEntry(editingEntryId.value, updates)
   editingEntryId.value = null
+  await loadEntries()
+}
+
+// Notes functions (separate)
+function startEditingNotes(entry: TimeEntry & { issue: Issue }) {
+  editingNotesId.value = entry.id
+  notesForm.value = entry.notes || ''
+}
+
+function cancelEditingNotes() {
+  editingNotesId.value = null
+}
+
+async function saveNotes() {
+  if (!editingNotesId.value) return
+
+  await window.electronAPI.updateTimeEntry(editingNotesId.value, { notes: notesForm.value || undefined })
+  editingNotesId.value = null
   await loadEntries()
 }
 
@@ -262,7 +282,7 @@ onMounted(() => {
             :key="entry.id"
             class="px-4 py-3"
           >
-            <!-- Edit mode -->
+            <!-- Edit time mode -->
             <form v-if="editingEntryId === entry.id" @submit.prevent="saveEdit" class="space-y-3">
               <div class="flex items-center gap-3">
                 <div>
@@ -282,21 +302,30 @@ onMounted(() => {
                     class="px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
-                <div class="flex-1">
-                  <label class="block text-xs text-gray-500 mb-1">Notes (markdown)</label>
-                  <input
-                    v-model="editForm.notes"
-                    type="text"
-                    class="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="What did you work on?"
-                  />
+                <div class="flex items-center gap-2 self-end">
+                  <button type="submit" class="px-3 py-1 text-sm text-white bg-blue-500 hover:bg-blue-600 rounded">Save</button>
+                  <button type="button" @click="cancelEditing" class="px-3 py-1 text-sm text-gray-600 hover:text-gray-800">Cancel</button>
                 </div>
               </div>
-              <div class="flex items-center gap-2">
-                <button type="submit" class="px-3 py-1 text-sm text-white bg-blue-500 hover:bg-blue-600 rounded">Save</button>
-                <button type="button" @click="cancelEditing" class="px-3 py-1 text-sm text-gray-600 hover:text-gray-800">Cancel</button>
-              </div>
             </form>
+
+            <!-- Edit notes mode -->
+            <div v-else-if="editingNotesId === entry.id" class="space-y-2">
+              <div class="flex items-center gap-2 text-sm text-gray-600">
+                <span class="font-medium">{{ entry.issue.externalId }}</span>
+                <span>{{ entry.issue.name }}</span>
+              </div>
+              <textarea
+                v-model="notesForm"
+                rows="4"
+                class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="Add notes about what you worked on..."
+              ></textarea>
+              <div class="flex items-center gap-2">
+                <button @click="saveNotes" class="px-3 py-1 text-sm text-white bg-blue-500 hover:bg-blue-600 rounded">Save Notes</button>
+                <button @click="cancelEditingNotes" class="px-3 py-1 text-sm text-gray-600 hover:text-gray-800">Cancel</button>
+              </div>
+            </div>
 
             <!-- Normal display mode -->
             <div v-else class="flex items-center gap-4">
@@ -319,14 +348,28 @@ onMounted(() => {
                 {{ formatDuration(entryDuration(entry)) }}
               </span>
 
-              <!-- Edit button -->
+              <!-- Notes button -->
+              <button
+                @click="startEditingNotes(entry)"
+                :class="[
+                  'hover:text-blue-600',
+                  entry.notes ? 'text-blue-500' : 'text-gray-400'
+                ]"
+                :title="entry.notes ? 'View/edit notes' : 'Add notes'"
+              >
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+              </button>
+
+              <!-- Edit time button -->
               <button
                 @click="startEditing(entry)"
                 class="text-gray-400 hover:text-gray-600"
-                title="Edit entry"
+                title="Edit start/end time"
               >
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
               </button>
 
