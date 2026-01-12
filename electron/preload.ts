@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron'
-import type { Issue, TimeEntry, MonthlyReport, ElectronAPI } from '../src/types'
+import type { ElectronAPI } from '../src/types'
 
 const electronAPI: ElectronAPI = {
   // Issues
@@ -29,6 +29,10 @@ const electronAPI: ElectronAPI = {
   // Idle
   getIdleTime: () => ipcRenderer.invoke('get-idle-time'),
   resetIdleTime: () => ipcRenderer.invoke('reset-idle-time'),
+
+  // Settings
+  getSettings: () => ipcRenderer.invoke('get-settings'),
+  updateSettings: (settings) => ipcRenderer.invoke('update-settings', settings),
 
   // Events from main process
   onIdlePause: (callback) => {

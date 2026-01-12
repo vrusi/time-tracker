@@ -34,7 +34,29 @@ function initDatabase() {
     CREATE INDEX IF NOT EXISTS idx_time_entries_issue ON time_entries(issue_id);
     CREATE INDEX IF NOT EXISTS idx_time_entries_started ON time_entries(started_at);
     CREATE INDEX IF NOT EXISTS idx_issues_archived ON issues(archived);
+
+    CREATE TABLE IF NOT EXISTS settings (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL
+    );
   `)
+
+  // Insert default settings if not exist
+  const defaultSettings = {
+    dailyTargetHours: '8',
+    monthlyTargetHours: '160',
+    hourlyRate: '18.67',
+    currency: 'GBP',
+    currencySymbol: '£',
+    idleThresholdMinutes: '10',
+    idleIndicatorSeconds: '30',
+    issueUrlPattern: 'gitlab'
+  }
+
+  const insertSetting = db.prepare('INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)')
+  for (const [key, value] of Object.entries(defaultSettings)) {
+    insertSetting.run(key, value)
+  }
 
   return db
 }

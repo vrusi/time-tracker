@@ -12,8 +12,32 @@ let tray: Tray | null = null
 let idleCheckInterval: NodeJS.Timeout | null = null
 let handsoffMode = false
 let idleResetTime: number | null = null
+let idleThreshold = 600 // 10 minutes in seconds (loaded from settings)
+let isQuitting = false
 
-const IDLE_THRESHOLD = 600 // 10 minutes in seconds
+function getSettings() {
+  const rows = db.prepare('SELECT key, value FROM settings').all() as { key: string; value: string }[]
+  const settings: Record<string, any> = {}
+  for (const row of rows) {
+    settings[row.key] = row.value
+  }
+  return {
+    dailyTargetHours: parseFloat(settings.dailyTargetHours) || 8,
+    monthlyTargetHours: parseFloat(settings.monthlyTargetHours) || 160,
+    hourlyRate: parseFloat(settings.hourlyRate) || 18.67,
+    currency: settings.currency || 'GBP',
+    currencySymbol: settings.currencySymbol || '£',
+    idleThresholdMinutes: parseFloat(settings.idleThresholdMinutes) || 10,
+    idleIndicatorSeconds: parseFloat(settings.idleIndicatorSeconds) || 30,
+    issueUrlPattern: settings.issueUrlPattern || 'gitlab',
+    customIssuePattern: settings.customIssuePattern
+  }
+}
+
+function loadIdleThreshold() {
+  const settings = getSettings()
+  idleThreshold = settings.idleThresholdMinutes * 60
+}
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -34,7 +58,7 @@ function createWindow() {
   }
 
   mainWindow.on('close', (e) => {
-    if (app.isQuitting !== true) {
+    if (!isQuitting) {
       e.preventDefault()
       mainWindow?.hide()
     }
@@ -88,7 +112,7 @@ function updateTrayMenu() {
     {
       label: 'Quit',
       click: () => {
-        app.isQuitting = true
+        isQuitting = true
         app.quit()
       }
     }
@@ -132,7 +156,7 @@ function startIdleWatcher() {
     // Skip idle pause if handsoff mode is enabled
     if (handsoffMode) return
 
-    if (idleTime >= IDLE_THRESHOLD && current) {
+    if (idleTime >= idleThreshold && current) {
       pauseTracking('idle')
 
       new Notification({
@@ -414,11 +438,32 @@ function setupIpcHandlers() {
     idleResetTime = Date.now()
     mainWindow?.webContents.send('idle-update', 0)
   })
+
+  // Settings
+  ipcMain.handle('get-settings', () => {
+    return getSettings()
+  })
+
+  ipcMain.handle('update-settings', (_, updates: Record<string, any>) => {
+    const updateStmt = db.prepare('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)')
+
+    for (const [key, value] of Object.entries(updates)) {
+      updateStmt.run(key, String(value))
+    }
+
+    // Reload idle threshold if it changed
+    if ('idleThresholdMinutes' in updates) {
+      loadIdleThreshold()
+    }
+
+    return getSettings()
+  })
 }
 
 // App lifecycle
 app.whenReady().then(() => {
   initDatabase()
+  loadIdleThreshold()
   createWindow()
   createTray()
   setupIpcHandlers()
@@ -445,9 +490,3 @@ app.on('before-quit', () => {
   }
 })
 
-// Extend app with isQuitting property
-declare module 'electron' {
-  interface App {
-    isQuitting?: boolean
-  }
-}

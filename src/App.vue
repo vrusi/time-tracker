@@ -2,6 +2,7 @@
 import { ref, onMounted } from 'vue'
 import { useTrackerStore } from './stores/tracker.store'
 import { useIssuesStore } from './stores/issues.store'
+import { useSettingsStore } from './stores/settings.store'
 import TrackerStatus from './components/TrackerStatus.vue'
 import IssueList from './components/IssueList.vue'
 import IssueForm from './components/IssueForm.vue'
@@ -9,15 +10,18 @@ import HistoryView from './components/HistoryView.vue'
 import ExportDialog from './components/ExportDialog.vue'
 import ProgressBars from './components/ProgressBars.vue'
 import CalendarView from './components/CalendarView.vue'
+import SettingsView from './components/SettingsView.vue'
 
 const trackerStore = useTrackerStore()
 const issuesStore = useIssuesStore()
+const settingsStore = useSettingsStore()
 
-const activeTab = ref<'issues' | 'history'>('issues')
+const activeTab = ref<'issues' | 'history' | 'settings'>('issues')
 const historyView = ref<'list' | 'calendar'>('list')
 const showExportDialog = ref(false)
 
 onMounted(async () => {
+  await settingsStore.loadSettings()
   await issuesStore.loadIssues()
   await trackerStore.loadCurrentTracking()
   trackerStore.setupListeners()
@@ -61,6 +65,17 @@ onMounted(async () => {
             ]"
           >
             History
+          </button>
+          <button
+            @click="activeTab = 'settings'"
+            :class="[
+              'px-4 py-3 text-sm font-medium border-b-2 -mb-px',
+              activeTab === 'settings'
+                ? 'border-blue-500 text-blue-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700'
+            ]"
+          >
+            Settings
           </button>
           <div class="flex-1" />
           <button
@@ -114,6 +129,10 @@ onMounted(async () => {
 
         <HistoryView v-if="historyView === 'list'" />
         <CalendarView v-else />
+      </template>
+
+      <template v-else-if="activeTab === 'settings'">
+        <SettingsView />
       </template>
     </main>
 

@@ -10,7 +10,7 @@ const trackerStore = useTrackerStore()
     <div
       v-if="trackerStore.isTracking && trackerStore.isIdle && !trackerStore.handsoffMode"
       class="flex items-center gap-2 px-2 py-1 bg-orange-100 text-orange-700 rounded-md text-xs"
-      :title="`Auto-pause in ${Math.ceil((600 - trackerStore.idleSeconds) / 60)} min`"
+      :title="`Auto-pause in ${Math.ceil((trackerStore.idleThresholdSeconds - trackerStore.idleSeconds) / 60)} min`"
     >
       <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />

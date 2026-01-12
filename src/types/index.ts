@@ -33,6 +33,18 @@ export interface MonthlyReport {
   totalHours: number
 }
 
+export interface AppSettings {
+  dailyTargetHours: number
+  monthlyTargetHours: number
+  hourlyRate: number
+  currency: string
+  currencySymbol: string
+  idleThresholdMinutes: number
+  idleIndicatorSeconds: number
+  issueUrlPattern: 'gitlab' | 'github' | 'jira' | 'custom'
+  customIssuePattern?: string
+}
+
 // IPC API exposed to renderer
 export interface ElectronAPI {
   // Issues
@@ -62,6 +74,10 @@ export interface ElectronAPI {
   // Idle
   getIdleTime: () => Promise<number>
   resetIdleTime: () => Promise<void>
+
+  // Settings
+  getSettings: () => Promise<AppSettings>
+  updateSettings: (settings: Partial<AppSettings>) => Promise<AppSettings>
 
   // Events from main process
   onIdlePause: (callback: () => void) => void

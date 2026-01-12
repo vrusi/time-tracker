@@ -1,16 +1,14 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useTrackerStore } from '../stores/tracker.store'
+import { useSettingsStore } from '../stores/settings.store'
 
 const trackerStore = useTrackerStore()
+const settingsStore = useSettingsStore()
 
 const todaySeconds = ref(0)
 const monthSeconds = ref(0)
 let refreshInterval: number | null = null
-
-const DAILY_TARGET_HOURS = 8
-const MONTHLY_TARGET_HOURS = 160
-const HOURLY_RATE = 18.67 // GBP per hour
 
 // Calculate workdays in current month
 function getWorkdaysInMonth(year: number, month: number): number {
@@ -29,14 +27,16 @@ function getWorkdaysInMonth(year: number, month: number): number {
 
 const now = new Date()
 const workdaysInMonth = getWorkdaysInMonth(now.getFullYear(), now.getMonth())
-const workdaysHours = workdaysInMonth * 8
+const workdaysHours = computed(() => workdaysInMonth * settingsStore.settings.dailyTargetHours)
 
 const dailyProgress = computed(() => {
-  return Math.min(100, (todaySeconds.value / (DAILY_TARGET_HOURS * 3600)) * 100)
+  const target = settingsStore.settings.dailyTargetHours * 3600
+  return Math.min(100, (todaySeconds.value / target) * 100)
 })
 
 const monthlyProgress = computed(() => {
-  return Math.min(100, (monthSeconds.value / (MONTHLY_TARGET_HOURS * 3600)) * 100)
+  const target = settingsStore.settings.monthlyTargetHours * 3600
+  return Math.min(100, (monthSeconds.value / target) * 100)
 })
 
 const monthlyHours = computed(() => {
@@ -44,11 +44,11 @@ const monthlyHours = computed(() => {
 })
 
 const monthlyEarnings = computed(() => {
-  return monthlyHours.value * HOURLY_RATE
+  return monthlyHours.value * settingsStore.settings.hourlyRate
 })
 
 const targetEarnings = computed(() => {
-  return MONTHLY_TARGET_HOURS * HOURLY_RATE
+  return settingsStore.settings.monthlyTargetHours * settingsStore.settings.hourlyRate
 })
 
 function formatHours(seconds: number): string {
@@ -58,7 +58,7 @@ function formatHours(seconds: number): string {
 }
 
 function formatMoney(amount: number): string {
-  return `£${amount.toFixed(2)}`
+  return `${settingsStore.settings.currencySymbol}${amount.toFixed(2)}`
 }
 
 async function loadProgress() {
@@ -106,7 +106,7 @@ onUnmounted(() => {
 })
 
 // Also refresh when tracking changes
-const unwatch = trackerStore.$subscribe(() => {
+trackerStore.$subscribe(() => {
   loadProgress()
 })
 </script>
@@ -124,7 +124,7 @@ const unwatch = trackerStore.$subscribe(() => {
       <div class="flex justify-between text-sm mb-1">
         <span class="font-medium text-gray-700">Today</span>
         <span class="text-gray-500">
-          {{ formatHours(todaySeconds) }} / {{ DAILY_TARGET_HOURS }}h
+          {{ formatHours(todaySeconds) }} / {{ settingsStore.settings.dailyTargetHours }}h
           <span class="text-gray-400 ml-1">({{ dailyProgress.toFixed(0) }}%)</span>
         </span>
       </div>
@@ -142,7 +142,7 @@ const unwatch = trackerStore.$subscribe(() => {
       <div class="flex justify-between text-sm mb-1">
         <span class="font-medium text-gray-700">This Month</span>
         <span class="text-gray-500">
-          {{ formatHours(monthSeconds) }} / {{ MONTHLY_TARGET_HOURS }}h
+          {{ formatHours(monthSeconds) }} / {{ settingsStore.settings.monthlyTargetHours }}h
           <span class="text-gray-400 ml-1">({{ monthlyProgress.toFixed(0) }}%)</span>
         </span>
       </div>
@@ -154,7 +154,7 @@ const unwatch = trackerStore.$subscribe(() => {
         />
       </div>
       <div class="text-xs text-gray-400 mt-1">
-        {{ workdaysInMonth }} workdays this month ({{ workdaysHours }}h if 8h/day)
+        {{ workdaysInMonth }} workdays this month ({{ workdaysHours }}h if {{ settingsStore.settings.dailyTargetHours }}h/day)
       </div>
     </div>
   </div>

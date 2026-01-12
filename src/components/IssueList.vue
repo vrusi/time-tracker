@@ -1,20 +1,17 @@
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useIssuesStore } from '../stores/issues.store'
 import { useTrackerStore } from '../stores/tracker.store'
+import { useSettingsStore } from '../stores/settings.store'
 import type { Issue } from '../types'
 
 const issuesStore = useIssuesStore()
 const trackerStore = useTrackerStore()
+const settingsStore = useSettingsStore()
 
 const issueTimes = ref<Map<number, number>>(new Map())
 const editingIssue = ref<Issue | null>(null)
 const editForm = ref({ name: '', link: '' })
-
-function extractIssueId(url: string): string | null {
-  const match = url.match(/\/issues\/(\d+)/)
-  return match ? `#${match[1]}` : null
-}
 
 async function loadIssueTimes() {
   for (const issue of issuesStore.issues) {
@@ -63,10 +60,10 @@ async function saveEdit() {
   if (!editingIssue.value) return
 
   const url = editForm.value.link.trim()
-  const issueId = url ? extractIssueId(url) : editingIssue.value.externalId
+  const issueId = url ? settingsStore.extractIssueId(url) : editingIssue.value.externalId
 
   if (url && !issueId) {
-    alert('Could not extract issue ID from URL')
+    alert('Could not extract issue ID from URL. Check your issue tracker settings.')
     return
   }
 
