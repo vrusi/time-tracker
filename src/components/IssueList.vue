@@ -3,7 +3,7 @@ import { ref, onMounted } from 'vue'
 import { useIssuesStore } from '../stores/issues.store'
 import { useTrackerStore } from '../stores/tracker.store'
 import { useSettingsStore } from '../stores/settings.store'
-import type { Issue } from '../types'
+import type { Issue, TimeEntry } from '../types'
 import { RCard, RButton, RInput, RText, RSpace, RList, RListItem, RDialog } from 'roughness'
 import Icon from './Icon.vue'
 
@@ -19,6 +19,7 @@ const confirmingDeleteId = ref<number | null>(null)
 // Notes state
 const editingNotesId = ref<number | null>(null)
 const notesForm = ref('')
+const workLogEntries = ref<TimeEntry[]>([])
 
 async function loadIssueTimes() {
   for (const issue of issuesStore.issues) {
@@ -96,13 +97,16 @@ async function executeDelete(issueId: number) {
 }
 
 // Notes functions
-function startEditingNotes(issue: Issue) {
+async function startEditingNotes(issue: Issue) {
   editingNotesId.value = issue.id
   notesForm.value = issue.notes || ''
+  // Fetch work log entries for this issue
+  workLogEntries.value = await window.electronAPI.getIssueEntries(issue.id)
 }
 
 function cancelEditingNotes() {
   editingNotesId.value = null
+  workLogEntries.value = []
 }
 
 async function saveNotes() {
@@ -110,6 +114,16 @@ async function saveNotes() {
 
   await issuesStore.updateIssue(editingNotesId.value, { notes: notesForm.value || null })
   editingNotesId.value = null
+  workLogEntries.value = []
+}
+
+function formatDate(isoString: string): string {
+  return new Date(isoString).toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  })
 }
 </script>
 
@@ -170,17 +184,38 @@ async function saveNotes() {
         </form>
 
         <!-- Notes edit mode -->
-        <div v-else-if="editingNotesId === issue.id" class="space-y-2 w-full">
+        <div v-else-if="editingNotesId === issue.id" class="notes-panel w-full">
           <RText class="text-secondary text-sm">
             <strong>{{ issue.externalId }}</strong> {{ issue.name }}
           </RText>
-          <RInput
-            v-model="notesForm"
-            :lines="4"
-            placeholder="Add notes about this issue..."
-          />
+
+          <!-- Issue notes -->
+          <div class="notes-section">
+            <RText size="small" class="section-label">Issue Notes</RText>
+            <RInput
+              v-model="notesForm"
+              :lines="3"
+              placeholder="Add notes about this issue..."
+            />
+          </div>
+
+          <!-- Work log -->
+          <div v-if="workLogEntries.some(e => e.notes)" class="notes-section">
+            <RText size="small" class="section-label">Work Log</RText>
+            <div class="work-log">
+              <div
+                v-for="entry in workLogEntries.filter(e => e.notes)"
+                :key="entry.id"
+                class="work-log-entry"
+              >
+                <RText size="small" class="text-secondary">{{ formatDate(entry.startedAt) }}</RText>
+                <RText size="small">{{ entry.notes }}</RText>
+              </div>
+            </div>
+          </div>
+
           <RSpace>
-            <RButton size="small" filled @click="saveNotes">Save Notes</RButton>
+            <RButton size="small" filled @click="saveNotes">Save</RButton>
             <RButton size="small" @click="cancelEditingNotes">Cancel</RButton>
           </RSpace>
         </div>
@@ -227,9 +262,8 @@ async function saveNotes() {
             <!-- Notes -->
             <RButton
               size="small"
-              :filled="!!issue.notes"
               @click="startEditingNotes(issue)"
-              :title="issue.notes ? 'View/edit notes' : 'Add notes'"
+              title="Notes"
             >
 <Icon name="note" :size="16" />
             </RButton>
@@ -288,5 +322,45 @@ async function saveNotes() {
 
 .issue-item {
   padding: 0.75rem 0;
+}
+
+.notes-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.notes-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.section-label {
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}
+
+.work-log {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  max-height: 200px;
+  overflow-y: auto;
+  padding: 0.5rem;
+  background: var(--color-bg-secondary);
+  border-radius: 4px;
+}
+
+.work-log-entry {
+  display: flex;
+  flex-direction: column;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.work-log-entry:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
 }
 </style>
