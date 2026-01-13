@@ -286,10 +286,15 @@ function pauseTracking(reason: 'manual' | 'idle' | 'switched'): TimeEntry | null
   const current = getCurrentTracking()
   if (!current) return null
 
-  const now = new Date().toISOString()
+  // When pausing due to idle, subtract the idle threshold to get actual stop time
+  // (idle triggers after threshold, so user stopped working threshold seconds ago)
+  const endTime = reason === 'idle'
+    ? new Date(Date.now() - idleThreshold * 1000).toISOString()
+    : new Date().toISOString()
+
   db.prepare(`
     UPDATE time_entries SET ended_at = ?, paused_reason = ? WHERE id = ?
-  `).run(now, reason, current.entry.id)
+  `).run(endTime, reason, current.entry.id)
 
   updateTrayMenu()
   mainWindow?.webContents.send('tracking-update', null)
@@ -297,7 +302,7 @@ function pauseTracking(reason: 'manual' | 'idle' | 'switched'): TimeEntry | null
   // Check if daily target was just reached
   checkDailyTargetNotification()
 
-  return { ...current.entry, endedAt: now, pausedReason: reason }
+  return { ...current.entry, endedAt: endTime, pausedReason: reason }
 }
 
 function startTracking(issueId: number): TimeEntry {
