@@ -3,6 +3,7 @@ import { ref, computed, watch, onMounted } from 'vue'
 import type { TimeEntry, Issue, DayGroup } from '../types'
 import { useIssuesStore } from '../stores/issues.store'
 import { RCard, RButton, RInput, RText, RSpace, RList, RListItem, RDialog, RFormItem, RSelect } from 'roughness'
+import Icon from './Icon.vue'
 
 const issuesStore = useIssuesStore()
 
@@ -391,21 +392,21 @@ onMounted(() => {
                 @click="startEditingNotes(entry)"
                 title="Notes"
               >
-                📝
+                <Icon name="note" :size="16" />
               </RButton>
               <RButton
                 size="small"
                 @click="startEditing(entry)"
                 title="Edit time"
               >
-                🕐
+                <Icon name="clock" :size="16" />
               </RButton>
               <RButton
                 size="small"
                 @click="startEditingIssue(entry)"
                 title="Edit issue"
               >
-                ✏️
+                <Icon name="pencil" :size="16" />
               </RButton>
               <RButton
                 v-if="confirmingDeleteId !== entry.id"
@@ -414,7 +415,7 @@ onMounted(() => {
                 @click="confirmDelete(entry.id)"
                 title="Delete"
               >
-                🗑
+                <Icon name="delete" :size="16" />
               </RButton>
               <RSpace v-else>
                 <RButton size="small" color="error" filled @click="executeDelete(entry.id)" title="Confirm delete">Yes</RButton>

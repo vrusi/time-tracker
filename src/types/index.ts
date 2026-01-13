@@ -65,9 +65,9 @@ export interface ElectronAPI {
   pauseTracking: (reason?: 'manual' | 'switched') => Promise<TimeEntry | null>
   getCurrentTracking: () => Promise<{ entry: TimeEntry; issue: Issue } | null>
 
-  // Handsoff mode
-  getHandsoffMode: () => Promise<boolean>
-  setHandsoffMode: (enabled: boolean) => Promise<void>
+  // Presence mode
+  getPresenceMode: () => Promise<boolean>
+  setPresenceMode: (enabled: boolean) => Promise<void>
 
   // History
   getTimeEntries: (startDate: string, endDate: string) => Promise<(TimeEntry & { issue: Issue })[]>
@@ -92,7 +92,7 @@ export interface ElectronAPI {
   // Events from main process
   onIdlePause: (callback: () => void) => void
   onTrackingUpdate: (callback: (data: { entry: TimeEntry; issue: Issue } | null) => void) => void
-  onHandsoffModeChange: (callback: (enabled: boolean) => void) => void
+  onPresenceModeChange: (callback: (enabled: boolean) => void) => void
   onIdleUpdate: (callback: (seconds: number) => void) => void
 }
 

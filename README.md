@@ -7,7 +7,7 @@ A desktop time tracking app for freelancers and developers. Track time spent on 
 - **Issue Tracking** - Add issues from GitLab, GitHub, Jira, or custom URLs
 - **One-Click Tracking** - Start/pause tracking with a single click
 - **Idle Detection** - Auto-pauses when you're away, resumes when you're back
-- **Handsoff Mode** - Disable idle detection for meetings or reading
+- **Presence Mode** - Disable idle detection for meetings or reading (indicate you're present even without input)
 - **Progress Bars** - Visual daily and monthly hour targets
 - **Earnings Display** - Optional earnings widget (hidden by default for privacy)
 - **Dark Mode** - Light, dark, or system theme

@@ -30,7 +30,7 @@ const __dirname = dirname(__filename)
 let mainWindow: BrowserWindow | null = null
 let tray: Tray | null = null
 let idleCheckInterval: NodeJS.Timeout | null = null
-let handsoffMode = false
+let presenceMode = false
 let idleResetTime: number | null = null
 let idleThreshold = 600 // 10 minutes in seconds (loaded from settings)
 let isQuitting = false
@@ -159,9 +159,9 @@ function updateTrayMenu() {
       enabled: false
     },
     {
-      label: handsoffMode ? '(Handsoff Mode ON)' : '',
+      label: presenceMode ? '(Presence Mode ON)' : '',
       enabled: false,
-      visible: handsoffMode
+      visible: presenceMode
     },
     { type: 'separator' },
     {
@@ -174,8 +174,8 @@ function updateTrayMenu() {
       }
     },
     {
-      label: handsoffMode ? 'Disable Handsoff Mode' : 'Enable Handsoff Mode',
-      click: () => setHandsoffMode(!handsoffMode)
+      label: presenceMode ? 'Disable Presence Mode' : 'Enable Presence Mode',
+      click: () => setPresenceMode(!presenceMode)
     },
     { type: 'separator' },
     {
@@ -195,7 +195,7 @@ function updateTrayMenu() {
 
   let tooltip = 'Time Tracker'
   if (current) tooltip = `Tracking: ${current.issue.name}`
-  if (handsoffMode) tooltip += ' (Handsoff)'
+  if (presenceMode) tooltip += ' (Presence)'
   tray?.setToolTip(tooltip)
 }
 
@@ -226,8 +226,8 @@ function startIdleWatcher() {
     // Send idle time to renderer
     mainWindow?.webContents.send('idle-update', idleTime)
 
-    // Skip idle pause if handsoff mode is enabled
-    if (handsoffMode) return
+    // Skip idle pause if presence mode is enabled
+    if (presenceMode) return
 
     if (idleTime >= idleThreshold && current) {
       pauseTracking('idle')
@@ -245,10 +245,10 @@ function startIdleWatcher() {
   }, 5000) // Check every 5 seconds for smoother idle display
 }
 
-function setHandsoffMode(enabled: boolean) {
-  handsoffMode = enabled
+function setPresenceMode(enabled: boolean) {
+  presenceMode = enabled
   updateTrayMenu()
-  mainWindow?.webContents.send('handsoff-mode-change', enabled)
+  mainWindow?.webContents.send('presence-mode-change', enabled)
 }
 
 // Database operations
@@ -569,11 +569,11 @@ function setupIpcHandlers() {
     }))
   })
 
-  // Handsoff mode
-  ipcMain.handle('get-handsoff-mode', () => handsoffMode)
+  // Presence mode
+  ipcMain.handle('get-presence-mode', () => presenceMode)
 
-  ipcMain.handle('set-handsoff-mode', (_, enabled: boolean) => {
-    setHandsoffMode(enabled)
+  ipcMain.handle('set-presence-mode', (_, enabled: boolean) => {
+    setPresenceMode(enabled)
   })
 
   ipcMain.handle('get-idle-time', () => {

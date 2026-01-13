@@ -9,10 +9,10 @@ describe('Tracker Store', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
     mockElectronAPI.getCurrentTracking.mockResolvedValue(null)
-    mockElectronAPI.getHandsoffMode.mockResolvedValue(false)
+    mockElectronAPI.getPresenceMode.mockResolvedValue(false)
     mockElectronAPI.startTracking.mockReset()
     mockElectronAPI.pauseTracking.mockReset()
-    mockElectronAPI.setHandsoffMode.mockReset()
+    mockElectronAPI.setPresenceMode.mockReset()
     mockElectronAPI.resetIdleTime.mockReset()
   })
 
@@ -80,25 +80,25 @@ describe('Tracker Store', () => {
     })
   })
 
-  describe('toggleHandsoffMode', () => {
-    it('toggles handsoff mode on', async () => {
+  describe('togglePresenceMode', () => {
+    it('toggles presence mode on', async () => {
       const store = useTrackerStore()
-      store.handsoffMode = false
+      store.presenceMode = false
 
-      await store.toggleHandsoffMode()
+      await store.togglePresenceMode()
 
-      expect(mockElectronAPI.setHandsoffMode).toHaveBeenCalledWith(true)
-      expect(store.handsoffMode).toBe(true)
+      expect(mockElectronAPI.setPresenceMode).toHaveBeenCalledWith(true)
+      expect(store.presenceMode).toBe(true)
     })
 
-    it('toggles handsoff mode off', async () => {
+    it('toggles presence mode off', async () => {
       const store = useTrackerStore()
-      store.handsoffMode = true
+      store.presenceMode = true
 
-      await store.toggleHandsoffMode()
+      await store.togglePresenceMode()
 
-      expect(mockElectronAPI.setHandsoffMode).toHaveBeenCalledWith(false)
-      expect(store.handsoffMode).toBe(false)
+      expect(mockElectronAPI.setPresenceMode).toHaveBeenCalledWith(false)
+      expect(store.presenceMode).toBe(false)
     })
   })
 
@@ -124,13 +124,13 @@ describe('Tracker Store', () => {
         entry: mockEntry,
         issue: mockIssue,
       })
-      mockElectronAPI.getHandsoffMode.mockResolvedValue(true)
+      mockElectronAPI.getPresenceMode.mockResolvedValue(true)
 
       await store.loadCurrentTracking()
 
       expect(store.currentEntry).toEqual(mockEntry)
       expect(store.currentIssue).toEqual(mockIssue)
-      expect(store.handsoffMode).toBe(true)
+      expect(store.presenceMode).toBe(true)
     })
 
     it('handles no active tracking', async () => {

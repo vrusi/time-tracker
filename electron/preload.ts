@@ -15,9 +15,9 @@ const electronAPI: ElectronAPI = {
   pauseTracking: (reason) => ipcRenderer.invoke('pause-tracking', reason),
   getCurrentTracking: () => ipcRenderer.invoke('get-current-tracking'),
 
-  // Handsoff mode
-  getHandsoffMode: () => ipcRenderer.invoke('get-handsoff-mode'),
-  setHandsoffMode: (enabled) => ipcRenderer.invoke('set-handsoff-mode', enabled),
+  // Presence mode
+  getPresenceMode: () => ipcRenderer.invoke('get-presence-mode'),
+  setPresenceMode: (enabled) => ipcRenderer.invoke('set-presence-mode', enabled),
 
   // History
   getTimeEntries: (startDate, endDate) => ipcRenderer.invoke('get-time-entries', startDate, endDate),
@@ -46,8 +46,8 @@ const electronAPI: ElectronAPI = {
   onTrackingUpdate: (callback) => {
     ipcRenderer.on('tracking-update', (_, data) => callback(data))
   },
-  onHandsoffModeChange: (callback) => {
-    ipcRenderer.on('handsoff-mode-change', (_, enabled) => callback(enabled))
+  onPresenceModeChange: (callback) => {
+    ipcRenderer.on('presence-mode-change', (_, enabled) => callback(enabled))
   },
   onIdleUpdate: (callback) => {
     ipcRenderer.on('idle-update', (_, seconds) => callback(seconds))
