@@ -247,32 +247,30 @@ onMounted(() => {
   loadEntries()
   issuesStore.loadIssues()
 })
+
+// Expose for parent component
+defineExpose({ openAddEntryModal, loadEntries })
 </script>
 
 <template>
   <RSpace vertical>
-    <!-- Date filter and Add button -->
+    <!-- Date filter -->
     <RCard>
-      <RSpace align="center" justify="between">
-        <RSpace>
-          <RFormItem label="From">
-            <input
-              v-model="startDate"
-              type="date"
-              class="date-input"
-            />
-          </RFormItem>
-          <RFormItem label="To">
-            <input
-              v-model="endDate"
-              type="date"
-              class="date-input"
-            />
-          </RFormItem>
-        </RSpace>
-        <RButton filled @click="openAddEntryModal" title="Add a manual time entry">
-          + Add Entry
-        </RButton>
+      <RSpace>
+        <RFormItem label="From">
+          <input
+            v-model="startDate"
+            type="date"
+            class="date-input"
+          />
+        </RFormItem>
+        <RFormItem label="To">
+          <input
+            v-model="endDate"
+            type="date"
+            class="date-input"
+          />
+        </RFormItem>
       </RSpace>
     </RCard>
 
