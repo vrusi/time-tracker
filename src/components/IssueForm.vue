@@ -16,11 +16,11 @@ const isSubmitting = ref(false)
 const canSubmit = computed(() => link.value.trim() && name.value.trim())
 
 const submitTooltip = computed(() => {
-  if (canSubmit.value) return 'Add issue and start tracking'
+  if (canSubmit.value) return 'Start tracking this issue'
   const missing: string[] = []
   if (!link.value.trim()) missing.push('issue URL')
   if (!name.value.trim()) missing.push('name')
-  return `Enter ${missing.join(' and ')} to add issue`
+  return `Enter ${missing.join(' and ')} to start tracking`
 })
 
 async function handleSubmit() {
@@ -55,7 +55,7 @@ async function handleSubmit() {
 <template>
   <RCard>
     <template #title>
-      <RText>Add New Issue</RText>
+      <RText>Start Tracking</RText>
     </template>
 
     <form @submit.prevent="handleSubmit" class="form-row">
@@ -86,7 +86,7 @@ async function handleSubmit() {
           :loading="isSubmitting"
           :disabled="!canSubmit"
         >
-          {{ isSubmitting ? 'Adding...' : 'Add Issue' }}
+          {{ isSubmitting ? 'Starting...' : 'Start' }}
         </RButton>
       </span>
     </form>
