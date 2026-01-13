@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { useIssuesStore } from '../stores/issues.store'
 import { useTrackerStore } from '../stores/tracker.store'
 import { useSettingsStore } from '../stores/settings.store'
+import type { Issue } from '../types'
 import { RCard, RButton, RText } from 'roughness'
 
 const issuesStore = useIssuesStore()
@@ -12,11 +13,43 @@ const settingsStore = useSettingsStore()
 const link = ref('')
 const name = ref('')
 const isSubmitting = ref(false)
+const matchedIssue = ref<Issue | null>(null)
+
+// Watch link changes to find existing issues
+watch(link, (url) => {
+  const trimmedUrl = url.trim()
+  if (!trimmedUrl) {
+    matchedIssue.value = null
+    return
+  }
+
+  // Check by exact link match first
+  let existing = issuesStore.issues.find(i => i.link === trimmedUrl)
+
+  // If no link match, try matching by extracted ID
+  if (!existing) {
+    const extractedId = settingsStore.extractIssueId(trimmedUrl)
+    if (extractedId) {
+      existing = issuesStore.issues.find(i => i.externalId === extractedId)
+    }
+  }
+
+  if (existing) {
+    matchedIssue.value = existing
+    name.value = existing.name
+  } else {
+    matchedIssue.value = null
+  }
+})
 
 const canSubmit = computed(() => link.value.trim() && name.value.trim())
 
 const submitTooltip = computed(() => {
-  if (canSubmit.value) return 'Start tracking this issue'
+  if (canSubmit.value) {
+    return matchedIssue.value
+      ? 'Resume tracking existing issue'
+      : 'Start tracking this issue'
+  }
   const missing: string[] = []
   if (!link.value.trim()) missing.push('issue URL')
   if (!name.value.trim()) missing.push('name')
@@ -29,23 +62,28 @@ async function handleSubmit() {
 
   if (!url || !issueName) return
 
-  const issueId = settingsStore.extractIssueId(url)
-  if (!issueId) {
-    alert('Could not extract issue ID from URL. Check your issue tracker settings.')
-    return
-  }
-
   isSubmitting.value = true
   try {
-    const newIssue = await issuesStore.createIssue(
-      issueId,
-      issueName,
-      url
-    )
-    // Auto-start tracking the new issue
-    await trackerStore.startTracking(newIssue.id)
+    let issue: Issue
+
+    if (matchedIssue.value) {
+      // Use existing issue
+      issue = matchedIssue.value
+    } else {
+      // Create new issue
+      const issueId = settingsStore.extractIssueId(url)
+      if (!issueId) {
+        alert('Could not extract issue ID from URL. Check your issue tracker settings.')
+        return
+      }
+      issue = await issuesStore.createIssue(issueId, issueName, url)
+    }
+
+    // Start tracking
+    await trackerStore.startTracking(issue.id)
     link.value = ''
     name.value = ''
+    matchedIssue.value = null
   } finally {
     isSubmitting.value = false
   }
@@ -86,7 +124,7 @@ async function handleSubmit() {
           :loading="isSubmitting"
           :disabled="!canSubmit"
         >
-          {{ isSubmitting ? 'Starting...' : 'Start' }}
+          {{ isSubmitting ? 'Starting...' : (matchedIssue ? 'Resume' : 'Start') }}
         </RButton>
       </span>
     </form>
