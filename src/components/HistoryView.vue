@@ -289,22 +289,25 @@ defineExpose({ openAddEntryModal, loadEntries })
 
     <!-- Date filter -->
     <RCard>
-      <RSpace>
-        <RFormItem label="From">
+      <template #title>Filter by Date</template>
+      <div class="date-filter-row">
+        <div class="date-field">
+          <label class="date-label">From</label>
           <input
             v-model="startDate"
             type="date"
             class="date-input"
           />
-        </RFormItem>
-        <RFormItem label="To">
+        </div>
+        <div class="date-field">
+          <label class="date-label">To</label>
           <input
             v-model="endDate"
             type="date"
             class="date-input"
           />
-        </RFormItem>
-      </RSpace>
+        </div>
+      </div>
     </RCard>
 
     <!-- Loading -->
@@ -541,6 +544,26 @@ defineExpose({ openAddEntryModal, loadEntries })
 
 <style scoped>
 .text-secondary {
+  color: var(--color-text-secondary);
+}
+
+.date-filter-row {
+  display: flex;
+  justify-content: space-around;
+  gap: 2rem;
+}
+
+.date-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  flex: 1;
+  max-width: 200px;
+}
+
+.date-label {
+  font-size: 0.875rem;
+  font-weight: 500;
   color: var(--color-text-secondary);
 }
 
