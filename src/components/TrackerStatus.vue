@@ -30,8 +30,39 @@ watch(() => trackerStore.currentEntry?.id, () => {
 
 <template>
   <RCard class="tracker-hero">
-    <!-- Not tracking state -->
-    <template v-if="!trackerStore.isTracking || !trackerStore.currentIssue">
+    <!-- Paused state - show last tracked issue -->
+    <template v-if="(!trackerStore.isTracking || !trackerStore.currentIssue) && trackerStore.lastTrackedIssue">
+      <div class="paused-content">
+        <div class="paused-row">
+          <div class="issue-info">
+            <RText class="text-secondary text-sm">{{ trackerStore.lastTrackedIssue.externalId }}</RText>
+            <RText class="issue-name">{{ trackerStore.lastTrackedIssue.name }}</RText>
+          </div>
+          <RText class="text-secondary paused-label">Paused</RText>
+          <div class="action-buttons">
+            <RButton
+              size="small"
+              filled
+              color="success"
+              @click="trackerStore.startTracking(trackerStore.lastTrackedIssue!.id)"
+              title="Resume tracking"
+            >
+              <Icon name="play" :size="16" />
+            </RButton>
+            <RButton
+              size="small"
+              @click="trackerStore.clearLastTracked()"
+              title="Clear (stop tracking)"
+            >
+              Clear
+            </RButton>
+          </div>
+        </div>
+      </div>
+    </template>
+
+    <!-- Not tracking state (no last issue) -->
+    <template v-else-if="!trackerStore.isTracking || !trackerStore.currentIssue">
       <div class="not-tracking">
         <RText class="text-secondary">Not tracking</RText>
         <RText size="small" class="text-secondary">Select an issue below to start</RText>
@@ -123,6 +154,22 @@ watch(() => trackerStore.currentEntry?.id, () => {
   justify-content: center;
   gap: 0.5rem;
   padding: 0.5rem 0;
+}
+
+.paused-content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.paused-row {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.paused-label {
+  font-style: italic;
 }
 
 .tracking-content {

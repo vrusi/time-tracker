@@ -9,6 +9,7 @@ export const useTrackerStore = defineStore('tracker', () => {
 
   const currentEntry = ref<TimeEntry | null>(null)
   const currentIssue = ref<Issue | null>(null)
+  const lastTrackedIssue = ref<Issue | null>(null)
   const elapsedSeconds = ref(0)
   const presenceMode = ref(false)
   const idleSeconds = ref(0)
@@ -62,10 +63,18 @@ export const useTrackerStore = defineStore('tracker', () => {
   }
 
   async function pauseTracking() {
+    // Save last tracked issue before clearing
+    if (currentIssue.value) {
+      lastTrackedIssue.value = currentIssue.value
+    }
     await window.electronAPI.pauseTracking('manual')
     currentEntry.value = null
     currentIssue.value = null
     stopTimer()
+  }
+
+  function clearLastTracked() {
+    lastTrackedIssue.value = null
   }
 
   async function loadCurrentTracking() {
@@ -92,6 +101,10 @@ export const useTrackerStore = defineStore('tracker', () => {
 
   function setupListeners() {
     window.electronAPI.onIdlePause(() => {
+      // Save last tracked issue before clearing
+      if (currentIssue.value) {
+        lastTrackedIssue.value = currentIssue.value
+      }
       currentEntry.value = null
       currentIssue.value = null
       stopTimer()
@@ -103,6 +116,10 @@ export const useTrackerStore = defineStore('tracker', () => {
         currentIssue.value = data.issue
         startTimer()
       } else {
+        // Save last tracked issue before clearing
+        if (currentIssue.value) {
+          lastTrackedIssue.value = currentIssue.value
+        }
         currentEntry.value = null
         currentIssue.value = null
         stopTimer()
@@ -121,6 +138,7 @@ export const useTrackerStore = defineStore('tracker', () => {
   return {
     currentEntry,
     currentIssue,
+    lastTrackedIssue,
     isTracking,
     elapsedSeconds,
     formattedTime,
@@ -132,6 +150,7 @@ export const useTrackerStore = defineStore('tracker', () => {
     idleThresholdSeconds,
     startTracking,
     pauseTracking,
+    clearLastTracked,
     loadCurrentTracking,
     togglePresenceMode,
     resetIdle,
