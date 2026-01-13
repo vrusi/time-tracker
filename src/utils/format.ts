@@ -11,12 +11,13 @@ export function formatDuration(seconds: number): string {
 }
 
 /**
- * Format ISO string to time (e.g., "09:30 AM")
+ * Format ISO string to time (e.g., "14:30")
  */
 export function formatTime(isoString: string): string {
   return new Date(isoString).toLocaleTimeString('en-US', {
     hour: '2-digit',
-    minute: '2-digit'
+    minute: '2-digit',
+    hour12: false
   })
 }
 
