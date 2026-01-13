@@ -71,3 +71,13 @@ body {
 .text-warning { color: var(--color-warning); }
 .text-danger { color: var(--color-danger); }
 .bg-secondary { background-color: var(--color-bg-secondary); }
+
+/* Vertically center RList bullet markers */
+.r-list-item {
+  display: flex;
+  align-items: center;
+}
+
+.r-list-item__marker {
+  align-self: center;
+}
