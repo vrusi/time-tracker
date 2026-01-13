@@ -72,6 +72,7 @@ export interface ElectronAPI {
   // History
   getTimeEntries: (startDate: string, endDate: string) => Promise<(TimeEntry & { issue: Issue })[]>
   getIssueTime: (issueId: number) => Promise<number>
+  getIssueEntries: (issueId: number) => Promise<TimeEntry[]>
 
   // Time entry management
   createTimeEntry: (issueId: number, startedAt: string, endedAt: string, notes?: string) => Promise<TimeEntry>

@@ -10,13 +10,13 @@ const issuesStore = useIssuesStore()
 const entries = ref<(TimeEntry & { issue: Issue })[]>([])
 const isLoading = ref(false)
 
-// Date range - default to current week
+// Date range - default to current month (1st to last day)
 const today = new Date()
-const weekStart = new Date(today)
-weekStart.setDate(today.getDate() - today.getDay())
+const monthStart = new Date(today.getFullYear(), today.getMonth(), 1)
+const monthEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0)
 
-const startDate = ref(weekStart.toISOString().split('T')[0])
-const endDate = ref(today.toISOString().split('T')[0])
+const startDate = ref(monthStart.toISOString().split('T')[0])
+const endDate = ref(monthEnd.toISOString().split('T')[0])
 
 // Edit state (for time only)
 const editingEntryId = ref<number | null>(null)
@@ -35,8 +35,10 @@ const confirmingDeleteId = ref<number | null>(null)
 
 // Add entry modal state
 const showAddEntryModal = ref(false)
+const successMessage = ref('')
 const addEntryForm = ref({
-  issueId: 0,
+  issueText: '',
+  issueLink: '',
   date: today.toISOString().split('T')[0],
   startTime: '09:00',
   endTime: '17:00',
@@ -204,7 +206,8 @@ async function executeDelete(entryId: number) {
 // Add entry functions
 function openAddEntryModal() {
   addEntryForm.value = {
-    issueId: issuesStore.activeIssues[0]?.id || 0,
+    issueText: '',
+    issueLink: '',
     date: today.toISOString().split('T')[0],
     startTime: '09:00',
     endTime: '17:00',
@@ -218,13 +221,32 @@ function closeAddEntryModal() {
 }
 
 async function submitAddEntry() {
-  if (!addEntryForm.value.issueId) return
+  const issueText = addEntryForm.value.issueText.trim()
+  if (!issueText) return
+
+  // Find existing issue or create new one
+  let issueId: number
+  const existingIssue = issuesStore.issues.find(
+    i => `${i.externalId} - ${i.name}` === issueText ||
+         i.externalId === issueText ||
+         i.name === issueText
+  )
+
+  if (existingIssue) {
+    issueId = existingIssue.id
+  } else {
+    // Create new issue with the text as name
+    const link = addEntryForm.value.issueLink.trim() || null
+    // Don't duplicate name as ID - leave ID empty for manual entries
+    const newIssue = await issuesStore.createIssue('', issueText, link)
+    issueId = newIssue.id
+  }
 
   const startedAt = new Date(`${addEntryForm.value.date}T${addEntryForm.value.startTime}`).toISOString()
   const endedAt = new Date(`${addEntryForm.value.date}T${addEntryForm.value.endTime}`).toISOString()
 
   await window.electronAPI.createTimeEntry(
-    addEntryForm.value.issueId,
+    issueId,
     startedAt,
     endedAt,
     addEntryForm.value.notes || undefined
@@ -232,6 +254,12 @@ async function submitAddEntry() {
 
   showAddEntryModal.value = false
   await loadEntries()
+
+  // Show success message
+  successMessage.value = 'Entry added successfully'
+  setTimeout(() => {
+    successMessage.value = ''
+  }, 3000)
 }
 
 // Computed preview duration for add entry form
@@ -254,6 +282,11 @@ defineExpose({ openAddEntryModal, loadEntries })
 
 <template>
   <RSpace vertical>
+    <!-- Success message -->
+    <div v-if="successMessage" class="success-toast">
+      {{ successMessage }}
+    </div>
+
     <!-- Date filter -->
     <RCard>
       <RSpace>
@@ -386,7 +419,6 @@ defineExpose({ openAddEntryModal, loadEntries })
             <RSpace>
               <RButton
                 size="small"
-                :filled="!!entry.notes"
                 @click="startEditingNotes(entry)"
                 title="Notes"
               >
@@ -429,64 +461,79 @@ defineExpose({ openAddEntryModal, loadEntries })
     <RDialog v-model:open="showAddEntryModal">
       <template #title>Add Manual Entry</template>
 
-      <form @submit.prevent="submitAddEntry" class="space-y-4">
-        <RFormItem label="Issue">
-          <select
-            v-model="addEntryForm.issueId"
-            class="select-input"
-            required
-          >
-            <option value="0" disabled>Select an issue</option>
-            <option v-for="issue in issuesStore.activeIssues" :key="issue.id" :value="issue.id">
-              {{ issue.externalId }} - {{ issue.name }}
-            </option>
-          </select>
-        </RFormItem>
-
-        <RFormItem label="Date">
+      <form @submit.prevent="submitAddEntry" class="dialog-form">
+        <div class="form-group">
+          <label class="form-label">Issue (select existing or type new)</label>
           <input
-            v-model="addEntryForm.date"
-            type="date"
-            class="date-input w-full"
+            v-model="addEntryForm.issueText"
+            list="issue-suggestions"
+            class="select-input"
+            placeholder="Type issue name or select from list"
             required
           />
-        </RFormItem>
+          <datalist id="issue-suggestions">
+            <option v-for="issue in issuesStore.issues" :key="issue.id" :value="`${issue.externalId} - ${issue.name}`" />
+          </datalist>
+        </div>
 
-        <RSpace>
-          <RFormItem label="Start Time">
+        <div class="form-group">
+          <label class="form-label">Link (optional, for new issues)</label>
+          <input
+            v-model="addEntryForm.issueLink"
+            type="text"
+            class="select-input"
+            placeholder="www.example.com or https://..."
+          />
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Date</label>
+            <input
+              v-model="addEntryForm.date"
+              type="date"
+              class="date-input"
+              required
+            />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Start</label>
             <input
               v-model="addEntryForm.startTime"
               type="time"
               class="date-input"
               required
             />
-          </RFormItem>
-          <RFormItem label="End Time">
+          </div>
+          <div class="form-group">
+            <label class="form-label">End</label>
             <input
               v-model="addEntryForm.endTime"
               type="time"
               class="date-input"
               required
             />
-          </RFormItem>
-        </RSpace>
+          </div>
+          <div class="form-group duration-display" v-if="addEntryDuration">
+            <label class="form-label">Duration</label>
+            <span class="duration-value">{{ addEntryDuration }}</span>
+          </div>
+        </div>
 
-        <RText v-if="addEntryDuration" size="small" class="text-secondary">
-          Duration: <strong>{{ addEntryDuration }}</strong>
-        </RText>
-
-        <RFormItem label="Notes (optional)">
-          <RInput
+        <div class="form-group">
+          <label class="form-label">Notes (optional)</label>
+          <textarea
             v-model="addEntryForm.notes"
-            :lines="3"
+            class="notes-input"
+            rows="3"
             placeholder="What did you work on?"
-          />
-        </RFormItem>
+          ></textarea>
+        </div>
 
-        <RSpace justify="end">
+        <div class="form-actions">
           <RButton type="button" @click="closeAddEntryModal">Cancel</RButton>
-          <RButton type="submit" filled :disabled="!addEntryForm.issueId">Add Entry</RButton>
-        </RSpace>
+          <RButton type="submit" filled :disabled="!addEntryForm.issueText.trim()">Add Entry</RButton>
+        </div>
       </form>
     </RDialog>
   </RSpace>
@@ -519,5 +566,71 @@ defineExpose({ openAddEntryModal, loadEntries })
 
 .select-input {
   width: 100%;
+}
+
+/* Dialog form styles */
+.dialog-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.form-label {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+}
+
+.form-row {
+  display: flex;
+  gap: 1rem;
+  align-items: flex-end;
+}
+
+.duration-display {
+  justify-content: flex-end;
+}
+
+.duration-value {
+  font-weight: 600;
+  padding: 0.5rem 0;
+}
+
+.notes-input {
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  border: 2px solid var(--color-border);
+  border-radius: 4px;
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: inherit;
+  resize: vertical;
+}
+
+.notes-input:focus {
+  outline: none;
+  border-color: var(--color-accent);
+}
+
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.success-toast {
+  background: var(--color-success);
+  color: white;
+  padding: 0.75rem 1rem;
+  border-radius: 4px;
+  text-align: center;
+  font-weight: 500;
 }
 </style>

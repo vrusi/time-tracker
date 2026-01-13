@@ -482,6 +482,24 @@ function setupIpcHandlers() {
     }, 0)
   })
 
+  ipcMain.handle('get-issue-entries', (_, issueId: number) => {
+    const entries = db.prepare(`
+      SELECT id, issue_id, started_at, ended_at, paused_reason, notes
+      FROM time_entries
+      WHERE issue_id = ?
+      ORDER BY started_at DESC
+    `).all(issueId)
+
+    return entries.map((row: any) => ({
+      id: row.id,
+      issueId: row.issue_id,
+      startedAt: row.started_at,
+      endedAt: row.ended_at,
+      pausedReason: row.paused_reason,
+      notes: row.notes
+    }))
+  })
+
   // Time entry management
   ipcMain.handle('create-time-entry', (_, issueId: number, startedAt: string, endedAt: string, notes?: string) => {
     const result = db.prepare(`

@@ -23,6 +23,7 @@ export const mockElectronAPI = {
   // History
   getTimeEntries: vi.fn().mockResolvedValue([]),
   getIssueTime: vi.fn().mockResolvedValue(0),
+  getIssueEntries: vi.fn().mockResolvedValue([]),
 
   // Time entry management
   createTimeEntry: vi.fn(),
