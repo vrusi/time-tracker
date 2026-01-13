@@ -20,6 +20,11 @@ const settingsStore = useSettingsStore()
 const activeTab = ref<'track' | 'history' | 'settings'>('track')
 const historyView = ref<'list' | 'calendar'>('list')
 const showExportDialog = ref(false)
+const historyViewRef = ref<InstanceType<typeof HistoryView> | null>(null)
+
+function openAddEntry() {
+  historyViewRef.value?.openAddEntryModal()
+}
 
 onMounted(async () => {
   await settingsStore.loadSettings()
@@ -55,24 +60,29 @@ onMounted(async () => {
 
         <RTabItem label="History" value="history">
           <RSpace vertical class="mt-4">
-            <!-- View toggle -->
-            <div class="flex justify-end gap-2">
-              <RButton
-                :filled="historyView === 'list'"
-                @click="historyView = 'list'"
-              >
-                List
+            <!-- Add Entry button and View toggle -->
+            <div class="flex justify-between items-center">
+              <RButton filled @click="openAddEntry" title="Add a manual time entry">
+                + Add Entry
               </RButton>
-              <RButton
-                :filled="historyView === 'calendar'"
-                @click="historyView = 'calendar'"
-              >
-                Calendar
-              </RButton>
+              <div class="flex gap-2">
+                <RButton
+                  :filled="historyView === 'list'"
+                  @click="historyView = 'list'"
+                >
+                  List
+                </RButton>
+                <RButton
+                  :filled="historyView === 'calendar'"
+                  @click="historyView = 'calendar'"
+                >
+                  Calendar
+                </RButton>
+              </div>
             </div>
 
-            <HistoryView v-if="historyView === 'list'" />
-            <CalendarView v-else />
+            <HistoryView v-show="historyView === 'list'" ref="historyViewRef" />
+            <CalendarView v-show="historyView === 'calendar'" />
           </RSpace>
         </RTabItem>
 
