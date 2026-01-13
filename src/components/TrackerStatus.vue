@@ -206,9 +206,6 @@ watch(() => trackerStore.currentEntry?.id, () => {
 
 .issue-name {
   display: block;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 .timer-section {
