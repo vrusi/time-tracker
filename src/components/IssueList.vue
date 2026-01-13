@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, watch } from 'vue'
 import { useIssuesStore } from '../stores/issues.store'
 import { useTrackerStore } from '../stores/tracker.store'
 import { useSettingsStore } from '../stores/settings.store'
@@ -28,7 +28,15 @@ async function loadIssueTimes() {
   }
 }
 
-onMounted(loadIssueTimes)
+// Watch for issues to load and reload times when they change
+watch(() => issuesStore.issues, loadIssueTimes, { immediate: true })
+
+// Refresh times when tracking stops (e.g., paused from TrackerStatus)
+watch(() => trackerStore.isTracking, (isTracking, wasTracking) => {
+  if (wasTracking && !isTracking) {
+    loadIssueTimes()
+  }
+})
 
 function formatDuration(seconds: number): string {
   const hours = Math.floor(seconds / 3600)
