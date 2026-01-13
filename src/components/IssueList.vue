@@ -200,9 +200,9 @@ async function saveNotes() {
 
           <!-- Issue info -->
           <div class="flex-1 min-w-0">
-            <div class="flex items-center gap-2">
+            <div class="flex items-baseline gap-2">
               <RText class="font-medium">{{ issue.externalId }}</RText>
-              <RText class="text-secondary truncate">{{ issue.name }}</RText>
+              <RText class="text-secondary">{{ issue.name }}</RText>
             </div>
             <RText size="small" class="text-secondary">
               Total: {{ formatDuration(issueTimes.get(issue.id) || 0) }}
