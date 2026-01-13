@@ -16,9 +16,9 @@ export const mockElectronAPI = {
   pauseTracking: vi.fn(),
   getCurrentTracking: vi.fn().mockResolvedValue(null),
 
-  // Handsoff mode
-  getHandsoffMode: vi.fn().mockResolvedValue(false),
-  setHandsoffMode: vi.fn(),
+  // Presence mode
+  getPresenceMode: vi.fn().mockResolvedValue(false),
+  setPresenceMode: vi.fn(),
 
   // History
   getTimeEntries: vi.fn().mockResolvedValue([]),
@@ -43,7 +43,7 @@ export const mockElectronAPI = {
   // Events
   onIdlePause: vi.fn(),
   onTrackingUpdate: vi.fn(),
-  onHandsoffModeChange: vi.fn(),
+  onPresenceModeChange: vi.fn(),
   onIdleUpdate: vi.fn(),
 }
 

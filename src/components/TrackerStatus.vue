@@ -2,6 +2,7 @@
 import { ref, watch } from 'vue'
 import { useTrackerStore } from '../stores/tracker.store'
 import { RCard, RButton, RInput, RBadge, RProgress, RText, RSpace } from 'roughness'
+import Icon from './Icon.vue'
 
 const trackerStore = useTrackerStore()
 
@@ -51,19 +52,19 @@ watch(() => trackerStore.currentEntry?.id, () => {
           <!-- Timer display -->
           <div class="timer-section">
             <span class="timer-display">{{ trackerStore.formattedTime }}</span>
-            <span class="status-dot" :class="trackerStore.isIdle && !trackerStore.handsoffMode ? 'idle' : 'active'"></span>
+            <span class="status-dot" :class="trackerStore.isIdle && !trackerStore.presenceMode ? 'idle' : 'active'"></span>
           </div>
 
           <!-- Action buttons -->
           <div class="action-buttons">
             <RButton
               size="small"
-              :filled="trackerStore.handsoffMode"
-              :color="trackerStore.handsoffMode ? 'warning' : undefined"
-              @click="trackerStore.toggleHandsoffMode()"
-              :title="trackerStore.handsoffMode ? 'Handsoff mode ON - idle detection disabled. Click to enable.' : 'Enable handsoff mode - disables idle detection'"
+              :filled="trackerStore.presenceMode"
+              :color="trackerStore.presenceMode ? 'warning' : undefined"
+              @click="trackerStore.togglePresenceMode()"
+              :title="trackerStore.presenceMode ? 'Presence mode ON - idle detection disabled. Click to disable.' : 'Enable presence mode - disables idle detection'"
             >
-              {{ trackerStore.handsoffMode ? '🙌' : '👐' }}
+              <Icon name="presence" :size="16" />
             </RButton>
             <RButton
               size="small"
@@ -71,7 +72,7 @@ watch(() => trackerStore.currentEntry?.id, () => {
               @click="showNotes = !showNotes"
               title="Add notes to this time entry (saved when you pause)"
             >
-              📝
+              <Icon name="note" :size="16" />
             </RButton>
             <RButton
               size="small"
@@ -86,7 +87,7 @@ watch(() => trackerStore.currentEntry?.id, () => {
         </div>
 
         <!-- Idle progress bar (when idle) -->
-        <div v-if="trackerStore.isIdle && !trackerStore.handsoffMode" class="idle-section">
+        <div v-if="trackerStore.isIdle && !trackerStore.presenceMode" class="idle-section">
           <div class="idle-header">
             <RText size="small" class="text-warning">
               Idle {{ trackerStore.formattedIdleTime }} - auto-pause in {{ Math.ceil((trackerStore.idleThresholdSeconds - trackerStore.idleSeconds) / 60) }} min

@@ -5,6 +5,7 @@ import { useTrackerStore } from '../stores/tracker.store'
 import { useSettingsStore } from '../stores/settings.store'
 import type { Issue } from '../types'
 import { RCard, RButton, RInput, RText, RSpace, RList, RListItem, RDialog } from 'roughness'
+import Icon from './Icon.vue'
 
 const issuesStore = useIssuesStore()
 const trackerStore = useTrackerStore()
@@ -194,7 +195,7 @@ async function saveNotes() {
             :color="isCurrentlyTracking(issue) ? 'error' : 'success'"
             :title="isCurrentlyTracking(issue) ? 'Pause tracking' : 'Start tracking'"
           >
-            {{ isCurrentlyTracking(issue) ? '⏸' : '▶' }}
+<Icon :name="isCurrentlyTracking(issue) ? 'pause' : 'play'" :size="16" />
           </RButton>
 
           <!-- Issue info -->
@@ -230,7 +231,7 @@ async function saveNotes() {
               @click="startEditingNotes(issue)"
               :title="issue.notes ? 'View/edit notes' : 'Add notes'"
             >
-              📝
+<Icon name="note" :size="16" />
             </RButton>
 
             <!-- Edit -->
@@ -239,7 +240,7 @@ async function saveNotes() {
               @click="startEditing(issue)"
               title="Edit"
             >
-              ✏️
+<Icon name="pencil" :size="16" />
             </RButton>
 
             <!-- Archive/Restore/Delete -->
@@ -258,7 +259,7 @@ async function saveNotes() {
                 @click="confirmDelete(issue.id)"
                 title="Delete"
               >
-                🗑
+<Icon name="delete" :size="16" />
               </RButton>
               <RSpace v-else>
                 <RButton size="small" color="error" filled @click="executeDelete(issue.id)" title="Confirm delete">Yes</RButton>
@@ -271,7 +272,7 @@ async function saveNotes() {
               @click="issuesStore.archiveIssue(issue.id)"
               title="Archive"
             >
-              📦
+<Icon name="box" :size="16" />
             </RButton>
           </RSpace>
         </div>

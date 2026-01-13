@@ -10,7 +10,7 @@ export const useTrackerStore = defineStore('tracker', () => {
   const currentEntry = ref<TimeEntry | null>(null)
   const currentIssue = ref<Issue | null>(null)
   const elapsedSeconds = ref(0)
-  const handsoffMode = ref(false)
+  const presenceMode = ref(false)
   const idleSeconds = ref(0)
   let timer: number | null = null
 
@@ -75,14 +75,14 @@ export const useTrackerStore = defineStore('tracker', () => {
       currentIssue.value = current.issue
       startTimer()
     }
-    // Load handsoff mode state
-    handsoffMode.value = await window.electronAPI.getHandsoffMode()
+    // Load presence mode state
+    presenceMode.value = await window.electronAPI.getPresenceMode()
   }
 
-  async function toggleHandsoffMode() {
-    const newValue = !handsoffMode.value
-    await window.electronAPI.setHandsoffMode(newValue)
-    handsoffMode.value = newValue
+  async function togglePresenceMode() {
+    const newValue = !presenceMode.value
+    await window.electronAPI.setPresenceMode(newValue)
+    presenceMode.value = newValue
   }
 
   async function resetIdle() {
@@ -109,8 +109,8 @@ export const useTrackerStore = defineStore('tracker', () => {
       }
     })
 
-    window.electronAPI.onHandsoffModeChange((enabled) => {
-      handsoffMode.value = enabled
+    window.electronAPI.onPresenceModeChange((enabled) => {
+      presenceMode.value = enabled
     })
 
     window.electronAPI.onIdleUpdate((seconds) => {
@@ -124,7 +124,7 @@ export const useTrackerStore = defineStore('tracker', () => {
     isTracking,
     elapsedSeconds,
     formattedTime,
-    handsoffMode,
+    presenceMode,
     idleSeconds,
     isIdle,
     formattedIdleTime,
@@ -133,7 +133,7 @@ export const useTrackerStore = defineStore('tracker', () => {
     startTracking,
     pauseTracking,
     loadCurrentTracking,
-    toggleHandsoffMode,
+    togglePresenceMode,
     resetIdle,
     setupListeners
   }
