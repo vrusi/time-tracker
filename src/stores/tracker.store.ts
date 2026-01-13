@@ -17,6 +17,7 @@ export const useTrackerStore = defineStore('tracker', () => {
   let timer: number | null = null
 
   const idleThresholdSeconds = computed(() => settingsStore.settings.idleThresholdMinutes * 60)
+  let isSwitchingTrackers = false
 
   const isTracking = computed(() => currentEntry.value !== null && currentEntry.value.endedAt === null)
 
@@ -57,10 +58,9 @@ export const useTrackerStore = defineStore('tracker', () => {
   }
 
   async function startTracking(issueId: number) {
-    // Clear paused time if starting a different issue
-    if (!lastTrackedIssue.value || lastTrackedIssue.value.id !== issueId) {
-      pausedElapsedSeconds.value = 0
-    }
+    // Set flag to prevent onTrackingUpdate from saving pausedElapsedSeconds
+    // when the backend pauses the old tracker
+    isSwitchingTrackers = true
 
     const entry = await window.electronAPI.startTracking(issueId)
     const issues = await window.electronAPI.getIssues()
@@ -69,6 +69,14 @@ export const useTrackerStore = defineStore('tracker', () => {
     currentEntry.value = entry
     currentIssue.value = issue || null
     lastTrackedIssue.value = null  // Clear last tracked since we're now tracking
+
+    // Reset paused time and flag after a tick to ensure tracking-update
+    // event is processed first (it's queued async from backend)
+    setTimeout(() => {
+      pausedElapsedSeconds.value = 0
+      isSwitchingTrackers = false
+    }, 0)
+
     startTimer()
   }
 
@@ -128,8 +136,9 @@ export const useTrackerStore = defineStore('tracker', () => {
         currentEntry.value = data.entry
         currentIssue.value = data.issue
         startTimer()
-      } else {
+      } else if (!isSwitchingTrackers) {
         // Save last tracked issue and elapsed time before clearing
+        // Skip entirely if we're switching trackers (handled by startTracking)
         if (currentIssue.value) {
           lastTrackedIssue.value = currentIssue.value
           pausedElapsedSeconds.value = elapsedSeconds.value
