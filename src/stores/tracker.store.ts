@@ -11,6 +11,7 @@ export const useTrackerStore = defineStore('tracker', () => {
   const currentIssue = ref<Issue | null>(null)
   const lastTrackedIssue = ref<Issue | null>(null)
   const elapsedSeconds = ref(0)
+  const pausedElapsedSeconds = ref(0)
   const presenceMode = ref(false)
   const idleSeconds = ref(0)
   let timer: number | null = null
@@ -20,6 +21,8 @@ export const useTrackerStore = defineStore('tracker', () => {
   const isTracking = computed(() => currentEntry.value !== null && currentEntry.value.endedAt === null)
 
   const formattedTime = computed(() => formatTimer(elapsedSeconds.value))
+
+  const formattedPausedTime = computed(() => formatTimer(pausedElapsedSeconds.value))
 
   const isIdle = computed(() => idleSeconds.value >= settingsStore.settings.idleIndicatorSeconds)
 
@@ -34,7 +37,8 @@ export const useTrackerStore = defineStore('tracker', () => {
   function updateElapsed() {
     if (currentEntry.value && !currentEntry.value.endedAt) {
       const start = new Date(currentEntry.value.startedAt).getTime()
-      elapsedSeconds.value = Math.floor((Date.now() - start) / 1000)
+      const currentSessionSeconds = Math.floor((Date.now() - start) / 1000)
+      elapsedSeconds.value = pausedElapsedSeconds.value + currentSessionSeconds
     }
   }
 
@@ -53,19 +57,26 @@ export const useTrackerStore = defineStore('tracker', () => {
   }
 
   async function startTracking(issueId: number) {
+    // Clear paused time if starting a different issue
+    if (!lastTrackedIssue.value || lastTrackedIssue.value.id !== issueId) {
+      pausedElapsedSeconds.value = 0
+    }
+
     const entry = await window.electronAPI.startTracking(issueId)
     const issues = await window.electronAPI.getIssues()
     const issue = issues.find(i => i.id === issueId)
 
     currentEntry.value = entry
     currentIssue.value = issue || null
+    lastTrackedIssue.value = null  // Clear last tracked since we're now tracking
     startTimer()
   }
 
   async function pauseTracking() {
-    // Save last tracked issue before clearing
+    // Save last tracked issue and elapsed time before clearing
     if (currentIssue.value) {
       lastTrackedIssue.value = currentIssue.value
+      pausedElapsedSeconds.value = elapsedSeconds.value
     }
     await window.electronAPI.pauseTracking('manual')
     currentEntry.value = null
@@ -75,6 +86,7 @@ export const useTrackerStore = defineStore('tracker', () => {
 
   function clearLastTracked() {
     lastTrackedIssue.value = null
+    pausedElapsedSeconds.value = 0
   }
 
   async function loadCurrentTracking() {
@@ -101,9 +113,10 @@ export const useTrackerStore = defineStore('tracker', () => {
 
   function setupListeners() {
     window.electronAPI.onIdlePause(() => {
-      // Save last tracked issue before clearing
+      // Save last tracked issue and elapsed time before clearing
       if (currentIssue.value) {
         lastTrackedIssue.value = currentIssue.value
+        pausedElapsedSeconds.value = elapsedSeconds.value
       }
       currentEntry.value = null
       currentIssue.value = null
@@ -116,9 +129,10 @@ export const useTrackerStore = defineStore('tracker', () => {
         currentIssue.value = data.issue
         startTimer()
       } else {
-        // Save last tracked issue before clearing
+        // Save last tracked issue and elapsed time before clearing
         if (currentIssue.value) {
           lastTrackedIssue.value = currentIssue.value
+          pausedElapsedSeconds.value = elapsedSeconds.value
         }
         currentEntry.value = null
         currentIssue.value = null
@@ -142,6 +156,7 @@ export const useTrackerStore = defineStore('tracker', () => {
     isTracking,
     elapsedSeconds,
     formattedTime,
+    formattedPausedTime,
     presenceMode,
     idleSeconds,
     isIdle,
