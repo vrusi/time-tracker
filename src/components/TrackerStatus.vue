@@ -38,7 +38,10 @@ watch(() => trackerStore.currentEntry?.id, () => {
             <RText class="text-secondary text-sm">{{ trackerStore.lastTrackedIssue.externalId }}</RText>
             <RText class="issue-name">{{ trackerStore.lastTrackedIssue.name }}</RText>
           </div>
-          <RText class="text-secondary paused-label">Paused</RText>
+          <div class="paused-timer">
+            <span class="timer-display paused">{{ trackerStore.formattedPausedTime }}</span>
+            <RText class="text-secondary paused-label">Paused</RText>
+          </div>
           <div class="action-buttons">
             <RButton
               size="small"
@@ -168,8 +171,20 @@ watch(() => trackerStore.currentEntry?.id, () => {
   gap: 1rem;
 }
 
+.paused-timer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.125rem;
+}
+
 .paused-label {
   font-style: italic;
+  font-size: 0.75rem;
+}
+
+.timer-display.paused {
+  opacity: 0.7;
 }
 
 .tracking-content {
