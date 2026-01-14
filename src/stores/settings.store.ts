@@ -73,7 +73,19 @@ export const useSettingsStore = defineStore('settings', () => {
   })
 
   function extractIssueId(url: string): string | null {
-    const match = url.match(issueIdRegex.value)
+    // Auto-detect tracker type from URL
+    let regex = issueIdRegex.value
+
+    if (url.includes('gitlab.com') || url.includes('gitlab')) {
+      regex = /\/issues\/(\d+)/
+    } else if (url.includes('github.com') || url.includes('github')) {
+      regex = /\/issues\/(\d+)/
+    } else if (url.includes('atlassian') || url.includes('jira')) {
+      regex = /\/browse\/([A-Z]+-\d+)/
+    }
+    // Otherwise use the user's configured pattern as fallback
+
+    const match = url.match(regex)
     if (!match) return null
 
     const id = match[1]
