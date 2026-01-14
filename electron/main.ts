@@ -1,5 +1,6 @@
-import { app, BrowserWindow, ipcMain, powerMonitor, Tray, Menu, nativeImage, Notification } from 'electron'
-import { join, dirname } from 'path'
+import { app, BrowserWindow, ipcMain, powerMonitor, Tray, Menu, nativeImage, Notification, dialog } from 'electron'
+import { join, dirname, basename } from 'path'
+import { copyFileSync } from 'fs'
 import { fileURLToPath } from 'url'
 import { initDatabase, switchDatabase, db } from './db'
 import {
@@ -588,6 +589,63 @@ function setupIpcHandlers() {
 
   ipcMain.handle('wipe-database', () => {
     db.exec('DELETE FROM time_entries; DELETE FROM issues;')
+  })
+
+  ipcMain.handle('export-database', async (): Promise<boolean> => {
+    const activeProject = getActiveProject()
+    const dbPath = getProjectDbPath(activeProject)
+
+    const result = await dialog.showSaveDialog(mainWindow!, {
+      title: 'Export Database',
+      defaultPath: `${activeProject.name.replace(/[^a-z0-9]/gi, '-')}-backup.db`,
+      filters: [{ name: 'SQLite Database', extensions: ['db'] }]
+    })
+
+    if (result.canceled || !result.filePath) {
+      return false
+    }
+
+    try {
+      copyFileSync(dbPath, result.filePath)
+      return true
+    } catch (err) {
+      console.error('Export failed:', err)
+      return false
+    }
+  })
+
+  ipcMain.handle('import-database', async (): Promise<boolean> => {
+    const result = await dialog.showOpenDialog(mainWindow!, {
+      title: 'Import Database',
+      filters: [{ name: 'SQLite Database', extensions: ['db'] }],
+      properties: ['openFile']
+    })
+
+    if (result.canceled || result.filePaths.length === 0) {
+      return false
+    }
+
+    const importPath = result.filePaths[0]
+    const activeProject = getActiveProject()
+    const dbPath = getProjectDbPath(activeProject)
+
+    try {
+      // Close current database connection
+      db.close()
+
+      // Copy imported file over current database
+      copyFileSync(importPath, dbPath)
+
+      // Reinitialize database connection
+      switchDatabase(dbPath)
+
+      return true
+    } catch (err) {
+      console.error('Import failed:', err)
+      // Try to recover by reopening the original db
+      switchDatabase(dbPath)
+      return false
+    }
   })
 
   // Export
