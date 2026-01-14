@@ -3,6 +3,7 @@ import { ref, onMounted } from 'vue'
 import { useTrackerStore } from './stores/tracker.store'
 import { useIssuesStore } from './stores/issues.store'
 import { useSettingsStore } from './stores/settings.store'
+import { useProjectsStore } from './stores/projects.store'
 import TrackerStatus from './components/TrackerStatus.vue'
 import IssueList from './components/IssueList.vue'
 import IssueForm from './components/IssueForm.vue'
@@ -11,11 +12,13 @@ import ExportDialog from './components/ExportDialog.vue'
 import ProgressBars from './components/ProgressBars.vue'
 import CalendarView from './components/CalendarView.vue'
 import SettingsView from './components/SettingsView.vue'
+import ProjectSwitcher from './components/ProjectSwitcher.vue'
 import { RButton, RCard, RSpace, RTabs, RTabItem } from 'roughness'
 
 const trackerStore = useTrackerStore()
 const issuesStore = useIssuesStore()
 const settingsStore = useSettingsStore()
+const projectsStore = useProjectsStore()
 
 const activeTab = ref<'track' | 'history' | 'settings'>('track')
 const historyView = ref<'list' | 'calendar'>('list')
@@ -27,6 +30,7 @@ function openAddEntry() {
 }
 
 onMounted(async () => {
+  await projectsStore.loadProjects()
   await settingsStore.loadSettings()
   await issuesStore.loadIssues()
   await trackerStore.loadCurrentTracking()
@@ -37,10 +41,13 @@ onMounted(async () => {
 <template>
   <div class="min-h-screen paper-bg">
     <div class="max-w-4xl mx-auto px-4 py-6">
-      <!-- Header with title and export -->
+      <!-- Header with title, project switcher, and export -->
       <header class="flex items-center justify-between mb-6">
         <h1 class="text-2xl font-bold">Time Tracker</h1>
-        <RButton @click="showExportDialog = true">Export</RButton>
+        <div class="flex items-center gap-3">
+          <ProjectSwitcher />
+          <RButton @click="showExportDialog = true">Export</RButton>
+        </div>
       </header>
 
       <!-- Hero: Current Tracking Status -->

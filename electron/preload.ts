@@ -41,6 +41,14 @@ const electronAPI: ElectronAPI = {
   getSettings: () => ipcRenderer.invoke('get-settings'),
   updateSettings: (settings) => ipcRenderer.invoke('update-settings', settings),
 
+  // Projects
+  getProjects: () => ipcRenderer.invoke('get-projects'),
+  getActiveProject: () => ipcRenderer.invoke('get-active-project'),
+  createProject: (name) => ipcRenderer.invoke('create-project', name),
+  switchProject: (id) => ipcRenderer.invoke('switch-project', id),
+  renameProject: (id, name) => ipcRenderer.invoke('rename-project', id, name),
+  deleteProject: (id) => ipcRenderer.invoke('delete-project', id),
+
   // Events from main process
   onIdlePause: (callback) => {
     ipcRenderer.on('idle-pause', callback)
