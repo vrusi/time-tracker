@@ -16,6 +16,9 @@ const editingIssue = ref<Issue | null>(null)
 const editForm = ref({ name: '', link: '' })
 const confirmingDeleteId = ref<number | null>(null)
 
+// Merge state
+const mergingIssueId = ref<number | null>(null)
+
 // Notes state
 const editingNotesId = ref<number | null>(null)
 const notesForm = ref('')
@@ -102,6 +105,23 @@ function cancelDelete() {
 async function executeDelete(issueId: number) {
   await issuesStore.deleteIssue(issueId)
   confirmingDeleteId.value = null
+}
+
+// Merge functions
+function startMerging(issueId: number) {
+  mergingIssueId.value = issueId
+}
+
+function cancelMerging() {
+  mergingIssueId.value = null
+}
+
+async function executeMerge(targetId: number) {
+  if (!mergingIssueId.value) return
+  await window.electronAPI.mergeIssues(mergingIssueId.value, targetId)
+  mergingIssueId.value = null
+  await issuesStore.loadIssues()
+  await loadIssueTimes()
 }
 
 // Notes functions
@@ -286,6 +306,27 @@ function formatDate(isoString: string): string {
 <Icon name="pencil" :size="16" />
             </RButton>
 
+            <!-- Merge -->
+            <div class="merge-wrapper">
+              <RButton
+                v-if="mergingIssueId !== issue.id"
+                size="small"
+                @click="startMerging(issue.id)"
+                title="Merge into another issue"
+              >
+                ⤵
+              </RButton>
+              <div v-else class="merge-select">
+                <select @change="(e) => { if ((e.target as HTMLSelectElement).value) executeMerge(Number((e.target as HTMLSelectElement).value)) }" class="merge-dropdown">
+                  <option value="">Merge into...</option>
+                  <option v-for="target in issuesStore.issues.filter(i => i.id !== issue.id)" :key="target.id" :value="target.id">
+                    {{ target.externalId || target.name }}
+                  </option>
+                </select>
+                <RButton size="small" @click="cancelMerging">✕</RButton>
+              </div>
+            </div>
+
             <!-- Archive/Restore/Delete -->
             <template v-if="issue.archived">
               <RButton
@@ -371,5 +412,35 @@ function formatDate(isoString: string): string {
 .work-log-entry:last-child {
   border-bottom: none;
   padding-bottom: 0;
+}
+
+.merge-wrapper {
+  position: relative;
+}
+
+.merge-select {
+  position: absolute;
+  right: 0;
+  top: 100%;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  background: var(--color-bg);
+  padding: 0.5rem;
+  border: 2px solid var(--color-border);
+  border-radius: 4px;
+  z-index: 10;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+}
+
+.merge-dropdown {
+  padding: 0.25rem 0.5rem;
+  border: 2px solid var(--color-border);
+  border-radius: 4px;
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: inherit;
+  font-size: 0.875rem;
+  min-width: 150px;
 }
 </style>

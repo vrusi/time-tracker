@@ -428,6 +428,13 @@ function setupIpcHandlers() {
     db.prepare('DELETE FROM issues WHERE id = ?').run(id)
   })
 
+  ipcMain.handle('merge-issues', (_, sourceId: number, targetId: number) => {
+    // Move all time entries from source to target
+    db.prepare('UPDATE time_entries SET issue_id = ? WHERE issue_id = ?').run(targetId, sourceId)
+    // Delete the source issue
+    db.prepare('DELETE FROM issues WHERE id = ?').run(sourceId)
+  })
+
   // Tracking
   ipcMain.handle('start-tracking', (_, issueId: number) => {
     return startTracking(issueId)
