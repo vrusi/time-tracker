@@ -28,7 +28,7 @@ const form = ref({
   idleThresholdMinutes: 10,
   idleIndicatorMinutes: 0.5,
   issueUrlPattern: 'gitlab' as 'gitlab' | 'github' | 'jira' | 'custom',
-  customIssuePattern: '',
+  customIssuePattern: '' as string,
   theme: 'light' as 'light' | 'dark' | 'system',
   showEarnings: false,
   notificationsEnabled: true
@@ -77,7 +77,7 @@ function syncFormFromStore() {
     idleThresholdMinutes: s.idleThresholdMinutes,
     idleIndicatorMinutes: s.idleIndicatorMinutes,
     issueUrlPattern: s.issueUrlPattern,
-    customIssuePattern: s.customIssuePattern || '',
+    customIssuePattern: (s.customIssuePattern && s.customIssuePattern !== 'undefined') ? s.customIssuePattern : '',
     theme: s.theme,
     showEarnings: s.showEarnings,
     notificationsEnabled: s.notificationsEnabled
@@ -105,7 +105,7 @@ async function saveSettings() {
       idleThresholdMinutes: form.value.idleThresholdMinutes,
       idleIndicatorMinutes: form.value.idleIndicatorMinutes,
       issueUrlPattern: form.value.issueUrlPattern,
-      customIssuePattern: form.value.customIssuePattern || undefined,
+      customIssuePattern: form.value.customIssuePattern?.trim() || undefined,
       theme: form.value.theme,
       showEarnings: form.value.showEarnings,
       notificationsEnabled: form.value.notificationsEnabled
@@ -325,8 +325,11 @@ async function wipeDatabase() {
     <RCard>
       <template #title><RText>Issue Tracker</RText></template>
 
-      <RFormItem label="Issue Tracker Type">
-        <RSpace wrap>
+      <RText size="small" class="text-secondary mb-4 block">
+        When you paste an issue URL, the app extracts the issue ID (e.g., #123 or PROJ-456) to display alongside the issue name. Common trackers like GitLab, GitHub, and Jira are auto-detected. Select your default tracker for other URLs.
+      </RText>
+
+      <RSpace wrap>
           <RButton
             v-for="tracker in issueTrackers"
             :key="tracker.value"
@@ -335,8 +338,7 @@ async function wipeDatabase() {
           >
             {{ tracker.name }}
           </RButton>
-        </RSpace>
-      </RFormItem>
+      </RSpace>
 
       <RText v-if="form.issueUrlPattern !== 'custom'" size="small" class="text-secondary mt-2">
         Example URL: {{ issueTrackers.find(t => t.value === form.issueUrlPattern)?.example }}
