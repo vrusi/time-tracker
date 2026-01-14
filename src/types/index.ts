@@ -59,6 +59,7 @@ export interface ElectronAPI {
   archiveIssue: (id: number) => Promise<void>
   unarchiveIssue: (id: number) => Promise<void>
   deleteIssue: (id: number) => Promise<void>
+  mergeIssues: (sourceId: number, targetId: number) => Promise<void>
 
   // Tracking
   startTracking: (issueId: number) => Promise<TimeEntry>
