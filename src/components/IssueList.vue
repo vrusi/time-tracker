@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { ref, watch, inject } from 'vue'
 import { useIssuesStore } from '../stores/issues.store'
 import { useTrackerStore } from '../stores/tracker.store'
 import { useSettingsStore } from '../stores/settings.store'
@@ -10,11 +10,17 @@ import Icon from './Icon.vue'
 const issuesStore = useIssuesStore()
 const trackerStore = useTrackerStore()
 const settingsStore = useSettingsStore()
+const refreshProgress = inject<() => void>('refreshProgress')
 
 const issueTimes = ref<Map<number, number>>(new Map())
 const editingIssue = ref<Issue | null>(null)
 const editForm = ref({ name: '', link: '' })
 const confirmingDeleteId = ref<number | null>(null)
+
+// Bulk delete state
+const selectionMode = ref(false)
+const selectedIds = ref<Set<number>>(new Set())
+const showBulkDeleteConfirm = ref(false)
 
 // Merge state
 const mergingIssueId = ref<number | null>(null)
@@ -105,6 +111,7 @@ function cancelDelete() {
 async function executeDelete(issueId: number) {
   await issuesStore.deleteIssue(issueId)
   confirmingDeleteId.value = null
+  refreshProgress?.()
 }
 
 // Merge functions
@@ -154,14 +161,93 @@ function formatDate(isoString: string): string {
     hour12: false
   })
 }
+
+// Bulk delete functions
+function toggleSelectionMode() {
+  selectionMode.value = !selectionMode.value
+  if (!selectionMode.value) {
+    selectedIds.value.clear()
+  }
+}
+
+function toggleIssue(id: number) {
+  if (selectedIds.value.has(id)) {
+    selectedIds.value.delete(id)
+  } else {
+    selectedIds.value.add(id)
+  }
+  selectedIds.value = new Set(selectedIds.value)
+}
+
+function toggleAll() {
+  const displayedIds = issuesStore.displayedIssues.map(i => i.id)
+  const allSelected = displayedIds.every(id => selectedIds.value.has(id))
+
+  if (allSelected) {
+    displayedIds.forEach(id => selectedIds.value.delete(id))
+  } else {
+    displayedIds.forEach(id => selectedIds.value.add(id))
+  }
+  selectedIds.value = new Set(selectedIds.value)
+}
+
+function isAllSelected(): boolean {
+  const displayedIds = issuesStore.displayedIssues.map(i => i.id)
+  return displayedIds.length > 0 && displayedIds.every(id => selectedIds.value.has(id))
+}
+
+async function executeBulkDelete() {
+  const idsToDelete = Array.from(selectedIds.value)
+
+  // Stop tracking if any selected issue is currently being tracked
+  if (trackerStore.currentIssue && selectedIds.value.has(trackerStore.currentIssue.id)) {
+    await trackerStore.pauseTracking()
+  }
+
+  if (idsToDelete.length > 0) {
+    await window.electronAPI.deleteIssues(idsToDelete)
+    await issuesStore.loadIssues()
+  }
+
+  showBulkDeleteConfirm.value = false
+  selectedIds.value.clear()
+  selectionMode.value = false
+  refreshProgress?.()
+}
 </script>
 
 <template>
   <RCard>
     <template #title>
       <RSpace align="center" justify="between" class="w-full">
-        <RText>Issues</RText>
-        <RSpace>
+        <RSpace align="center">
+          <RText>Issues</RText>
+          <RButton
+            size="small"
+            :filled="selectionMode"
+            @click="toggleSelectionMode"
+          >
+            {{ selectionMode ? 'Cancel' : 'Select' }}
+          </RButton>
+          <template v-if="selectionMode">
+            <input
+              type="checkbox"
+              :checked="isAllSelected()"
+              @change="toggleAll"
+              class="bulk-checkbox"
+              title="Select all"
+            />
+            <RButton
+              size="small"
+              color="error"
+              :disabled="selectedIds.size === 0"
+              @click="showBulkDeleteConfirm = true"
+            >
+              Delete ({{ selectedIds.size }})
+            </RButton>
+          </template>
+        </RSpace>
+        <RSpace v-if="!selectionMode">
           <RButton
             :filled="!issuesStore.showArchived"
             size="small"
@@ -251,8 +337,18 @@ function formatDate(isoString: string): string {
 
         <!-- Normal display mode -->
         <div v-else class="flex items-center gap-4 w-full">
+          <!-- Selection checkbox -->
+          <input
+            v-if="selectionMode"
+            type="checkbox"
+            :checked="selectedIds.has(issue.id)"
+            @change="toggleIssue(issue.id)"
+            class="bulk-checkbox"
+          />
+
           <!-- Play/Pause button -->
           <RButton
+            v-if="!selectionMode"
             @click="toggleTracking(issue)"
             :disabled="issue.archived"
             :filled="isCurrentlyTracking(issue)"
@@ -273,8 +369,8 @@ function formatDate(isoString: string): string {
             </RText>
           </div>
 
-          <!-- Action buttons -->
-          <RSpace>
+          <!-- Action buttons (hidden in selection mode) -->
+          <RSpace v-if="!selectionMode">
             <!-- Link -->
             <RButton
               v-if="issue.link"
@@ -362,6 +458,20 @@ function formatDate(isoString: string): string {
         </div>
       </RListItem>
     </RList>
+
+    <!-- Bulk Delete Confirmation Dialog -->
+    <RDialog v-model:open="showBulkDeleteConfirm">
+      <template #title>Delete Issues?</template>
+      <RText>
+        This will permanently delete {{ selectedIds.size }}
+        {{ selectedIds.size === 1 ? 'issue' : 'issues' }} and all their time entries.
+        This cannot be undone.
+      </RText>
+      <RSpace class="modal-actions">
+        <RButton @click="showBulkDeleteConfirm = false">Cancel</RButton>
+        <RButton color="error" filled @click="executeBulkDelete">Delete</RButton>
+      </RSpace>
+    </RDialog>
   </RCard>
 </template>
 
@@ -442,5 +552,17 @@ function formatDate(isoString: string): string {
   font-family: inherit;
   font-size: 0.875rem;
   min-width: 150px;
+}
+
+.bulk-checkbox {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+  accent-color: var(--color-primary);
+}
+
+.modal-actions {
+  margin-top: 1rem;
+  justify-content: flex-end;
 }
 </style>
