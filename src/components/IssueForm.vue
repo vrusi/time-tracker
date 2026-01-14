@@ -131,7 +131,7 @@ async function handleSubmit() {
 .form-row {
   display: flex;
   align-items: flex-end;
-  gap: 1rem;
+  gap: 0.75rem;
 }
 
 .url-field {
@@ -150,20 +150,20 @@ async function handleSubmit() {
 
 .field-label {
   display: block;
-  font-size: 0.875rem;
+  font-size: 0.8rem;
   margin-bottom: 0.25rem;
-  color: var(--color-text);
+  color: var(--color-text-secondary);
 }
 
 .field-input {
   width: 100%;
-  padding: 0.5rem 0.75rem;
-  border: 2px solid var(--color-border);
+  padding: 0.4rem 0.6rem;
+  border: 1px solid var(--color-border);
   border-radius: 4px;
   background: var(--color-bg);
   color: var(--color-text);
   font-family: inherit;
-  font-size: 1rem;
+  font-size: 0.9rem;
   box-sizing: border-box;
 }
 
@@ -174,5 +174,6 @@ async function handleSubmit() {
 
 .field-input::placeholder {
   color: var(--color-text-secondary);
+  opacity: 0.6;
 }
 </style>

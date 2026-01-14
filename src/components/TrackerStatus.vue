@@ -32,34 +32,31 @@ watch(() => trackerStore.currentEntry?.id, () => {
   <RCard class="tracker-hero">
     <!-- Paused state - show last tracked issue -->
     <template v-if="(!trackerStore.isTracking || !trackerStore.currentIssue) && trackerStore.lastTrackedIssue">
-      <div class="paused-content">
-        <div class="paused-row">
-          <div class="issue-info">
-            <RText class="text-secondary text-sm">{{ trackerStore.lastTrackedIssue.externalId }}</RText>
-            <RText class="issue-name">{{ trackerStore.lastTrackedIssue.name }}</RText>
-          </div>
-          <div class="paused-timer">
-            <span class="timer-display paused">{{ trackerStore.formattedPausedTime }}</span>
-            <RText class="text-secondary paused-label">{{ trackerStore.pauseReason === 'idle' ? 'Paused (inactive)' : 'Paused' }}</RText>
-          </div>
-          <div class="action-buttons">
-            <RButton
-              size="small"
-              filled
-              color="success"
-              @click="trackerStore.startTracking(trackerStore.lastTrackedIssue!.id)"
-              title="Resume tracking"
-            >
-              <Icon name="play" :size="16" />
-            </RButton>
-            <RButton
-              size="small"
-              @click="trackerStore.clearLastTracked()"
-              title="Clear (stop tracking)"
-            >
-              Clear
-            </RButton>
-          </div>
+      <div class="tracker-row">
+        <div class="issue-info">
+          <RText class="text-secondary text-sm">{{ trackerStore.lastTrackedIssue.externalId }}</RText>
+          <RText class="issue-name">{{ trackerStore.lastTrackedIssue.name }}</RText>
+        </div>
+        <div class="timer-section">
+          <span class="timer-display paused">{{ trackerStore.formattedPausedTime }}</span>
+          <span class="status-badge">{{ trackerStore.pauseReason === 'idle' ? 'Idle' : 'Paused' }}</span>
+        </div>
+        <div class="action-buttons">
+          <RButton
+            size="small"
+            color="success"
+            @click="trackerStore.startTracking(trackerStore.lastTrackedIssue!.id)"
+            title="Resume tracking"
+          >
+            <Icon name="play" :size="16" />
+          </RButton>
+          <RButton
+            size="small"
+            @click="trackerStore.clearLastTracked()"
+            title="Dismiss"
+          >
+            Clear
+          </RButton>
         </div>
       </div>
     </template>
@@ -75,26 +72,19 @@ watch(() => trackerStore.currentEntry?.id, () => {
     <!-- Actively tracking -->
     <template v-else>
       <div class="tracking-content">
-        <!-- Top row: issue info + timer + actions -->
-        <div class="tracking-row">
-          <!-- Issue info -->
+        <div class="tracker-row">
           <div class="issue-info">
             <RText class="text-secondary text-sm">{{ trackerStore.currentIssue.externalId }}</RText>
             <RText class="issue-name">{{ trackerStore.currentIssue.name }}</RText>
           </div>
-
-          <!-- Timer display -->
           <div class="timer-section">
             <span class="timer-display">{{ trackerStore.formattedTime }}</span>
             <span class="status-dot" :class="trackerStore.isIdle && !trackerStore.presenceMode ? 'idle' : 'active'"></span>
           </div>
-
-          <!-- Action buttons -->
           <div class="action-buttons">
             <RButton
               size="small"
-              :filled="trackerStore.presenceMode"
-              :color="trackerStore.presenceMode ? 'warning' : undefined"
+              :class="['subtle-btn', trackerStore.presenceMode && 'subtle-btn-active']"
               @click="trackerStore.togglePresenceMode()"
               :title="trackerStore.presenceMode ? 'Presence mode ON - idle detection disabled. Click to disable.' : 'Enable presence mode - disables idle detection'"
             >
@@ -102,7 +92,7 @@ watch(() => trackerStore.currentEntry?.id, () => {
             </RButton>
             <RButton
               size="small"
-              :filled="showNotes"
+              :class="['subtle-btn', showNotes && 'subtle-btn-active']"
               @click="showNotes = !showNotes"
               title="Add notes to this time entry (saved when you pause)"
             >
@@ -110,10 +100,9 @@ watch(() => trackerStore.currentEntry?.id, () => {
             </RButton>
             <RButton
               size="small"
-              filled
               color="error"
               @click="pauseWithNotes"
-              title="Pause tracking"
+              title="Stop tracking"
             >
               Pause
             </RButton>
@@ -149,6 +138,7 @@ watch(() => trackerStore.currentEntry?.id, () => {
 <style scoped>
 .tracker-hero {
   --r-card-padding: 0.75rem;
+  min-height: 70px;
 }
 
 .not-tracking {
@@ -159,44 +149,16 @@ watch(() => trackerStore.currentEntry?.id, () => {
   padding: 0.5rem 0;
 }
 
-.paused-content {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-}
-
-.paused-row {
+.tracker-row {
   display: flex;
   align-items: center;
   gap: 1rem;
-}
-
-.paused-timer {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.125rem;
-}
-
-.paused-label {
-  font-style: italic;
-  font-size: 0.75rem;
-}
-
-.timer-display.paused {
-  opacity: 0.7;
 }
 
 .tracking-content {
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
-}
-
-.tracking-row {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
 }
 
 .issue-info {
@@ -206,6 +168,20 @@ watch(() => trackerStore.currentEntry?.id, () => {
 
 .issue-name {
   display: block;
+}
+
+.timer-display.paused {
+  opacity: 0.6;
+}
+
+.status-badge {
+  font-size: 0.65rem;
+  padding: 0.125rem 0.35rem;
+  border-radius: 3px;
+  text-transform: uppercase;
+  font-weight: 500;
+  background: var(--color-bg-secondary);
+  color: var(--color-text-secondary);
 }
 
 .timer-section {
@@ -244,7 +220,31 @@ watch(() => trackerStore.currentEntry?.id, () => {
 
 .action-buttons {
   display: flex;
+  align-items: center;
   gap: 0.5rem;
+  min-width: 160px;
+  justify-content: flex-end;
+}
+
+
+/* Subtle icon buttons - muted until hover/active */
+.subtle-btn {
+  opacity: 0.5;
+  transition: opacity 0.15s ease;
+}
+
+.subtle-btn:hover {
+  opacity: 1;
+}
+
+.subtle-btn-active {
+  opacity: 1;
+  --r-button-color: var(--color-warning) !important;
+}
+
+/* Pause button - red without stripes */
+.pause-btn {
+  --r-button-color: var(--color-error) !important;
 }
 
 .idle-section {
