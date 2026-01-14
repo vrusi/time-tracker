@@ -110,6 +110,9 @@ onUnmounted(() => {
 trackerStore.$subscribe(() => {
   loadProgress()
 })
+
+// Expose for parent to call after deletions
+defineExpose({ loadProgress })
 </script>
 
 <template>

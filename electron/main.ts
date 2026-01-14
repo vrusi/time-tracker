@@ -572,6 +572,24 @@ function setupIpcHandlers() {
     db.prepare('DELETE FROM time_entries WHERE id = ?').run(id)
   })
 
+  ipcMain.handle('delete-time-entries', (_, ids: number[]) => {
+    if (ids.length === 0) return
+    const placeholders = ids.map(() => '?').join(',')
+    db.prepare(`DELETE FROM time_entries WHERE id IN (${placeholders})`).run(...ids)
+  })
+
+  ipcMain.handle('delete-issues', (_, ids: number[]) => {
+    if (ids.length === 0) return
+    const placeholders = ids.map(() => '?').join(',')
+    // Delete time entries first (foreign key constraint)
+    db.prepare(`DELETE FROM time_entries WHERE issue_id IN (${placeholders})`).run(...ids)
+    db.prepare(`DELETE FROM issues WHERE id IN (${placeholders})`).run(...ids)
+  })
+
+  ipcMain.handle('wipe-database', () => {
+    db.exec('DELETE FROM time_entries; DELETE FROM issues;')
+  })
+
   // Export
   ipcMain.handle('export-month', (_, year: number, month: number) => {
     const startDate = new Date(year, month - 1, 1).toISOString()

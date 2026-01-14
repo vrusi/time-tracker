@@ -33,6 +33,12 @@ const issueEditForm = ref({ name: '', link: '' })
 // Delete confirmation state
 const confirmingDeleteId = ref<number | null>(null)
 
+// Bulk delete state
+const selectionMode = ref(false)
+const selectedIds = ref<Set<number>>(new Set())
+const showBulkDeleteConfirm = ref(false)
+const bulkDeleteType = ref<'selected' | 'range'>('selected')
+
 // Add entry modal state
 const showAddEntryModal = ref(false)
 const successMessage = ref('')
@@ -202,6 +208,7 @@ async function executeDelete(entryId: number) {
   await window.electronAPI.deleteTimeEntry(entryId)
   confirmingDeleteId.value = null
   await loadEntries()
+  emit('entries-changed')
 }
 
 // Add entry functions
@@ -255,6 +262,7 @@ async function submitAddEntry() {
 
   showAddEntryModal.value = false
   await loadEntries()
+  emit('entries-changed')
 
   // Show success message
   successMessage.value = 'Entry added successfully'
@@ -271,11 +279,76 @@ const addEntryDuration = computed(() => {
   return formatDuration((end - start) / 1000)
 })
 
+// Bulk delete functions
+function toggleSelectionMode() {
+  selectionMode.value = !selectionMode.value
+  if (!selectionMode.value) {
+    selectedIds.value.clear()
+  }
+}
+
+function toggleEntry(id: number) {
+  if (selectedIds.value.has(id)) {
+    selectedIds.value.delete(id)
+  } else {
+    selectedIds.value.add(id)
+  }
+  // Trigger reactivity
+  selectedIds.value = new Set(selectedIds.value)
+}
+
+function toggleDay(dayEntries: (TimeEntry & { issue: Issue })[]) {
+  const dayIds = dayEntries.map(e => e.id)
+  const allSelected = dayIds.every(id => selectedIds.value.has(id))
+
+  if (allSelected) {
+    dayIds.forEach(id => selectedIds.value.delete(id))
+  } else {
+    dayIds.forEach(id => selectedIds.value.add(id))
+  }
+  // Trigger reactivity
+  selectedIds.value = new Set(selectedIds.value)
+}
+
+function isDaySelected(dayEntries: (TimeEntry & { issue: Issue })[]): boolean {
+  return dayEntries.length > 0 && dayEntries.every(e => selectedIds.value.has(e.id))
+}
+
+function confirmBulkDelete(type: 'selected' | 'range') {
+  bulkDeleteType.value = type
+  showBulkDeleteConfirm.value = true
+}
+
+async function executeBulkDelete() {
+  let idsToDelete: number[]
+
+  if (bulkDeleteType.value === 'selected') {
+    idsToDelete = Array.from(selectedIds.value)
+  } else {
+    // Delete all in range
+    idsToDelete = entries.value.map(e => e.id)
+  }
+
+  if (idsToDelete.length > 0) {
+    await window.electronAPI.deleteTimeEntries(idsToDelete)
+  }
+
+  showBulkDeleteConfirm.value = false
+  selectedIds.value.clear()
+  selectionMode.value = false
+  await loadEntries()
+  emit('entries-changed')
+}
+
 watch([startDate, endDate], loadEntries)
 onMounted(() => {
   loadEntries()
   issuesStore.loadIssues()
 })
+
+const emit = defineEmits<{
+  (e: 'entries-changed'): void
+}>()
 
 // Expose for parent component
 defineExpose({ openAddEntryModal, loadEntries })
@@ -286,6 +359,32 @@ defineExpose({ openAddEntryModal, loadEntries })
     <!-- Success message -->
     <div v-if="successMessage" class="success-toast">
       {{ successMessage }}
+    </div>
+
+    <!-- Bulk delete toolbar -->
+    <div class="bulk-toolbar">
+      <RButton
+        :filled="selectionMode"
+        @click="toggleSelectionMode"
+      >
+        {{ selectionMode ? 'Cancel' : 'Select' }}
+      </RButton>
+      <template v-if="selectionMode">
+        <RButton
+          color="error"
+          :disabled="selectedIds.size === 0"
+          @click="confirmBulkDelete('selected')"
+        >
+          Delete Selected ({{ selectedIds.size }})
+        </RButton>
+        <RButton
+          color="error"
+          :disabled="entries.length === 0"
+          @click="confirmBulkDelete('range')"
+        >
+          Delete All in Range ({{ entries.length }})
+        </RButton>
+      </template>
     </div>
 
     <!-- Date filter -->
@@ -332,7 +431,16 @@ defineExpose({ openAddEntryModal, loadEntries })
     >
       <template #title>
         <RSpace justify="between" class="w-full">
-          <RText>{{ formatDate(group.date) }}</RText>
+          <RSpace align="center">
+            <input
+              v-if="selectionMode"
+              type="checkbox"
+              :checked="isDaySelected(group.entries)"
+              @change="toggleDay(group.entries)"
+              class="bulk-checkbox"
+            />
+            <RText>{{ formatDate(group.date) }}</RText>
+          </RSpace>
           <RText class="text-secondary">Total: {{ formatDuration(group.totalSeconds) }}</RText>
         </RSpace>
       </template>
@@ -402,6 +510,13 @@ defineExpose({ openAddEntryModal, loadEntries })
 
           <!-- Normal display mode -->
           <div v-else class="flex items-center gap-4 w-full">
+            <input
+              v-if="selectionMode"
+              type="checkbox"
+              :checked="selectedIds.has(entry.id)"
+              @change="toggleEntry(entry.id)"
+              class="bulk-checkbox"
+            />
             <div class="flex-1">
               <div class="flex items-center gap-2">
                 <RText class="font-medium">{{ entry.issue.externalId }}</RText>
@@ -460,6 +575,21 @@ defineExpose({ openAddEntryModal, loadEntries })
         </RListItem>
       </RList>
     </RCard>
+
+    <!-- Bulk Delete Confirmation Dialog -->
+    <RDialog v-model:open="showBulkDeleteConfirm">
+      <template #title>Delete Entries?</template>
+      <RText>
+        This will permanently delete
+        {{ bulkDeleteType === 'selected' ? selectedIds.size : entries.length }}
+        time {{ (bulkDeleteType === 'selected' ? selectedIds.size : entries.length) === 1 ? 'entry' : 'entries' }}.
+        This cannot be undone.
+      </RText>
+      <RSpace class="modal-actions">
+        <RButton @click="showBulkDeleteConfirm = false">Cancel</RButton>
+        <RButton color="error" filled @click="executeBulkDelete">Delete</RButton>
+      </RSpace>
+    </RDialog>
 
     <!-- Add Entry Dialog -->
     <RDialog v-model:open="showAddEntryModal">
@@ -656,5 +786,23 @@ defineExpose({ openAddEntryModal, loadEntries })
   border-radius: 4px;
   text-align: center;
   font-weight: 500;
+}
+
+.bulk-toolbar {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.bulk-checkbox {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+  accent-color: var(--color-primary);
+}
+
+.modal-actions {
+  margin-top: 1rem;
+  justify-content: flex-end;
 }
 </style>

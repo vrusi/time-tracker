@@ -91,6 +91,9 @@ export interface ElectronAPI {
   createTimeEntry: (issueId: number, startedAt: string, endedAt: string, notes?: string) => Promise<TimeEntry>
   updateTimeEntry: (id: number, updates: { startedAt?: string; endedAt?: string; notes?: string }) => Promise<TimeEntry>
   deleteTimeEntry: (id: number) => Promise<void>
+  deleteTimeEntries: (ids: number[]) => Promise<void>
+  deleteIssues: (ids: number[]) => Promise<void>
+  wipeDatabase: () => Promise<void>
 
   // Export
   exportMonth: (year: number, month: number) => Promise<MonthlyReport[]>

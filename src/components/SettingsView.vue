@@ -1,9 +1,18 @@
 <script setup lang="ts">
-import { ref, watch, onMounted } from 'vue'
+import { ref, watch, onMounted, inject } from 'vue'
 import { useSettingsStore } from '../stores/settings.store'
-import { RCard, RButton, RInput, RText, RSpace, RSwitch, RFormItem } from 'roughness'
+import { RCard, RButton, RInput, RText, RSpace, RSwitch, RFormItem, RDialog } from 'roughness'
+import { useIssuesStore } from '../stores/issues.store'
+import { useTrackerStore } from '../stores/tracker.store'
 
 const settingsStore = useSettingsStore()
+const issuesStore = useIssuesStore()
+const trackerStore = useTrackerStore()
+const refreshProgress = inject<() => void>('refreshProgress')
+
+// Wipe database state
+const showWipeConfirm = ref(false)
+const isWiping = ref(false)
 
 // Local form state
 const form = ref({
@@ -103,6 +112,32 @@ async function saveSettings() {
     saveMessage.value = 'Error saving settings'
   } finally {
     isSaving.value = false
+  }
+}
+
+async function wipeDatabase() {
+  isWiping.value = true
+  try {
+    // Stop any active tracking
+    if (trackerStore.isTracking) {
+      await trackerStore.pauseTracking()
+    }
+    trackerStore.clearState()
+
+    // Wipe database
+    await window.electronAPI.wipeDatabase()
+
+    // Reload stores
+    await issuesStore.loadIssues()
+    refreshProgress?.()
+
+    showWipeConfirm.value = false
+    saveMessage.value = 'Database wiped successfully'
+    setTimeout(() => { saveMessage.value = '' }, 2000)
+  } catch (err) {
+    saveMessage.value = 'Error wiping database'
+  } finally {
+    isWiping.value = false
   }
 }
 </script>
@@ -278,6 +313,38 @@ async function saveSettings() {
       </RFormItem>
     </RCard>
 
+    <!-- Danger Zone -->
+    <RCard class="danger-zone">
+      <template #title><RText class="text-danger">Danger Zone</RText></template>
+
+      <RSpace justify="between" align="center">
+        <div>
+          <RText>Wipe Database</RText>
+          <RText size="small" class="text-secondary block">
+            Permanently delete all issues and time entries in this project
+          </RText>
+        </div>
+        <RButton color="error" @click="showWipeConfirm = true">
+          Wipe Database
+        </RButton>
+      </RSpace>
+    </RCard>
+
+    <!-- Wipe Confirmation Dialog -->
+    <RDialog v-model:open="showWipeConfirm">
+      <template #title>Wipe Database?</template>
+      <RText>
+        This will permanently delete ALL issues and time entries in this project.
+        This action cannot be undone.
+      </RText>
+      <RSpace class="modal-actions">
+        <RButton @click="showWipeConfirm = false">Cancel</RButton>
+        <RButton color="error" filled @click="wipeDatabase" :disabled="isWiping">
+          {{ isWiping ? 'Wiping...' : 'Delete Everything' }}
+        </RButton>
+      </RSpace>
+    </RDialog>
+
     <!-- Save Button -->
     <RSpace justify="end" align="center">
       <RText v-if="saveMessage" :class="saveMessage.includes('Error') ? 'text-danger' : 'text-success'">
@@ -338,5 +405,14 @@ async function saveSettings() {
   font-size: 0.875rem;
   font-weight: 500;
   color: var(--color-text);
+}
+
+.danger-zone {
+  border-color: var(--color-error, #dc2626);
+}
+
+.modal-actions {
+  margin-top: 1rem;
+  justify-content: flex-end;
 }
 </style>
