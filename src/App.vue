@@ -4,11 +4,13 @@ import { useTrackerStore } from './stores/tracker.store'
 import { useIssuesStore } from './stores/issues.store'
 import { useSettingsStore } from './stores/settings.store'
 import { useProjectsStore } from './stores/projects.store'
+import type { TrackingRecoveryInfo } from './types'
 import TrackerStatus from './components/TrackerStatus.vue'
 import IssueList from './components/IssueList.vue'
 import IssueForm from './components/IssueForm.vue'
 import HistoryView from './components/HistoryView.vue'
 import ExportDialog from './components/ExportDialog.vue'
+import RecoveryDialog from './components/RecoveryDialog.vue'
 import ProgressBars from './components/ProgressBars.vue'
 import CalendarView from './components/CalendarView.vue'
 import SettingsView from './components/SettingsView.vue'
@@ -23,6 +25,8 @@ const projectsStore = useProjectsStore()
 const activeTab = ref<'track' | 'history' | 'settings'>('track')
 const historyView = ref<'list' | 'calendar'>('list')
 const showExportDialog = ref(false)
+const showRecoveryDialog = ref(false)
+const recoveryInfo = ref<TrackingRecoveryInfo | null>(null)
 const historyViewRef = ref<InstanceType<typeof HistoryView> | null>(null)
 const progressBarsRef = ref<InstanceType<typeof ProgressBars> | null>(null)
 
@@ -37,11 +41,26 @@ function openAddEntry() {
   historyViewRef.value?.openAddEntryModal()
 }
 
+async function handleRecoveryResolve(action: 'keep-all' | 'end-at-close' | 'discard') {
+  await window.electronAPI.resolveTrackingRecovery(action)
+  await trackerStore.loadCurrentTracking()
+  refreshProgress()
+}
+
 onMounted(async () => {
   await projectsStore.loadProjects()
   await settingsStore.loadSettings()
   await issuesStore.loadIssues()
-  await trackerStore.loadCurrentTracking()
+
+  // Check for recovery before loading current tracking
+  const recovery = await window.electronAPI.checkTrackingRecovery()
+  if (recovery) {
+    recoveryInfo.value = recovery
+    showRecoveryDialog.value = true
+  } else {
+    await trackerStore.loadCurrentTracking()
+  }
+
   trackerStore.setupListeners()
 })
 </script>
@@ -111,5 +130,12 @@ onMounted(async () => {
 
     <!-- Export dialog -->
     <ExportDialog v-model:open="showExportDialog" />
+
+    <!-- Recovery dialog -->
+    <RecoveryDialog
+      v-model:open="showRecoveryDialog"
+      :recovery="recoveryInfo"
+      @resolve="handleRecoveryResolve"
+    />
   </div>
 </template>

@@ -47,6 +47,14 @@ export interface ProjectsConfig {
   projects: Project[]
 }
 
+export interface TrackingRecoveryInfo {
+  entry: TimeEntry
+  issue: Issue
+  lastSeenAt: string
+  totalElapsedSeconds: number
+  elapsedSinceLastSeenSeconds: number
+}
+
 export interface AppSettings {
   dailyTargetHours: number
   monthlyTargetHours: number
@@ -77,6 +85,10 @@ export interface ElectronAPI {
   startTracking: (issueId: number) => Promise<TimeEntry>
   pauseTracking: (reason?: 'manual' | 'switched') => Promise<TimeEntry | null>
   getCurrentTracking: () => Promise<{ entry: TimeEntry; issue: Issue } | null>
+
+  // Recovery
+  checkTrackingRecovery: () => Promise<TrackingRecoveryInfo | null>
+  resolveTrackingRecovery: (action: 'keep-all' | 'end-at-close' | 'discard', customEndTime?: string) => Promise<{ entry: TimeEntry; issue: Issue } | null>
 
   // Presence mode
   getPresenceMode: () => Promise<boolean>
