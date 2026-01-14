@@ -94,6 +94,8 @@ export interface ElectronAPI {
   deleteTimeEntries: (ids: number[]) => Promise<void>
   deleteIssues: (ids: number[]) => Promise<void>
   wipeDatabase: () => Promise<void>
+  exportDatabase: () => Promise<boolean>
+  importDatabase: () => Promise<boolean>
 
   // Export
   exportMonth: (year: number, month: number) => Promise<MonthlyReport[]>
