@@ -225,14 +225,14 @@ async function executeBulkDelete() {
           <div class="view-toggle">
             <RButton
               size="small"
-              :filled="!issuesStore.showArchived"
+              :class="{ 'view-active': !issuesStore.showArchived }"
               @click="issuesStore.showArchived = false"
             >
               Active
             </RButton>
             <RButton
               size="small"
-              :filled="issuesStore.showArchived"
+              :class="{ 'view-active': issuesStore.showArchived }"
               @click="issuesStore.showArchived = true"
             >
               Archived
@@ -341,25 +341,25 @@ async function executeBulkDelete() {
         <div v-else class="issue-row">
           <!-- Top row: play button + title + actions (aligned) -->
           <div class="issue-main">
-            <!-- Selection checkbox -->
-            <input
-              v-if="selectionMode"
-              type="checkbox"
-              :checked="selectedIds.has(issue.id)"
-              @change="toggleIssue(issue.id)"
-              class="bulk-checkbox"
-            />
-
-            <!-- Play/Pause button -->
-            <RButton
-              v-if="!selectionMode"
-              @click="toggleTracking(issue)"
-              :disabled="issue.archived"
-              :color="isCurrentlyTracking(issue) ? 'error' : 'success'"
-              :title="isCurrentlyTracking(issue) ? 'Stop tracking' : 'Start tracking'"
-            >
-<Icon :name="isCurrentlyTracking(issue) ? 'pause' : 'play'" :size="16" />
-            </RButton>
+            <!-- Play/Pause button OR Checkbox (same slot) -->
+            <div class="play-slot">
+              <input
+                v-if="selectionMode"
+                type="checkbox"
+                :checked="selectedIds.has(issue.id)"
+                @change="toggleIssue(issue.id)"
+                class="bulk-checkbox"
+              />
+              <RButton
+                v-else
+                @click="toggleTracking(issue)"
+                :disabled="issue.archived"
+                :color="isCurrentlyTracking(issue) ? 'error' : 'success'"
+                :title="isCurrentlyTracking(issue) ? 'Stop tracking' : 'Start tracking'"
+              >
+                <Icon :name="isCurrentlyTracking(issue) ? 'pause' : 'play'" :size="16" />
+              </RButton>
+            </div>
 
             <!-- Issue title and metadata -->
             <div class="issue-info">
@@ -372,95 +372,102 @@ async function executeBulkDelete() {
               </div>
             </div>
 
-            <!-- Action buttons (aligned with title) -->
-            <div v-if="!selectionMode" class="action-buttons">
-            <!-- Primary action: open link (always visible if exists) -->
-            <RButton
-              v-if="issue.link"
-              tag="a"
-              :href="issue.link"
-              target="_blank"
-              size="small"
-              title="Open in tracker"
-              @click.stop
-            >
-              <span class="link-icon">↗</span>
-            </RButton>
-
-            <!-- Secondary actions (visible on hover) -->
-            <div class="secondary-actions">
-            <!-- Notes -->
-            <RButton
-              size="small"
-              @click="startEditingNotes(issue)"
-              title="Notes"
-            >
-<Icon name="note" :size="16" />
-            </RButton>
-
-            <!-- Edit -->
-            <RButton
-              size="small"
-              @click="startEditing(issue)"
-              title="Edit"
-            >
-<Icon name="pencil" :size="16" />
-            </RButton>
-
-            <!-- Merge -->
-            <div class="merge-wrapper">
+            <!-- Action buttons (always present, faded in selection mode) -->
+            <div class="action-buttons" :class="{ 'selection-mode': selectionMode }">
+              <!-- Primary action: open link (always visible if exists) -->
               <RButton
-                v-if="mergingIssueId !== issue.id"
+                v-if="issue.link"
+                tag="a"
+                :href="issue.link"
+                target="_blank"
                 size="small"
-                @click="startMerging(issue.id)"
-                title="Merge into another issue"
+                title="Open in tracker"
+                @click.stop
+                :disabled="selectionMode"
               >
-                ⤵
+                <span class="link-icon">↗</span>
               </RButton>
-              <div v-else class="merge-select">
-                <select @change="(e) => { if ((e.target as HTMLSelectElement).value) executeMerge(Number((e.target as HTMLSelectElement).value)) }" class="merge-dropdown">
-                  <option value="">Merge into...</option>
-                  <option v-for="target in issuesStore.issues.filter(i => i.id !== issue.id)" :key="target.id" :value="target.id">
-                    {{ target.externalId || target.name }}
-                  </option>
-                </select>
-                <RButton size="small" @click="cancelMerging">✕</RButton>
-              </div>
+
+              <!-- Secondary actions (visible on hover, disabled in selection mode) -->
+              <div class="secondary-actions">
+                <!-- Notes -->
+                <RButton
+                  size="small"
+                  @click="startEditingNotes(issue)"
+                  title="Notes"
+                  :disabled="selectionMode"
+                >
+                  <Icon name="note" :size="16" />
+                </RButton>
+
+                <!-- Edit -->
+                <RButton
+                  size="small"
+                  @click="startEditing(issue)"
+                  title="Edit"
+                  :disabled="selectionMode"
+                >
+                  <Icon name="pencil" :size="16" />
+                </RButton>
+
+                <!-- Merge -->
+                <div class="merge-wrapper">
+                  <RButton
+                    v-if="mergingIssueId !== issue.id"
+                    size="small"
+                    @click="startMerging(issue.id)"
+                    title="Merge into another issue"
+                    :disabled="selectionMode"
+                  >
+                    ⤵
+                  </RButton>
+                  <div v-else class="merge-select">
+                    <select @change="(e) => { if ((e.target as HTMLSelectElement).value) executeMerge(Number((e.target as HTMLSelectElement).value)) }" class="merge-dropdown">
+                      <option value="">Merge into...</option>
+                      <option v-for="target in issuesStore.issues.filter(i => i.id !== issue.id)" :key="target.id" :value="target.id">
+                        {{ target.externalId || target.name }}
+                      </option>
+                    </select>
+                    <RButton size="small" @click="cancelMerging">✕</RButton>
+                  </div>
+                </div>
+
+                <!-- Archive/Restore/Delete -->
+                <template v-if="issue.archived">
+                  <RButton
+                    size="small"
+                    @click="issuesStore.unarchiveIssue(issue.id)"
+                    title="Restore"
+                    :disabled="selectionMode"
+                  >
+                    ↩
+                  </RButton>
+                  <RButton
+                    v-if="confirmingDeleteId !== issue.id"
+                    size="small"
+                    color="error"
+                    @click="confirmDelete(issue.id)"
+                    title="Delete"
+                    :disabled="selectionMode"
+                  >
+                    <Icon name="delete" :size="16" />
+                  </RButton>
+                  <RSpace v-else>
+                    <RButton size="small" color="error" filled @click="executeDelete(issue.id)" title="Confirm delete">Yes</RButton>
+                    <RButton size="small" @click="cancelDelete" title="Cancel delete">No</RButton>
+                  </RSpace>
+                </template>
+                <RButton
+                  v-else
+                  size="small"
+                  @click="issuesStore.archiveIssue(issue.id)"
+                  title="Archive"
+                  :disabled="selectionMode"
+                >
+                  <Icon name="box" :size="16" />
+                </RButton>
+              </div><!-- end secondary-actions -->
             </div>
-
-            <!-- Archive/Restore/Delete -->
-            <template v-if="issue.archived">
-              <RButton
-                size="small"
-                @click="issuesStore.unarchiveIssue(issue.id)"
-                title="Restore"
-              >
-                ↩
-              </RButton>
-              <RButton
-                v-if="confirmingDeleteId !== issue.id"
-                size="small"
-                color="error"
-                @click="confirmDelete(issue.id)"
-                title="Delete"
-              >
-<Icon name="delete" :size="16" />
-              </RButton>
-              <RSpace v-else>
-                <RButton size="small" color="error" filled @click="executeDelete(issue.id)" title="Confirm delete">Yes</RButton>
-                <RButton size="small" @click="cancelDelete" title="Cancel delete">No</RButton>
-              </RSpace>
-            </template>
-            <RButton
-              v-else
-              size="small"
-              @click="issuesStore.archiveIssue(issue.id)"
-              title="Archive"
-            >
-<Icon name="box" :size="16" />
-            </RButton>
-            </div><!-- end secondary-actions -->
-          </div>
           </div><!-- end issue-main -->
         </div>
       </div>
@@ -521,11 +528,27 @@ async function executeBulkDelete() {
   width: 100%;
 }
 
+/* Fixed-width slot for play button / checkbox */
+.play-slot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  flex-shrink: 0;
+  margin: 0 0.5rem;
+}
+
 .action-buttons {
   display: flex;
   align-items: flex-start;
   gap: 0.25rem;
   flex-shrink: 0;
+}
+
+/* Fade all actions in selection mode */
+.action-buttons.selection-mode {
+  opacity: 0.2;
+  pointer-events: none;
 }
 
 .secondary-actions {
@@ -536,6 +559,11 @@ async function executeBulkDelete() {
 }
 
 .issue-item:hover .secondary-actions {
+  opacity: 1;
+}
+
+/* Keep secondary actions faded in selection mode even on hover */
+.action-buttons.selection-mode .secondary-actions {
   opacity: 1;
 }
 
@@ -678,6 +706,11 @@ async function executeBulkDelete() {
 .view-toggle {
   display: flex;
   gap: 0.5rem;
+}
+
+/* Both buttons look similar, inactive one is faded */
+.view-toggle > :not(.view-active) {
+  opacity: 0.5;
 }
 
 .card-header :deep(.r-button) {
