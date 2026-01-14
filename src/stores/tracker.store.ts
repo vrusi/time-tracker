@@ -102,6 +102,17 @@ export const useTrackerStore = defineStore('tracker', () => {
     pauseReason.value = null
   }
 
+  function clearState() {
+    // Clear all tracking state (used when switching projects)
+    currentEntry.value = null
+    currentIssue.value = null
+    lastTrackedIssue.value = null
+    elapsedSeconds.value = 0
+    pausedElapsedSeconds.value = 0
+    pauseReason.value = null
+    stopTimer()
+  }
+
   async function loadCurrentTracking() {
     const current = await window.electronAPI.getCurrentTracking()
     if (current) {
@@ -183,6 +194,7 @@ export const useTrackerStore = defineStore('tracker', () => {
     startTracking,
     pauseTracking,
     clearLastTracked,
+    clearState,
     loadCurrentTracking,
     togglePresenceMode,
     resetIdle,

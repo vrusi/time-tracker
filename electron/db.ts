@@ -1,11 +1,8 @@
 import Database from 'better-sqlite3'
-import { app } from 'electron'
-import { join } from 'path'
 
 let db: Database.Database
 
-function initDatabase() {
-  const dbPath = join(app.getPath('userData'), 'time-tracker.db')
+function initDatabase(dbPath: string) {
   db = new Database(dbPath)
 
   // Enable foreign keys
@@ -74,4 +71,17 @@ function initDatabase() {
   return db
 }
 
-export { db, initDatabase }
+function switchDatabase(dbPath: string) {
+  if (db) {
+    db.close()
+  }
+  initDatabase(dbPath)
+}
+
+function closeDatabase() {
+  if (db) {
+    db.close()
+  }
+}
+
+export { db, initDatabase, switchDatabase, closeDatabase }
