@@ -16,6 +16,10 @@ const electronAPI: ElectronAPI = {
   pauseTracking: (reason) => ipcRenderer.invoke('pause-tracking', reason),
   getCurrentTracking: () => ipcRenderer.invoke('get-current-tracking'),
 
+  // Recovery
+  checkTrackingRecovery: () => ipcRenderer.invoke('check-tracking-recovery'),
+  resolveTrackingRecovery: (action, customEndTime) => ipcRenderer.invoke('resolve-tracking-recovery', action, customEndTime),
+
   // Presence mode
   getPresenceMode: () => ipcRenderer.invoke('get-presence-mode'),
   setPresenceMode: (enabled) => ipcRenderer.invoke('set-presence-mode', enabled),
