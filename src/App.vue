@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, provide } from 'vue'
 import { useTrackerStore } from './stores/tracker.store'
 import { useIssuesStore } from './stores/issues.store'
 import { useSettingsStore } from './stores/settings.store'
@@ -24,6 +24,14 @@ const activeTab = ref<'track' | 'history' | 'settings'>('track')
 const historyView = ref<'list' | 'calendar'>('list')
 const showExportDialog = ref(false)
 const historyViewRef = ref<InstanceType<typeof HistoryView> | null>(null)
+const progressBarsRef = ref<InstanceType<typeof ProgressBars> | null>(null)
+
+function refreshProgress() {
+  progressBarsRef.value?.loadProgress()
+}
+
+// Provide refresh function to child components
+provide('refreshProgress', refreshProgress)
 
 function openAddEntry() {
   historyViewRef.value?.openAddEntryModal()
@@ -54,7 +62,7 @@ onMounted(async () => {
       <TrackerStatus class="mb-6" />
 
       <!-- Progress bars -->
-      <ProgressBars class="mb-6" />
+      <ProgressBars ref="progressBarsRef" class="mb-6" />
 
       <!-- Main navigation tabs -->
       <RTabs v-model="activeTab" class="w-full">
@@ -88,7 +96,7 @@ onMounted(async () => {
               </div>
             </div>
 
-            <HistoryView v-show="historyView === 'list'" ref="historyViewRef" />
+            <HistoryView v-show="historyView === 'list'" ref="historyViewRef" @entries-changed="refreshProgress" />
             <CalendarView v-show="historyView === 'calendar'" />
           </RSpace>
         </RTabItem>
