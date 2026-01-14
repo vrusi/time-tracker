@@ -50,7 +50,7 @@ function initDatabase() {
     currency: 'GBP',
     currencySymbol: '£',
     idleThresholdMinutes: '10',
-    idleIndicatorSeconds: '30',
+    idleIndicatorMinutes: '0.5',
     issueUrlPattern: 'gitlab'
   }
 

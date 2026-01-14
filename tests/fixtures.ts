@@ -28,7 +28,7 @@ export const createMockSettings = (overrides: Partial<AppSettings> = {}): AppSet
   currency: 'GBP',
   currencySymbol: '£',
   idleThresholdMinutes: 10,
-  idleIndicatorSeconds: 30,
+  idleIndicatorMinutes: 0.5,
   issueUrlPattern: 'gitlab',
   customIssuePattern: undefined,
   theme: 'light',
