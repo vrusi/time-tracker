@@ -42,7 +42,7 @@ watch(link, (url) => {
   }
 })
 
-const canSubmit = computed(() => link.value.trim() && name.value.trim())
+const canSubmit = computed(() => name.value.trim())
 
 const submitTooltip = computed(() => {
   if (canSubmit.value) {
@@ -50,17 +50,14 @@ const submitTooltip = computed(() => {
       ? 'Resume tracking existing issue'
       : 'Start tracking this issue'
   }
-  const missing: string[] = []
-  if (!link.value.trim()) missing.push('issue URL')
-  if (!name.value.trim()) missing.push('name')
-  return `Enter ${missing.join(' and ')} to start tracking`
+  return 'Enter a name to start tracking'
 })
 
 async function handleSubmit() {
-  const url = link.value.trim()
+  const url = link.value.trim() || null
   const issueName = name.value.trim()
 
-  if (!url || !issueName) return
+  if (!issueName) return
 
   isSubmitting.value = true
   try {
@@ -71,12 +68,11 @@ async function handleSubmit() {
       issue = matchedIssue.value
     } else {
       // Create new issue
-      const issueId = settingsStore.extractIssueId(url)
-      if (!issueId) {
-        alert('Could not extract issue ID from URL. Check your issue tracker settings.')
-        return
+      let externalId = ''
+      if (url) {
+        externalId = settingsStore.extractIssueId(url) || ''
       }
-      issue = await issuesStore.createIssue(issueId, issueName, url)
+      issue = await issuesStore.createIssue(externalId, issueName, url)
     }
 
     // Start tracking
@@ -98,7 +94,7 @@ async function handleSubmit() {
 
     <form @submit.prevent="handleSubmit" class="form-row">
       <div class="url-field">
-        <label class="field-label">Issue URL</label>
+        <label class="field-label">Issue URL (optional)</label>
         <input
           v-model="link"
           type="text"
