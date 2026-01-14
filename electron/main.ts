@@ -460,6 +460,57 @@ function setupIpcHandlers() {
     return getCurrentTracking()
   })
 
+  // Recovery check - detect if app was closed while tracking
+  ipcMain.handle('check-tracking-recovery', () => {
+    const current = getCurrentTracking()
+    if (!current) return null
+
+    const lastSeenRow = db.prepare('SELECT value FROM settings WHERE key = ?').get('lastSeenAt') as { value: string } | undefined
+    if (!lastSeenRow) return null
+
+    const lastSeenAt = new Date(lastSeenRow.value)
+    const now = new Date()
+    const elapsedSinceLastSeen = (now.getTime() - lastSeenAt.getTime()) / 1000
+
+    const startedAt = new Date(current.entry.startedAt)
+    const totalElapsed = (now.getTime() - startedAt.getTime()) / 1000
+
+    return {
+      entry: current.entry,
+      issue: current.issue,
+      lastSeenAt: lastSeenRow.value,
+      totalElapsedSeconds: totalElapsed,
+      elapsedSinceLastSeenSeconds: elapsedSinceLastSeen
+    }
+  })
+
+  // Resolve tracking recovery - adjust or discard the entry
+  ipcMain.handle('resolve-tracking-recovery', (_, action: 'keep-all' | 'end-at-close' | 'discard', customEndTime?: string) => {
+    const current = getCurrentTracking()
+    if (!current) return null
+
+    const lastSeenRow = db.prepare('SELECT value FROM settings WHERE key = ?').get('lastSeenAt') as { value: string } | undefined
+
+    if (action === 'discard') {
+      // Delete the entry entirely
+      db.prepare('DELETE FROM time_entries WHERE id = ?').run(current.entry.id)
+      return null
+    }
+
+    if (action === 'end-at-close' && lastSeenRow) {
+      // End the entry at the last-seen time
+      db.prepare('UPDATE time_entries SET ended_at = ?, paused_reason = ? WHERE id = ?')
+        .run(lastSeenRow.value, 'manual', current.entry.id)
+    } else if (action === 'keep-all') {
+      // Keep tracking - entry stays open, just clear last-seen to avoid re-prompting
+    }
+
+    // Clear last-seen timestamp
+    db.prepare('DELETE FROM settings WHERE key = ?').run('lastSeenAt')
+
+    return getCurrentTracking()
+  })
+
   // History
   ipcMain.handle('get-time-entries', (_, startDate: string, endDate: string) => {
     const entries = db.prepare(`
@@ -798,5 +849,10 @@ app.on('before-quit', () => {
   if (idleCheckInterval) {
     clearInterval(idleCheckInterval)
   }
+  // Save last-seen timestamp for recovery detection
+  db.prepare('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)').run(
+    'lastSeenAt',
+    new Date().toISOString()
+  )
 })
 
