@@ -13,7 +13,7 @@ const form = ref({
   currency: 'GBP',
   currencySymbol: '£',
   idleThresholdMinutes: 10,
-  idleIndicatorSeconds: 30,
+  idleIndicatorMinutes: 0.5,
   issueUrlPattern: 'gitlab' as 'gitlab' | 'github' | 'jira' | 'custom',
   customIssuePattern: '',
   theme: 'light' as 'light' | 'dark' | 'system',
@@ -62,7 +62,7 @@ function syncFormFromStore() {
     currency: s.currency,
     currencySymbol: s.currencySymbol,
     idleThresholdMinutes: s.idleThresholdMinutes,
-    idleIndicatorSeconds: s.idleIndicatorSeconds,
+    idleIndicatorMinutes: s.idleIndicatorMinutes,
     issueUrlPattern: s.issueUrlPattern,
     customIssuePattern: s.customIssuePattern || '',
     theme: s.theme,
@@ -90,7 +90,7 @@ async function saveSettings() {
       currency: form.value.currency,
       currencySymbol: form.value.currencySymbol,
       idleThresholdMinutes: form.value.idleThresholdMinutes,
-      idleIndicatorSeconds: form.value.idleIndicatorSeconds,
+      idleIndicatorMinutes: form.value.idleIndicatorMinutes,
       issueUrlPattern: form.value.issueUrlPattern,
       customIssuePattern: form.value.customIssuePattern || undefined,
       theme: form.value.theme,
@@ -218,7 +218,8 @@ async function saveSettings() {
       <template #title><RText>Idle Detection</RText></template>
 
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <RFormItem label="Auto-pause after (minutes)">
+        <div class="settings-field">
+          <label class="settings-label">Auto-pause threshold (minutes)</label>
           <input
             v-model.number="form.idleThresholdMinutes"
             type="number"
@@ -227,20 +228,21 @@ async function saveSettings() {
             step="1"
             class="settings-input"
           />
-          <RText size="small" class="text-secondary mt-1 block">Tracking pauses after this idle time</RText>
-        </RFormItem>
+          <RText size="small" class="text-secondary mt-1 block">Pause tracking after being idle for this long</RText>
+        </div>
 
-        <RFormItem label="Show idle warning after (seconds)">
+        <div class="settings-field">
+          <label class="settings-label">Warning indicator (minutes)</label>
           <input
-            v-model.number="form.idleIndicatorSeconds"
+            v-model.number="form.idleIndicatorMinutes"
             type="number"
-            min="5"
-            max="300"
-            step="5"
+            min="0.1"
+            max="10"
+            step="0.1"
             class="settings-input"
           />
-          <RText size="small" class="text-secondary mt-1 block">Warning indicator appears after this time</RText>
-        </RFormItem>
+          <RText size="small" class="text-secondary mt-1 block">Show warning after this many minutes of inactivity</RText>
+        </div>
       </div>
     </RCard>
 
@@ -324,5 +326,17 @@ async function saveSettings() {
 .settings-select:focus {
   outline: none;
   border-color: var(--color-accent);
+}
+
+.settings-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.settings-label {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--color-text);
 }
 </style>

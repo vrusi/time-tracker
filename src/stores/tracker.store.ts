@@ -12,6 +12,7 @@ export const useTrackerStore = defineStore('tracker', () => {
   const lastTrackedIssue = ref<Issue | null>(null)
   const elapsedSeconds = ref(0)
   const pausedElapsedSeconds = ref(0)
+  const pauseReason = ref<'manual' | 'idle' | null>(null)
   const presenceMode = ref(false)
   const idleSeconds = ref(0)
   let timer: number | null = null
@@ -25,10 +26,12 @@ export const useTrackerStore = defineStore('tracker', () => {
 
   const formattedPausedTime = computed(() => formatTimer(pausedElapsedSeconds.value))
 
-  const isIdle = computed(() => idleSeconds.value >= settingsStore.settings.idleIndicatorSeconds)
+  const idleIndicatorSeconds = computed(() => settingsStore.settings.idleIndicatorMinutes * 60)
+
+  const isIdle = computed(() => idleSeconds.value >= idleIndicatorSeconds.value)
 
   const formattedIdleTime = computed(() =>
-    formatIdleTime(idleSeconds.value, settingsStore.settings.idleIndicatorSeconds)
+    formatIdleTime(idleSeconds.value, idleIndicatorSeconds.value)
   )
 
   const idleProgress = computed(() =>
@@ -85,6 +88,7 @@ export const useTrackerStore = defineStore('tracker', () => {
     if (currentIssue.value) {
       lastTrackedIssue.value = currentIssue.value
       pausedElapsedSeconds.value = elapsedSeconds.value
+      pauseReason.value = 'manual'
     }
     await window.electronAPI.pauseTracking('manual')
     currentEntry.value = null
@@ -95,6 +99,7 @@ export const useTrackerStore = defineStore('tracker', () => {
   function clearLastTracked() {
     lastTrackedIssue.value = null
     pausedElapsedSeconds.value = 0
+    pauseReason.value = null
   }
 
   async function loadCurrentTracking() {
@@ -126,6 +131,8 @@ export const useTrackerStore = defineStore('tracker', () => {
         lastTrackedIssue.value = currentIssue.value
         pausedElapsedSeconds.value = elapsedSeconds.value
       }
+      // Always set pause reason to idle (even if currentIssue was already cleared by tracking-update)
+      pauseReason.value = 'idle'
       currentEntry.value = null
       currentIssue.value = null
       stopTimer()
@@ -166,6 +173,7 @@ export const useTrackerStore = defineStore('tracker', () => {
     elapsedSeconds,
     formattedTime,
     formattedPausedTime,
+    pauseReason,
     presenceMode,
     idleSeconds,
     isIdle,

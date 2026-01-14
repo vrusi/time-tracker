@@ -42,7 +42,7 @@ export interface AppSettings {
   currency: string
   currencySymbol: string
   idleThresholdMinutes: number
-  idleIndicatorSeconds: number
+  idleIndicatorMinutes: number
   issueUrlPattern: 'gitlab' | 'github' | 'jira' | 'custom'
   customIssuePattern?: string
   theme: 'light' | 'dark' | 'system'

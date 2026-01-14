@@ -10,7 +10,7 @@ export const useSettingsStore = defineStore('settings', () => {
     currency: 'GBP',
     currencySymbol: '£',
     idleThresholdMinutes: 10,
-    idleIndicatorSeconds: 30,
+    idleIndicatorMinutes: 0.5,
     issueUrlPattern: 'gitlab',
     customIssuePattern: undefined,
     theme: 'light',

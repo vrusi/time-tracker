@@ -20,7 +20,7 @@ describe('Tracker Store', () => {
     it('returns false when idle seconds below threshold', () => {
       const store = useTrackerStore()
       const settingsStore = useSettingsStore()
-      settingsStore.settings.idleIndicatorSeconds = 30
+      settingsStore.settings.idleIndicatorMinutes = 0.5 // 30 seconds
       store.idleSeconds = 29
       expect(store.isIdle).toBe(false)
     })
@@ -28,7 +28,7 @@ describe('Tracker Store', () => {
     it('returns true when idle seconds at or above threshold', () => {
       const store = useTrackerStore()
       const settingsStore = useSettingsStore()
-      settingsStore.settings.idleIndicatorSeconds = 30
+      settingsStore.settings.idleIndicatorMinutes = 0.5 // 30 seconds
       store.idleSeconds = 30
       expect(store.isIdle).toBe(true)
     })
