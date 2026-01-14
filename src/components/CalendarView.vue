@@ -5,6 +5,7 @@ import { RCard, RButton, RText, RSpace } from 'roughness'
 
 const entries = ref<(TimeEntry & { issue: Issue })[]>([])
 const isLoading = ref(false)
+const expandedDate = ref<string | null>(null)
 
 // Current month/year selection
 const currentDate = ref(new Date())
@@ -33,6 +34,54 @@ const dailyTotals = computed(() => {
 
   return totals
 })
+
+// Calculate per-issue breakdown for each day
+interface IssueBreakdown {
+  issue: Issue
+  totalSeconds: number
+}
+
+const dailyIssueBreakdown = computed(() => {
+  const breakdown = new Map<string, Map<number, IssueBreakdown>>()
+
+  entries.value.forEach(entry => {
+    const date = entry.startedAt.split('T')[0]
+    const start = new Date(entry.startedAt).getTime()
+    const end = entry.endedAt ? new Date(entry.endedAt).getTime() : Date.now()
+    const seconds = (end - start) / 1000
+
+    if (!breakdown.has(date)) {
+      breakdown.set(date, new Map())
+    }
+    const dayMap = breakdown.get(date)!
+
+    if (dayMap.has(entry.issueId)) {
+      dayMap.get(entry.issueId)!.totalSeconds += seconds
+    } else {
+      dayMap.set(entry.issueId, {
+        issue: entry.issue,
+        totalSeconds: seconds
+      })
+    }
+  })
+
+  // Convert to array format sorted by total time
+  const result = new Map<string, IssueBreakdown[]>()
+  breakdown.forEach((dayMap, date) => {
+    const issues = Array.from(dayMap.values()).sort((a, b) => b.totalSeconds - a.totalSeconds)
+    result.set(date, issues)
+  })
+
+  return result
+})
+
+function toggleDay(dateStr: string) {
+  if (expandedDate.value === dateStr) {
+    expandedDate.value = null
+  } else {
+    expandedDate.value = dateStr
+  }
+}
 
 // Build calendar grid
 const calendarWeeks = computed(() => {
@@ -192,8 +241,11 @@ onMounted(loadEntries)
               'calendar-day',
               !dayInfo.isCurrentMonth && 'other-month',
               isToday(dayInfo.dateStr) && 'today',
-              isWeekend(dayInfo.date) && dayInfo.isCurrentMonth && 'weekend'
+              isWeekend(dayInfo.date) && dayInfo.isCurrentMonth && 'weekend',
+              dailyTotals.get(dayInfo.dateStr) && 'has-entries',
+              expandedDate === dayInfo.dateStr && 'expanded'
             ]"
+            @click="dailyTotals.get(dayInfo.dateStr) && toggleDay(dayInfo.dateStr)"
           >
             <div class="flex justify-between items-start">
               <span
@@ -211,6 +263,23 @@ onMounted(loadEntries)
               >
                 {{ formatHours(dailyTotals.get(dayInfo.dateStr) || 0) }}
               </span>
+            </div>
+
+            <!-- Expanded issue breakdown -->
+            <div
+              v-if="expandedDate === dayInfo.dateStr && dailyIssueBreakdown.get(dayInfo.dateStr)"
+              class="issue-breakdown"
+              @click.stop
+            >
+              <div
+                v-for="item in dailyIssueBreakdown.get(dayInfo.dateStr)"
+                :key="item.issue.id"
+                class="issue-row"
+              >
+                <span class="issue-id">{{ item.issue.externalId }}</span>
+                <span class="issue-name">{{ item.issue.name }}</span>
+                <span class="issue-hours">{{ formatHours(item.totalSeconds) }}</span>
+              </div>
             </div>
           </div>
         </div>
@@ -275,5 +344,74 @@ onMounted(loadEntries)
 .hours-low {
   background: var(--color-border);
   color: var(--color-text-secondary);
+}
+
+.calendar-day.has-entries {
+  cursor: pointer;
+  transition: transform 0.15s ease;
+}
+
+.calendar-day.has-entries:hover {
+  transform: scale(1.05);
+  z-index: 1;
+}
+
+.calendar-day.expanded {
+  transform: scale(1.05);
+  z-index: 1;
+}
+
+.calendar-day {
+  position: relative;
+}
+
+.issue-breakdown {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  min-width: 280px;
+  max-width: 350px;
+  margin-top: 0.25rem;
+  padding: 0.75rem;
+  background: var(--color-bg);
+  border: 2px solid var(--color-border);
+  border-radius: 4px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 10;
+}
+
+.issue-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.8rem;
+  padding: 0.25rem 0;
+}
+
+.issue-row:not(:last-child) {
+  border-bottom: 1px solid var(--color-border);
+  padding-bottom: 0.375rem;
+  margin-bottom: 0.125rem;
+}
+
+.issue-id {
+  color: var(--color-accent);
+  font-weight: 500;
+  flex-shrink: 0;
+}
+
+.issue-name {
+  color: var(--color-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+}
+
+.issue-hours {
+  color: var(--color-text-secondary);
+  font-weight: 500;
+  flex-shrink: 0;
 }
 </style>
