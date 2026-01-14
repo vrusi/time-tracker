@@ -40,7 +40,7 @@ watch(() => trackerStore.currentEntry?.id, () => {
           </div>
           <div class="paused-timer">
             <span class="timer-display paused">{{ trackerStore.formattedPausedTime }}</span>
-            <RText class="text-secondary paused-label">Paused</RText>
+            <RText class="text-secondary paused-label">{{ trackerStore.pauseReason === 'idle' ? 'Paused (inactive)' : 'Paused' }}</RText>
           </div>
           <div class="action-buttons">
             <RButton

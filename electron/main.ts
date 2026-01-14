@@ -48,7 +48,7 @@ function getSettings() {
     currency: settings.currency || 'GBP',
     currencySymbol: settings.currencySymbol || '£',
     idleThresholdMinutes: parseFloat(settings.idleThresholdMinutes) || 10,
-    idleIndicatorSeconds: parseFloat(settings.idleIndicatorSeconds) || 30,
+    idleIndicatorMinutes: parseFloat(settings.idleIndicatorMinutes) || 0.5,
     issueUrlPattern: settings.issueUrlPattern || 'gitlab',
     customIssuePattern: settings.customIssuePattern,
     theme: settings.theme || 'light',
