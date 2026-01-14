@@ -35,6 +35,18 @@ export interface MonthlyReport {
   totalHours: number
 }
 
+export interface Project {
+  id: string
+  name: string
+  dbFile: string
+  createdAt: string
+}
+
+export interface ProjectsConfig {
+  activeProjectId: string
+  projects: Project[]
+}
+
 export interface AppSettings {
   dailyTargetHours: number
   monthlyTargetHours: number
@@ -90,6 +102,14 @@ export interface ElectronAPI {
   // Settings
   getSettings: () => Promise<AppSettings>
   updateSettings: (settings: Partial<AppSettings>) => Promise<AppSettings>
+
+  // Projects
+  getProjects: () => Promise<ProjectsConfig>
+  getActiveProject: () => Promise<Project>
+  createProject: (name: string) => Promise<Project>
+  switchProject: (id: string) => Promise<Project>
+  renameProject: (id: string, name: string) => Promise<Project>
+  deleteProject: (id: string) => Promise<void>
 
   // Events from main process
   onIdlePause: (callback: () => void) => void

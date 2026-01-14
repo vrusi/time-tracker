@@ -1,7 +1,18 @@
 import { app, BrowserWindow, ipcMain, powerMonitor, Tray, Menu, nativeImage, Notification } from 'electron'
 import { join, dirname } from 'path'
 import { fileURLToPath } from 'url'
-import { initDatabase, db } from './db'
+import { initDatabase, switchDatabase, db } from './db'
+import {
+  loadProjectsConfig,
+  getActiveProject,
+  setActiveProject,
+  createProject,
+  renameProject,
+  deleteProject,
+  getProjectDbPath,
+  type Project,
+  type ProjectsConfig
+} from './projects'
 import type { Issue, TimeEntry } from '../src/types'
 
 // Database row types (snake_case from SQLite)
@@ -634,11 +645,57 @@ function setupIpcHandlers() {
 
     return getSettings()
   })
+
+  // Projects
+  ipcMain.handle('get-projects', (): ProjectsConfig => {
+    return loadProjectsConfig()
+  })
+
+  ipcMain.handle('get-active-project', (): Project => {
+    return getActiveProject()
+  })
+
+  ipcMain.handle('create-project', (_, name: string): Project => {
+    const project = createProject(name)
+    // Initialize the new database
+    switchDatabase(getProjectDbPath(project))
+    // Switch back to current project
+    const activeProject = getActiveProject()
+    switchDatabase(getProjectDbPath(activeProject))
+    return project
+  })
+
+  ipcMain.handle('switch-project', (_, projectId: string): Project => {
+    // Pause any active tracking first
+    pauseTracking('switched')
+    // Set new active project
+    const project = setActiveProject(projectId)
+    // Switch to new database
+    switchDatabase(getProjectDbPath(project))
+    // Reload idle threshold from new db settings
+    loadIdleThreshold()
+    // Update tray menu
+    updateTrayMenu()
+    return project
+  })
+
+  ipcMain.handle('rename-project', (_, projectId: string, newName: string): Project => {
+    return renameProject(projectId, newName)
+  })
+
+  ipcMain.handle('delete-project', (_, projectId: string): void => {
+    deleteProject(projectId)
+  })
 }
 
 // App lifecycle
 app.whenReady().then(() => {
-  initDatabase()
+  // Load projects config (migrates existing db on first run)
+  const config = loadProjectsConfig()
+  const activeProject = config.projects.find(p => p.id === config.activeProjectId)
+  if (activeProject) {
+    initDatabase(getProjectDbPath(activeProject))
+  }
   loadIdleThreshold()
   createWindow()
   createTray()
