@@ -4,7 +4,7 @@ import { useIssuesStore } from '../stores/issues.store'
 import { useTrackerStore } from '../stores/tracker.store'
 import { useSettingsStore } from '../stores/settings.store'
 import type { Issue, TimeEntry } from '../types'
-import { RCard, RButton, RInput, RText, RSpace, RList, RListItem, RDialog } from 'roughness'
+import { RCard, RButton, RInput, RText, RSpace, RDialog } from 'roughness'
 import Icon from './Icon.vue'
 
 const issuesStore = useIssuesStore()
@@ -219,9 +219,27 @@ async function executeBulkDelete() {
 <template>
   <RCard>
     <template #title>
-      <RSpace align="center" justify="between" class="w-full">
-        <RSpace align="center">
-          <RText>Issues</RText>
+      <div class="card-header">
+        <div class="header-left">
+          <span class="card-title">Issues</span>
+          <div class="view-toggle">
+            <RButton
+              size="small"
+              :filled="!issuesStore.showArchived"
+              @click="issuesStore.showArchived = false"
+            >
+              Active
+            </RButton>
+            <RButton
+              size="small"
+              :filled="issuesStore.showArchived"
+              @click="issuesStore.showArchived = true"
+            >
+              Archived
+            </RButton>
+          </div>
+        </div>
+        <div class="header-right">
           <RButton
             size="small"
             :filled="selectionMode"
@@ -243,29 +261,11 @@ async function executeBulkDelete() {
               :disabled="selectedIds.size === 0"
               @click="showBulkDeleteConfirm = true"
             >
-              Delete ({{ selectedIds.size }})
+              Delete{{ selectedIds.size > 0 ? ` (${selectedIds.size})` : '' }}
             </RButton>
           </template>
-        </RSpace>
-        <RSpace v-if="!selectionMode">
-          <RButton
-            :filled="!issuesStore.showArchived"
-            size="small"
-            @click="issuesStore.showArchived = false"
-            title="Show active issues"
-          >
-            Active
-          </RButton>
-          <RButton
-            :filled="issuesStore.showArchived"
-            size="small"
-            @click="issuesStore.showArchived = true"
-            title="Show archived issues"
-          >
-            Archived
-          </RButton>
-        </RSpace>
-      </RSpace>
+        </div>
+      </div>
     </template>
 
     <div v-if="issuesStore.isLoading" class="p-8 text-center">
@@ -273,11 +273,13 @@ async function executeBulkDelete() {
     </div>
 
     <div v-else-if="issuesStore.displayedIssues.length === 0" class="p-8 text-center">
-      <RText class="text-secondary">No issues yet. Add one above!</RText>
+      <RText class="text-secondary">
+        {{ issuesStore.showArchived ? 'Archived issues will appear here.' : 'No issues yet. Add one above!' }}
+      </RText>
     </div>
 
-    <RList v-else>
-      <RListItem
+    <div v-else class="issues-list">
+      <div
         v-for="issue in issuesStore.displayedIssues"
         :key="issue.id"
         class="issue-item"
@@ -336,42 +338,43 @@ async function executeBulkDelete() {
         </div>
 
         <!-- Normal display mode -->
-        <div v-else class="flex items-center gap-4 w-full">
-          <!-- Selection checkbox -->
-          <input
-            v-if="selectionMode"
-            type="checkbox"
-            :checked="selectedIds.has(issue.id)"
-            @change="toggleIssue(issue.id)"
-            class="bulk-checkbox"
-          />
+        <div v-else class="issue-row">
+          <!-- Top row: play button + title + actions (aligned) -->
+          <div class="issue-main">
+            <!-- Selection checkbox -->
+            <input
+              v-if="selectionMode"
+              type="checkbox"
+              :checked="selectedIds.has(issue.id)"
+              @change="toggleIssue(issue.id)"
+              class="bulk-checkbox"
+            />
 
-          <!-- Play/Pause button -->
-          <RButton
-            v-if="!selectionMode"
-            @click="toggleTracking(issue)"
-            :disabled="issue.archived"
-            :filled="isCurrentlyTracking(issue)"
-            :color="isCurrentlyTracking(issue) ? 'error' : 'success'"
-            :title="isCurrentlyTracking(issue) ? 'Pause tracking' : 'Start tracking'"
-          >
+            <!-- Play/Pause button -->
+            <RButton
+              v-if="!selectionMode"
+              @click="toggleTracking(issue)"
+              :disabled="issue.archived"
+              :color="isCurrentlyTracking(issue) ? 'error' : 'success'"
+              :title="isCurrentlyTracking(issue) ? 'Stop tracking' : 'Start tracking'"
+            >
 <Icon :name="isCurrentlyTracking(issue) ? 'pause' : 'play'" :size="16" />
-          </RButton>
+            </RButton>
 
-          <!-- Issue info -->
-          <div class="flex-1 min-w-0">
-            <div class="flex items-baseline gap-2">
-              <RText class="font-medium">{{ issue.externalId }}</RText>
-              <RText class="text-secondary">{{ issue.name }}</RText>
+            <!-- Issue title and metadata -->
+            <div class="issue-info">
+              <div class="issue-title">
+                <span v-if="issue.externalId" class="issue-id">{{ issue.externalId }}</span>
+                <span class="issue-name">{{ issue.name }}</span>
+              </div>
+              <div class="issue-meta">
+                Total: {{ formatDuration(issueTimes.get(issue.id) || 0) }}
+              </div>
             </div>
-            <RText size="small" class="text-secondary">
-              Total: {{ formatDuration(issueTimes.get(issue.id) || 0) }}
-            </RText>
-          </div>
 
-          <!-- Action buttons (hidden in selection mode) -->
-          <RSpace v-if="!selectionMode">
-            <!-- Link -->
+            <!-- Action buttons (aligned with title) -->
+            <div v-if="!selectionMode" class="action-buttons">
+            <!-- Primary action: open link (always visible if exists) -->
             <RButton
               v-if="issue.link"
               tag="a"
@@ -381,9 +384,11 @@ async function executeBulkDelete() {
               title="Open in tracker"
               @click.stop
             >
-              ↗
+              <span class="link-icon">↗</span>
             </RButton>
 
+            <!-- Secondary actions (visible on hover) -->
+            <div class="secondary-actions">
             <!-- Notes -->
             <RButton
               size="small"
@@ -454,10 +459,12 @@ async function executeBulkDelete() {
             >
 <Icon name="box" :size="16" />
             </RButton>
-          </RSpace>
+            </div><!-- end secondary-actions -->
+          </div>
+          </div><!-- end issue-main -->
         </div>
-      </RListItem>
-    </RList>
+      </div>
+    </div>
 
     <!-- Bulk Delete Confirmation Dialog -->
     <RDialog v-model:open="showBulkDeleteConfirm">
@@ -480,8 +487,84 @@ async function executeBulkDelete() {
   color: var(--color-text-secondary);
 }
 
+.issues-list {
+  display: flex;
+  flex-direction: column;
+}
+
 .issue-item {
-  padding: 0.75rem 0;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.issue-item:last-child {
+  border-bottom: none;
+}
+
+/* Make link icon same size as other icons */
+.link-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 1.75rem;
+}
+
+
+.issue-row {
+  width: 100%;
+}
+
+.issue-main {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+}
+
+.action-buttons {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.25rem;
+  flex-shrink: 0;
+}
+
+.secondary-actions {
+  display: flex;
+  gap: 0.25rem;
+  opacity: 0.25;
+  transition: opacity 0.15s ease;
+}
+
+.issue-item:hover .secondary-actions {
+  opacity: 1;
+}
+
+
+/* Issue info styling */
+.issue-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.issue-title {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  align-items: baseline;
+}
+
+.issue-id {
+  color: var(--color-text-secondary);
+  font-weight: 500;
+}
+
+.issue-name {
+  color: var(--color-text);
+}
+
+.issue-meta {
+  font-size: 0.75rem;
+  color: var(--color-text-secondary);
 }
 
 .notes-panel {
@@ -565,4 +648,40 @@ async function executeBulkDelete() {
   margin-top: 1rem;
   justify-content: flex-end;
 }
+
+/* Header styling */
+.card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  gap: 1rem;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.card-title {
+  font-weight: 600;
+  font-size: 1.1rem;
+}
+
+.view-toggle {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.card-header :deep(.r-button) {
+  font-size: 0.8rem;
+}
+
 </style>
