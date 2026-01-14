@@ -32,6 +32,8 @@ const electronAPI: ElectronAPI = {
   deleteTimeEntries: (ids) => ipcRenderer.invoke('delete-time-entries', ids),
   deleteIssues: (ids) => ipcRenderer.invoke('delete-issues', ids),
   wipeDatabase: () => ipcRenderer.invoke('wipe-database'),
+  exportDatabase: () => ipcRenderer.invoke('export-database'),
+  importDatabase: () => ipcRenderer.invoke('import-database'),
 
   // Export
   exportMonth: (year, month) => ipcRenderer.invoke('export-month', year, month),

@@ -14,6 +14,10 @@ const refreshProgress = inject<() => void>('refreshProgress')
 const showWipeConfirm = ref(false)
 const isWiping = ref(false)
 
+// Import state
+const showImportConfirm = ref(false)
+const isImporting = ref(false)
+
 // Local form state
 const form = ref({
   dailyTargetHours: 8,
@@ -112,6 +116,42 @@ async function saveSettings() {
     saveMessage.value = 'Error saving settings'
   } finally {
     isSaving.value = false
+  }
+}
+
+async function exportDatabase() {
+  const success = await window.electronAPI.exportDatabase()
+  if (success) {
+    saveMessage.value = 'Database exported successfully'
+    setTimeout(() => { saveMessage.value = '' }, 2000)
+  }
+}
+
+async function importDatabase() {
+  isImporting.value = true
+  try {
+    // Stop any active tracking
+    if (trackerStore.isTracking) {
+      await trackerStore.pauseTracking()
+    }
+    trackerStore.clearState()
+
+    const success = await window.electronAPI.importDatabase()
+    if (success) {
+      // Reload all stores
+      await issuesStore.loadIssues()
+      await settingsStore.loadSettings()
+      refreshProgress?.()
+
+      showImportConfirm.value = false
+      saveMessage.value = 'Database imported successfully'
+      setTimeout(() => { saveMessage.value = '' }, 2000)
+    }
+  } catch (err) {
+    saveMessage.value = 'Error importing database'
+  } finally {
+    isImporting.value = false
+    showImportConfirm.value = false
   }
 }
 
@@ -312,6 +352,52 @@ async function wipeDatabase() {
         </RText>
       </RFormItem>
     </RCard>
+
+    <!-- Backup & Restore -->
+    <RCard>
+      <template #title><RText>Backup & Restore</RText></template>
+
+      <RSpace vertical>
+        <RSpace justify="between" align="center">
+          <div>
+            <RText>Export Database</RText>
+            <RText size="small" class="text-secondary block">
+              Save a backup of this project's data
+            </RText>
+          </div>
+          <RButton @click="exportDatabase">
+            Export
+          </RButton>
+        </RSpace>
+
+        <RSpace justify="between" align="center" class="pt-4 border-t border-color">
+          <div>
+            <RText>Import Database</RText>
+            <RText size="small" class="text-secondary block">
+              Restore from a backup file (replaces current data)
+            </RText>
+          </div>
+          <RButton @click="showImportConfirm = true">
+            Import
+          </RButton>
+        </RSpace>
+      </RSpace>
+    </RCard>
+
+    <!-- Import Confirmation Dialog -->
+    <RDialog v-model:open="showImportConfirm">
+      <template #title>Import Database?</template>
+      <RText>
+        This will replace ALL current data with the imported backup.
+        Any unsaved changes will be lost. This cannot be undone.
+      </RText>
+      <RSpace class="modal-actions">
+        <RButton @click="showImportConfirm = false">Cancel</RButton>
+        <RButton color="warning" filled @click="importDatabase" :disabled="isImporting">
+          {{ isImporting ? 'Importing...' : 'Import' }}
+        </RButton>
+      </RSpace>
+    </RDialog>
 
     <!-- Danger Zone -->
     <RCard class="danger-zone">
