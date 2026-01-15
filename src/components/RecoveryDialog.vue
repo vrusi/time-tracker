@@ -26,8 +26,8 @@ const totalElapsed = computed(() => {
 
 const timeAtClose = computed(() => {
   if (!props.recovery) return ''
-  // Time from entry start to last seen
-  const timeAtCloseSeconds = props.recovery.totalElapsedSeconds - props.recovery.elapsedSinceLastSeenSeconds
+  // Time from entry start to last seen (prevent negative from stale data)
+  const timeAtCloseSeconds = Math.max(0, props.recovery.totalElapsedSeconds - props.recovery.elapsedSinceLastSeenSeconds)
   return formatDuration(timeAtCloseSeconds)
 })
 
