@@ -34,7 +34,7 @@ watch(() => trackerStore.currentEntry?.id, () => {
     <template v-if="(!trackerStore.isTracking || !trackerStore.currentIssue) && trackerStore.lastTrackedIssue">
       <div class="tracker-row">
         <div class="issue-info">
-          <RText class="text-secondary text-sm">{{ trackerStore.lastTrackedIssue.externalId }}</RText>
+          <RText class="issue-id">{{ trackerStore.lastTrackedIssue.externalId || '\u00A0' }}</RText>
           <RText class="issue-name">{{ trackerStore.lastTrackedIssue.name }}</RText>
         </div>
         <div class="timer-section">
@@ -74,7 +74,7 @@ watch(() => trackerStore.currentEntry?.id, () => {
       <div class="tracking-content">
         <div class="tracker-row">
           <div class="issue-info">
-            <RText class="text-secondary text-sm">{{ trackerStore.currentIssue.externalId }}</RText>
+            <RText class="issue-id">{{ trackerStore.currentIssue.externalId || '\u00A0' }}</RText>
             <RText class="issue-name">{{ trackerStore.currentIssue.name }}</RText>
           </div>
           <div class="timer-section">
@@ -138,7 +138,7 @@ watch(() => trackerStore.currentEntry?.id, () => {
 <style scoped>
 .tracker-hero {
   --r-card-padding: 0.75rem;
-  min-height: 70px;
+  min-height: 6rem;
 }
 
 .not-tracking {
@@ -146,7 +146,7 @@ watch(() => trackerStore.currentEntry?.id, () => {
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
-  padding: 0.5rem 0;
+  min-height: 4.5rem;
 }
 
 .tracker-row {
@@ -164,6 +164,17 @@ watch(() => trackerStore.currentEntry?.id, () => {
 .issue-info {
   flex: 1;
   min-width: 0;
+  min-height: 3.5rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.issue-id {
+  display: block;
+  font-size: 0.875rem;
+  color: var(--color-text-secondary);
+  min-height: 1.25rem;
 }
 
 .issue-name {
