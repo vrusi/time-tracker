@@ -36,10 +36,6 @@ function refreshProgress() {
 // Provide refresh function to child components
 provide('refreshProgress', refreshProgress)
 
-function openAddEntry() {
-  historyViewRef.value?.openAddEntryModal()
-}
-
 async function handleRecoveryResolve(action: 'keep-all' | 'end-at-close' | 'discard') {
   await window.electronAPI.resolveTrackingRecovery(action)
   await trackerStore.loadCurrentTracking()
@@ -92,31 +88,14 @@ onMounted(async () => {
 
         <RTabItem label="History" value="history">
           <div class="history-section">
-            <!-- Add Entry button and View toggle -->
-            <div class="history-header">
-              <RButton size="small" filled @click="openAddEntry" title="Add a manual time entry">
-                + Add Entry
-              </RButton>
-              <div class="view-toggle">
-                <RButton
-                  size="small"
-                  :filled="historyView === 'list'"
-                  @click="historyView = 'list'"
-                >
-                  List
-                </RButton>
-                <RButton
-                  size="small"
-                  :filled="historyView === 'calendar'"
-                  @click="historyView = 'calendar'"
-                >
-                  Calendar
-                </RButton>
-              </div>
-            </div>
-
-            <HistoryView v-show="historyView === 'list'" ref="historyViewRef" @entries-changed="refreshProgress" />
-            <CalendarView v-show="historyView === 'calendar'" />
+            <HistoryView
+              v-show="historyView === 'list'"
+              ref="historyViewRef"
+              :view-mode="historyView"
+              @entries-changed="refreshProgress"
+              @view-change="historyView = $event"
+            />
+            <CalendarView v-show="historyView === 'calendar'" @view-change="historyView = $event" />
           </div>
         </RTabItem>
 
@@ -147,17 +126,5 @@ onMounted(async () => {
 
 .history-section {
   margin-top: 0.5rem;
-}
-
-.history-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 0.25rem;
-}
-
-.view-toggle {
-  display: flex;
-  gap: 0.25rem;
 }
 </style>
