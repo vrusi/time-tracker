@@ -16,6 +16,8 @@ const showDropdown = ref(false)
 const showCreateModal = ref(false)
 const showRenameModal = ref(false)
 const showDeleteConfirm = ref(false)
+const showSwitchConfirm = ref(false)
+const pendingSwitchProjectId = ref<string | null>(null)
 const newProjectName = ref('')
 const renamingProject = ref<{ id: string; name: string } | null>(null)
 const deletingProjectId = ref<string | null>(null)
@@ -39,8 +41,20 @@ async function createProject() {
   await switchToProject(project.id)
 }
 
-async function switchToProject(projectId: string) {
+function switchToProject(projectId: string) {
   showDropdown.value = false
+
+  // If actively tracking, show confirmation first
+  if (trackerStore.isTracking) {
+    pendingSwitchProjectId.value = projectId
+    showSwitchConfirm.value = true
+    return
+  }
+
+  doSwitchProject(projectId)
+}
+
+async function doSwitchProject(projectId: string) {
   // Clear tracker state before switching (backend pauses, but frontend needs clearing too)
   trackerStore.clearState()
   await projectsStore.switchProject(projectId)
@@ -48,6 +62,19 @@ async function switchToProject(projectId: string) {
   await settingsStore.loadSettings()
   await issuesStore.loadIssues()
   await trackerStore.loadCurrentTracking()
+}
+
+async function confirmSwitch() {
+  if (!pendingSwitchProjectId.value) return
+
+  showSwitchConfirm.value = false
+  await doSwitchProject(pendingSwitchProjectId.value)
+  pendingSwitchProjectId.value = null
+}
+
+function cancelSwitch() {
+  showSwitchConfirm.value = false
+  pendingSwitchProjectId.value = null
 }
 
 function openRenameModal(project: { id: string; name: string }) {
@@ -179,6 +206,19 @@ if (typeof window !== 'undefined') {
       <RSpace class="modal-actions">
         <RButton @click="showDeleteConfirm = false">Cancel</RButton>
         <RButton color="error" filled @click="deleteProject">Delete</RButton>
+      </RSpace>
+    </RDialog>
+
+    <!-- Switch While Tracking Confirmation -->
+    <RDialog v-model:open="showSwitchConfirm">
+      <template #title>Switch Project?</template>
+      <RText>
+        You're currently tracking <strong>{{ trackerStore.currentIssue?.name }}</strong>.
+        Switching projects will stop and save the current session.
+      </RText>
+      <RSpace class="modal-actions" style="margin-top: 1rem;">
+        <RButton @click="cancelSwitch">Cancel</RButton>
+        <RButton filled @click="confirmSwitch">Switch</RButton>
       </RSpace>
     </RDialog>
   </div>
