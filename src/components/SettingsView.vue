@@ -183,207 +183,199 @@ async function wipeDatabase() {
 </script>
 
 <template>
-  <RSpace vertical>
-    <!-- Work Hours -->
+  <div class="settings-view">
+    <!-- Main Settings Card (same container model as Track/History) -->
     <RCard>
-      <template #title><RText>Work Hours</RText></template>
-
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <RFormItem label="Daily Target (hours)">
-          <input
-            v-model.number="form.dailyTargetHours"
-            type="number"
-            min="1"
-            max="24"
-            step="0.5"
-            class="settings-input"
-          />
-          <RText size="small" class="text-secondary mt-1 block">Hours per day for progress bar</RText>
-        </RFormItem>
-
-        <RFormItem label="Monthly Target (hours)">
-          <input
-            v-model.number="form.monthlyTargetHours"
-            type="number"
-            min="1"
-            max="744"
-            step="1"
-            class="settings-input"
-          />
-          <RText size="small" class="text-secondary mt-1 block">Total hours per month</RText>
-        </RFormItem>
-      </div>
-    </RCard>
-
-    <!-- Appearance -->
-    <RCard>
-      <template #title><RText>Appearance</RText></template>
-
-      <RFormItem label="Theme">
-        <RSpace>
-          <RButton
-            :filled="form.theme === 'light'"
-            @click="form.theme = 'light'"
-          >
-            Light
-          </RButton>
-          <RButton
-            :filled="form.theme === 'dark'"
-            @click="form.theme = 'dark'"
-          >
-            Dark
-          </RButton>
-          <RButton
-            :filled="form.theme === 'system'"
-            @click="form.theme = 'system'"
-          >
-            System
-          </RButton>
-        </RSpace>
-      </RFormItem>
-
-      <RSpace justify="between" align="center" class="mt-4 pt-4 border-t border-color">
-        <div>
-          <RText>Desktop Notifications</RText>
-          <RText size="small" class="text-secondary block">Show notifications for idle pauses and daily target</RText>
-        </div>
-        <RSwitch v-model="form.notificationsEnabled" />
-      </RSpace>
-    </RCard>
-
-    <!-- Earnings -->
-    <RCard>
-      <template #title><RText>Earnings</RText></template>
-
-      <RSpace justify="between" align="center" class="mb-4">
-        <div>
-          <RText>Show Earnings Widget</RText>
-          <RText size="small" class="text-secondary block">Display earnings on the main screen</RText>
-        </div>
-        <RSwitch v-model="form.showEarnings" />
-      </RSpace>
-
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <RFormItem label="Hourly Rate">
-          <input
-            v-model.number="form.hourlyRate"
-            type="number"
-            min="0"
-            step="0.01"
-            class="settings-input"
-          />
-        </RFormItem>
-
-        <RFormItem label="Currency">
-          <select
-            v-model="form.currency"
-            @change="onCurrencyChange"
-            class="settings-select"
-          >
-            <option v-for="c in currencies" :key="c.code" :value="c.code">
-              {{ c.symbol }} - {{ c.name }}
-            </option>
-          </select>
-        </RFormItem>
-      </div>
-    </RCard>
-
-    <!-- Idle Detection -->
-    <RCard>
-      <template #title><RText>Idle Detection</RText></template>
-
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div class="settings-field">
-          <label class="settings-label">Auto-pause threshold (minutes)</label>
-          <input
-            v-model.number="form.idleThresholdMinutes"
-            type="number"
-            min="1"
-            max="60"
-            step="1"
-            class="settings-input"
-          />
-          <RText size="small" class="text-secondary mt-1 block">Pause tracking after being idle for this long</RText>
-        </div>
-
-        <div class="settings-field">
-          <label class="settings-label">Warning indicator (minutes)</label>
-          <input
-            v-model.number="form.idleIndicatorMinutes"
-            type="number"
-            min="0.1"
-            max="10"
-            step="0.1"
-            class="settings-input"
-          />
-          <RText size="small" class="text-secondary mt-1 block">Show warning after this many minutes of inactivity</RText>
-        </div>
-      </div>
-    </RCard>
-
-    <!-- Issue Tracker -->
-    <RCard>
-      <template #title><RText>Issue Tracker</RText></template>
-
-      <RText size="small" class="text-secondary mb-4 block">
-        When you paste an issue URL, the app extracts the issue ID (e.g., #123 or PROJ-456) to display alongside the issue name. Common trackers like GitLab, GitHub, and Jira are auto-detected. Select your default tracker for other URLs.
-      </RText>
-
-      <RSpace wrap>
-          <RButton
-            v-for="tracker in issueTrackers"
-            :key="tracker.value"
-            :filled="form.issueUrlPattern === tracker.value"
-            @click="form.issueUrlPattern = tracker.value"
-          >
-            {{ tracker.name }}
-          </RButton>
-      </RSpace>
-
-      <RText v-if="form.issueUrlPattern !== 'custom'" size="small" class="text-secondary mt-2">
-        Example URL: {{ issueTrackers.find(t => t.value === form.issueUrlPattern)?.example }}
-      </RText>
-
-      <RFormItem v-if="form.issueUrlPattern === 'custom'" label="Custom Regex Pattern" class="mt-4">
-        <RInput
-          v-model="form.customIssuePattern"
-          placeholder="e.g., /ticket/(\d+)"
-        />
-        <RText size="small" class="text-secondary mt-1">
-          Regex to extract issue ID from URL. Use a capture group for the ID.
-        </RText>
-      </RFormItem>
-    </RCard>
-
-    <!-- Backup & Restore -->
-    <RCard>
-      <template #title><RText>Backup & Restore</RText></template>
-
-      <RSpace vertical>
-        <RSpace justify="between" align="center">
-          <div>
-            <RText>Export Database</RText>
-            <RText size="small" class="text-secondary block">
-              Save a backup of this project's data
-            </RText>
+      <template #title>
+        <div class="card-header">
+          <span class="card-title">Settings</span>
+          <div class="header-actions">
+            <span v-if="saveMessage" :class="['save-message', saveMessage.includes('Error') ? 'error' : 'success']">
+              {{ saveMessage }}
+            </span>
+            <RButton size="small" filled @click="saveSettings" :loading="isSaving">
+              {{ isSaving ? 'Saving...' : 'Save' }}
+            </RButton>
           </div>
-          <RButton @click="exportDatabase">
-            Export
-          </RButton>
-        </RSpace>
+        </div>
+      </template>
 
-        <RSpace justify="between" align="center" class="pt-4 border-t border-color">
-          <div>
-            <RText>Import Database</RText>
-            <RText size="small" class="text-secondary block">
-              Restore from a backup file (replaces current data)
-            </RText>
+      <!-- ═══════════════════════════════════════════════════════════════
+           SECTION: Tracking
+           ═══════════════════════════════════════════════════════════════ -->
+      <div class="section">
+        <div class="section-header">Tracking</div>
+
+        <div class="setting-row">
+          <div class="setting-label">Daily Target</div>
+          <div class="setting-control">
+            <input v-model.number="form.dailyTargetHours" type="number" min="1" max="24" step="0.5" class="input-number" />
+            <span class="input-unit">hours</span>
           </div>
-          <RButton @click="showImportConfirm = true">
-            Import
-          </RButton>
-        </RSpace>
-      </RSpace>
+        </div>
+
+        <div class="setting-row">
+          <div class="setting-label">Monthly Target</div>
+          <div class="setting-control">
+            <input v-model.number="form.monthlyTargetHours" type="number" min="1" max="744" step="1" class="input-number" />
+            <span class="input-unit">hours</span>
+          </div>
+        </div>
+
+        <div class="setting-row">
+          <div class="setting-label">
+            Idle Warning
+            <span class="setting-hint">Show indicator after inactivity</span>
+          </div>
+          <div class="setting-control">
+            <input v-model.number="form.idleIndicatorMinutes" type="number" min="0.1" max="10" step="0.1" class="input-number" />
+            <span class="input-unit">min</span>
+          </div>
+        </div>
+
+        <div class="setting-row">
+          <div class="setting-label">
+            Auto-Pause
+            <span class="setting-hint">Stop tracking after idle</span>
+          </div>
+          <div class="setting-control">
+            <input v-model.number="form.idleThresholdMinutes" type="number" min="1" max="60" step="1" class="input-number" />
+            <span class="input-unit">min</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════════
+           SECTION: Display
+           ═══════════════════════════════════════════════════════════════ -->
+      <div class="section">
+        <div class="section-header">Display</div>
+
+        <div class="setting-row">
+          <div class="setting-label">Theme</div>
+          <div class="setting-control">
+            <div class="segmented-control">
+              <button :class="['segment', form.theme === 'light' && 'active']" @click="form.theme = 'light'">Light</button>
+              <button :class="['segment', form.theme === 'dark' && 'active']" @click="form.theme = 'dark'">Dark</button>
+              <button :class="['segment', form.theme === 'system' && 'active']" @click="form.theme = 'system'">System</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="setting-row">
+          <div class="setting-label">
+            Notifications
+            <span class="setting-hint">Idle pauses and daily target alerts</span>
+          </div>
+          <div class="setting-control">
+            <RSwitch v-model="form.notificationsEnabled" />
+          </div>
+        </div>
+
+        <div class="setting-row">
+          <div class="setting-label">
+            Show Earnings
+            <span class="setting-hint">Display on main screen</span>
+          </div>
+          <div class="setting-control">
+            <RSwitch v-model="form.showEarnings" />
+          </div>
+        </div>
+
+        <div class="setting-row">
+          <div class="setting-label">Hourly Rate</div>
+          <div class="setting-control">
+            <input v-model.number="form.hourlyRate" type="number" min="0" step="0.01" class="input-number input-wide" />
+          </div>
+        </div>
+
+        <div class="setting-row">
+          <div class="setting-label">Currency</div>
+          <div class="setting-control">
+            <select v-model="form.currency" @change="onCurrencyChange" class="input-select">
+              <option v-for="c in currencies" :key="c.code" :value="c.code">{{ c.symbol }} {{ c.name }}</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════════
+           SECTION: Integrations
+           ═══════════════════════════════════════════════════════════════ -->
+      <div class="section">
+        <div class="section-header">Integrations</div>
+
+        <div class="setting-row">
+          <div class="setting-label">
+            Issue Tracker
+            <span class="setting-hint">Extract IDs from URLs</span>
+          </div>
+          <div class="setting-control">
+            <div class="tracker-buttons">
+              <button
+                v-for="tracker in issueTrackers"
+                :key="tracker.value"
+                :class="['tracker-btn', form.issueUrlPattern === tracker.value && 'active']"
+                @click="form.issueUrlPattern = tracker.value"
+              >{{ tracker.name }}</button>
+            </div>
+          </div>
+        </div>
+
+        <div v-if="form.issueUrlPattern === 'custom'" class="setting-row">
+          <div class="setting-label">
+            Custom Pattern
+            <span class="setting-hint">Regex with capture group</span>
+          </div>
+          <div class="setting-control">
+            <input v-model="form.customIssuePattern" type="text" class="input-text" placeholder="/ticket/(\d+)" />
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════════
+           SECTION: Data
+           ═══════════════════════════════════════════════════════════════ -->
+      <div class="section">
+        <div class="section-header">Data</div>
+
+        <div class="setting-row">
+          <div class="setting-label">
+            Export Backup
+            <span class="setting-hint">Download .json file</span>
+          </div>
+          <div class="setting-control">
+            <RButton size="small" @click="exportDatabase">Export</RButton>
+          </div>
+        </div>
+
+        <div class="setting-row">
+          <div class="setting-label">
+            Import Backup
+            <span class="setting-hint">Restore from .json (replaces data)</span>
+          </div>
+          <div class="setting-control">
+            <RButton size="small" @click="showImportConfirm = true">Import</RButton>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════════
+           SECTION: Danger Zone (visually separated)
+           ═══════════════════════════════════════════════════════════════ -->
+      <div class="section danger-section">
+        <div class="section-header danger-header">Danger Zone</div>
+
+        <div class="setting-row">
+          <div class="setting-label">
+            Wipe Database
+            <span class="setting-hint">Delete all issues and time entries</span>
+          </div>
+          <div class="setting-control">
+            <RButton size="small" color="error" @click="showWipeConfirm = true">Wipe</RButton>
+          </div>
+        </div>
+      </div>
     </RCard>
 
     <!-- Import Confirmation Dialog -->
@@ -401,23 +393,6 @@ async function wipeDatabase() {
       </RSpace>
     </RDialog>
 
-    <!-- Danger Zone -->
-    <RCard class="danger-zone">
-      <template #title><RText class="text-danger">Danger Zone</RText></template>
-
-      <RSpace justify="between" align="center">
-        <div>
-          <RText>Wipe Database</RText>
-          <RText size="small" class="text-secondary block">
-            Permanently delete all issues and time entries in this project
-          </RText>
-        </div>
-        <RButton color="error" @click="showWipeConfirm = true">
-          Wipe Database
-        </RButton>
-      </RSpace>
-    </RCard>
-
     <!-- Wipe Confirmation Dialog -->
     <RDialog v-model:open="showWipeConfirm">
       <template #title>Wipe Database?</template>
@@ -432,72 +407,254 @@ async function wipeDatabase() {
         </RButton>
       </RSpace>
     </RDialog>
-
-    <!-- Save Button -->
-    <RSpace justify="end" align="center">
-      <RText v-if="saveMessage" :class="saveMessage.includes('Error') ? 'text-danger' : 'text-success'">
-        {{ saveMessage }}
-      </RText>
-      <RButton
-        filled
-        @click="saveSettings"
-        :loading="isSaving"
-      >
-        {{ isSaving ? 'Saving...' : 'Save Settings' }}
-      </RButton>
-    </RSpace>
-  </RSpace>
+  </div>
 </template>
 
 <style scoped>
-.text-secondary {
-  color: var(--color-text-secondary);
+/* ═══════════════════════════════════════════════════════════════
+   Settings View - Same container model as Track/History
+   ═══════════════════════════════════════════════════════════════ */
+
+.settings-view {
+  margin-top: 1rem;
 }
 
-.text-success {
+/* ═══════════════════════════════════════════════════════════════
+   Card Header (matches IssueList/HistoryView)
+   ═══════════════════════════════════════════════════════════════ */
+
+.card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+
+.card-title {
+  font-weight: 600;
+  font-size: 1.1rem;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.save-message {
+  font-size: 0.85rem;
+}
+
+.save-message.success {
   color: var(--color-success);
 }
 
-.text-danger {
-  color: var(--color-danger);
+.save-message.error {
+  color: var(--color-error);
 }
 
-.border-color {
-  border-color: var(--color-border);
+/* ═══════════════════════════════════════════════════════════════
+   Sections (like day groups in History)
+   ═══════════════════════════════════════════════════════════════ */
+
+.section {
+  padding: 0.5rem 0;
 }
 
-.settings-input,
-.settings-select {
-  width: 100%;
-  padding: 0.5rem 0.75rem;
+.section:not(:last-child) {
+  border-bottom: 1px solid var(--color-border);
+}
+
+.section-header {
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-text-secondary);
+  padding: 0.5rem 0;
+  margin-bottom: 0.25rem;
+}
+
+/* Danger section styling */
+.danger-section {
+  background: var(--color-bg-secondary);
+  margin: 0 -1rem;
+  padding: 0.5rem 1rem;
+  margin-top: 0.5rem;
+}
+
+.danger-header {
+  color: var(--color-error);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Setting Rows - Two column grid: label | control
+   ═══════════════════════════════════════════════════════════════ */
+
+.setting-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.5rem 0;
+  min-height: 2.5rem;
+}
+
+.setting-label {
+  flex: 1;
+  font-size: 0.9rem;
+  color: var(--color-text);
+}
+
+.setting-hint {
+  display: block;
+  font-size: 0.75rem;
+  color: var(--color-text-secondary);
+  font-weight: normal;
+  margin-top: 0.125rem;
+}
+
+.setting-control {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Input Elements
+   ═══════════════════════════════════════════════════════════════ */
+
+.input-number {
+  width: 70px;
+  padding: 0.35rem 0.5rem;
   border: 2px solid var(--color-border);
   border-radius: 4px;
   background: var(--color-bg);
   color: var(--color-text);
   font-family: inherit;
+  font-size: 0.9rem;
+  text-align: right;
 }
 
-.settings-input:focus,
-.settings-select:focus {
+.input-number.input-wide {
+  width: 100px;
+}
+
+.input-number:focus {
   outline: none;
   border-color: var(--color-accent);
 }
 
-.settings-field {
+.input-unit {
+  font-size: 0.8rem;
+  color: var(--color-text-secondary);
+  min-width: 35px;
+}
+
+.input-select {
+  padding: 0.35rem 0.5rem;
+  border: 2px solid var(--color-border);
+  border-radius: 4px;
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: inherit;
+  font-size: 0.85rem;
+  min-width: 140px;
+}
+
+.input-select:focus {
+  outline: none;
+  border-color: var(--color-accent);
+}
+
+.input-text {
+  width: 160px;
+  padding: 0.35rem 0.5rem;
+  border: 2px solid var(--color-border);
+  border-radius: 4px;
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: inherit;
+  font-size: 0.85rem;
+}
+
+.input-text:focus {
+  outline: none;
+  border-color: var(--color-accent);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Segmented Control
+   ═══════════════════════════════════════════════════════════════ */
+
+.segmented-control {
   display: flex;
-  flex-direction: column;
+  border: 2px solid var(--color-border);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.segment {
+  padding: 0.3rem 0.6rem;
+  font-size: 0.8rem;
+  font-family: inherit;
+  background: transparent;
+  border: none;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.segment:not(:last-child) {
+  border-right: 1px solid var(--color-border);
+}
+
+.segment:hover {
+  background: var(--color-bg-secondary);
+}
+
+.segment.active {
+  background: var(--color-accent);
+  color: var(--color-bg);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Tracker Buttons (radio-style)
+   ═══════════════════════════════════════════════════════════════ */
+
+.tracker-buttons {
+  display: flex;
   gap: 0.25rem;
 }
 
-.settings-label {
-  font-size: 0.875rem;
-  font-weight: 500;
-  color: var(--color-text);
+.tracker-btn {
+  padding: 0.3rem 0.6rem;
+  font-size: 0.8rem;
+  font-family: inherit;
+  background: transparent;
+  border: 2px solid var(--color-border);
+  border-radius: 4px;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  opacity: 0.5;
+  transition: all 0.15s ease;
 }
 
-.danger-zone {
-  border-color: var(--color-error, #dc2626);
+.tracker-btn:hover {
+  opacity: 0.8;
 }
+
+.tracker-btn.active {
+  opacity: 1;
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+  color: var(--color-bg);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Modal
+   ═══════════════════════════════════════════════════════════════ */
 
 .modal-actions {
   margin-top: 1rem;
