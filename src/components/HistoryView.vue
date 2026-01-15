@@ -355,60 +355,48 @@ defineExpose({ openAddEntryModal, loadEntries })
 </script>
 
 <template>
-  <RSpace vertical>
+  <div class="history-list">
     <!-- Success message -->
     <div v-if="successMessage" class="success-toast">
       {{ successMessage }}
     </div>
 
-    <!-- Bulk delete toolbar -->
-    <div class="bulk-toolbar">
-      <RButton
-        :filled="selectionMode"
-        @click="toggleSelectionMode"
-      >
-        {{ selectionMode ? 'Cancel' : 'Select' }}
-      </RButton>
-      <template v-if="selectionMode">
+    <!-- Combined control bar: Select + Date filter -->
+    <div class="control-bar">
+      <div class="control-left">
         <RButton
-          color="error"
-          :disabled="selectedIds.size === 0"
-          @click="confirmBulkDelete('selected')"
+          size="small"
+          :filled="selectionMode"
+          @click="toggleSelectionMode"
         >
-          Delete Selected ({{ selectedIds.size }})
+          {{ selectionMode ? 'Cancel' : 'Select' }}
         </RButton>
-        <RButton
-          color="error"
-          :disabled="entries.length === 0"
-          @click="confirmBulkDelete('range')"
-        >
-          Delete All in Range ({{ entries.length }})
-        </RButton>
-      </template>
-    </div>
-
-    <!-- Date filter -->
-    <RCard>
-      <template #title>Filter by Date</template>
-      <div class="date-filter-row">
-        <div class="date-field">
-          <label class="date-label">From</label>
-          <input
-            v-model="startDate"
-            type="date"
-            class="date-input"
-          />
-        </div>
-        <div class="date-field">
-          <label class="date-label">To</label>
-          <input
-            v-model="endDate"
-            type="date"
-            class="date-input"
-          />
-        </div>
+        <template v-if="selectionMode">
+          <RButton
+            size="small"
+            color="error"
+            :disabled="selectedIds.size === 0"
+            @click="confirmBulkDelete('selected')"
+          >
+            Delete ({{ selectedIds.size }})
+          </RButton>
+          <RButton
+            size="small"
+            class="btn-secondary-danger"
+            :disabled="entries.length === 0"
+            @click="confirmBulkDelete('range')"
+          >
+            Delete all {{ entries.length }}
+          </RButton>
+        </template>
       </div>
-    </RCard>
+      <div class="control-right">
+        <span class="date-label">From</span>
+        <input v-model="startDate" type="date" class="date-input" />
+        <span class="date-label">to</span>
+        <input v-model="endDate" type="date" class="date-input" />
+      </div>
+    </div>
 
     <!-- Loading -->
     <RCard v-if="isLoading">
@@ -534,8 +522,8 @@ defineExpose({ openAddEntryModal, loadEntries })
               {{ formatDuration(entryDuration(entry)) }}
             </RText>
 
-            <!-- Action buttons -->
-            <RSpace>
+            <!-- Action buttons (ghosted, visible on hover) -->
+            <div class="entry-actions" v-if="!selectionMode">
               <RButton
                 size="small"
                 @click="startEditingNotes(entry)"
@@ -560,17 +548,16 @@ defineExpose({ openAddEntryModal, loadEntries })
               <RButton
                 v-if="confirmingDeleteId !== entry.id"
                 size="small"
-                color="error"
                 @click="confirmDelete(entry.id)"
                 title="Delete"
               >
                 <Icon name="delete" :size="16" />
               </RButton>
-              <RSpace v-else>
+              <div v-else class="delete-confirm">
                 <RButton size="small" color="error" filled @click="executeDelete(entry.id)" title="Confirm delete">Yes</RButton>
                 <RButton size="small" @click="cancelDelete" title="Cancel delete">No</RButton>
-              </RSpace>
-            </RSpace>
+              </div>
+            </div>
           </div>
         </RListItem>
       </RList>
@@ -670,31 +657,43 @@ defineExpose({ openAddEntryModal, loadEntries })
         </div>
       </form>
     </RDialog>
-  </RSpace>
+  </div>
 </template>
 
 <style scoped>
+.history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
 .text-secondary {
   color: var(--color-text-secondary);
 }
 
-.date-filter-row {
+.control-bar {
   display: flex;
-  justify-content: space-around;
-  gap: 2rem;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.25rem 0;
+  margin-bottom: 0.25rem;
 }
 
-.date-field {
+.control-left {
   display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-  flex: 1;
-  max-width: 200px;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.control-right {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
 }
 
 .date-label {
-  font-size: 0.875rem;
-  font-weight: 500;
+  font-size: 0.75rem;
   color: var(--color-text-secondary);
 }
 
@@ -704,12 +703,13 @@ defineExpose({ openAddEntryModal, loadEntries })
 
 .date-input,
 .select-input {
-  padding: 0.5rem 0.75rem;
-  border: 2px solid var(--color-border);
-  border-radius: 4px;
+  padding: 0.35rem 0.5rem;
+  border: 1px solid var(--color-border);
+  border-radius: 3px;
   background: var(--color-bg);
   color: var(--color-text);
   font-family: inherit;
+  font-size: 0.85rem;
 }
 
 .date-input:focus,
@@ -792,6 +792,31 @@ defineExpose({ openAddEntryModal, loadEntries })
   display: flex;
   gap: 0.5rem;
   align-items: center;
+}
+
+.btn-secondary-danger {
+  opacity: 0.6;
+}
+
+.btn-secondary-danger:hover {
+  opacity: 1;
+}
+
+/* Entry actions - ghosted by default, visible on hover */
+.entry-actions {
+  display: flex;
+  gap: 0.25rem;
+  opacity: 0.2;
+  transition: opacity 0.15s ease;
+}
+
+.entry-item:hover .entry-actions {
+  opacity: 1;
+}
+
+.delete-confirm {
+  display: flex;
+  gap: 0.25rem;
 }
 
 .bulk-checkbox {

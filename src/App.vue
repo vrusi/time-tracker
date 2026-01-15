@@ -91,20 +91,22 @@ onMounted(async () => {
         </RTabItem>
 
         <RTabItem label="History" value="history">
-          <RSpace vertical class="mt-4">
+          <div class="history-section">
             <!-- Add Entry button and View toggle -->
-            <div class="flex justify-between items-center">
-              <RButton filled @click="openAddEntry" title="Add a manual time entry">
+            <div class="history-header">
+              <RButton size="small" filled @click="openAddEntry" title="Add a manual time entry">
                 + Add Entry
               </RButton>
-              <div class="flex gap-2">
+              <div class="view-toggle">
                 <RButton
+                  size="small"
                   :filled="historyView === 'list'"
                   @click="historyView = 'list'"
                 >
                   List
                 </RButton>
                 <RButton
+                  size="small"
                   :filled="historyView === 'calendar'"
                   @click="historyView = 'calendar'"
                 >
@@ -115,7 +117,7 @@ onMounted(async () => {
 
             <HistoryView v-show="historyView === 'list'" ref="historyViewRef" @entries-changed="refreshProgress" />
             <CalendarView v-show="historyView === 'calendar'" />
-          </RSpace>
+          </div>
         </RTabItem>
 
         <RTabItem label="Settings" value="settings">
@@ -141,5 +143,21 @@ onMounted(async () => {
 <style scoped>
 .track-section {
   margin-top: 1rem;
+}
+
+.history-section {
+  margin-top: 0.5rem;
+}
+
+.history-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.25rem;
+}
+
+.view-toggle {
+  display: flex;
+  gap: 0.25rem;
 }
 </style>
