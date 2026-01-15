@@ -5,6 +5,10 @@ import { useIssuesStore } from '../stores/issues.store'
 import { RCard, RButton, RInput, RText, RSpace, RList, RListItem, RDialog, RFormItem, RSelect } from 'roughness'
 import Icon from './Icon.vue'
 
+defineProps<{
+  viewMode: 'list' | 'calendar'
+}>()
+
 const issuesStore = useIssuesStore()
 
 const entries = ref<(TimeEntry & { issue: Issue })[]>([])
@@ -340,6 +344,22 @@ async function executeBulkDelete() {
   emit('entries-changed')
 }
 
+// State message for "you are here" anchor
+const stateMessage = computed(() => {
+  if (isLoading.value) return 'Loading entries...'
+  if (entries.value.length === 0) return 'No entries in selected range'
+
+  // Format date range nicely
+  const start = new Date(startDate.value)
+  const end = new Date(endDate.value)
+  const formatter = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' })
+
+  const entryCount = entries.value.length
+  const entryWord = entryCount === 1 ? 'entry' : 'entries'
+
+  return `Showing ${entryCount} ${entryWord} from ${formatter.format(start)} – ${formatter.format(end)}`
+})
+
 watch([startDate, endDate], loadEntries)
 onMounted(() => {
   loadEntries()
@@ -348,6 +368,7 @@ onMounted(() => {
 
 const emit = defineEmits<{
   (e: 'entries-changed'): void
+  (e: 'view-change', view: 'list' | 'calendar'): void
 }>()
 
 // Expose for parent component
@@ -361,206 +382,231 @@ defineExpose({ openAddEntryModal, loadEntries })
       {{ successMessage }}
     </div>
 
-    <!-- Combined control bar: Select + Date filter -->
-    <div class="control-bar">
-      <div class="control-left">
-        <RButton
-          size="small"
-          :filled="selectionMode"
-          @click="toggleSelectionMode"
-        >
-          {{ selectionMode ? 'Cancel' : 'Select' }}
-        </RButton>
-        <template v-if="selectionMode">
-          <RButton
-            size="small"
-            color="error"
-            :disabled="selectedIds.size === 0"
-            @click="confirmBulkDelete('selected')"
-          >
-            Delete ({{ selectedIds.size }})
-          </RButton>
-          <RButton
-            size="small"
-            class="btn-secondary-danger"
-            :disabled="entries.length === 0"
-            @click="confirmBulkDelete('range')"
-          >
-            Delete all {{ entries.length }}
-          </RButton>
-        </template>
-      </div>
-      <div class="control-right">
-        <span class="date-label">From</span>
-        <input v-model="startDate" type="date" class="date-input" />
-        <span class="date-label">to</span>
-        <input v-model="endDate" type="date" class="date-input" />
-      </div>
-    </div>
-
-    <!-- Loading -->
-    <RCard v-if="isLoading">
-      <div class="p-8 text-center">
-        <RText class="text-secondary">Loading...</RText>
-      </div>
-    </RCard>
-
-    <!-- Empty state -->
-    <RCard v-else-if="groupedEntries.length === 0">
-      <div class="p-8 text-center">
-        <RText class="text-secondary">No time entries for this period.</RText>
-      </div>
-    </RCard>
-
-    <!-- Entries grouped by day -->
-    <RCard
-      v-for="group in groupedEntries"
-      :key="group.date"
-    >
+    <!-- Main History card with unified header -->
+    <RCard>
       <template #title>
-        <RSpace justify="between" class="w-full">
-          <RSpace align="center">
-            <input
-              v-if="selectionMode"
-              type="checkbox"
-              :checked="isDaySelected(group.entries)"
-              @change="toggleDay(group.entries)"
-              class="bulk-checkbox"
-            />
-            <RText>{{ formatDate(group.date) }}</RText>
-          </RSpace>
-          <RText class="text-secondary">Total: {{ formatDuration(group.totalSeconds) }}</RText>
-        </RSpace>
+        <div class="card-header">
+          <div class="header-left">
+            <span class="card-title">History</span>
+            <div class="view-toggle" :class="{ 'demoted': selectionMode }">
+              <RButton size="small" :class="{ 'view-active': viewMode === 'list' }" @click="$emit('view-change', 'list')" :disabled="selectionMode">
+                List
+              </RButton>
+              <RButton size="small" :class="{ 'view-active': viewMode === 'calendar' }" @click="$emit('view-change', 'calendar')" :disabled="selectionMode">
+                Calendar
+              </RButton>
+            </div>
+          </div>
+          <div class="header-right">
+            <RButton size="small" filled @click="openAddEntryModal" title="Add a manual time entry" :class="{ 'demoted': selectionMode }" :disabled="selectionMode">
+              + Add Entry
+            </RButton>
+            <RButton
+              size="small"
+              :filled="selectionMode"
+              @click="toggleSelectionMode"
+            >
+              {{ selectionMode ? 'Cancel' : 'Select' }}
+            </RButton>
+            <template v-if="selectionMode">
+              <RButton
+                size="small"
+                color="error"
+                :disabled="selectedIds.size === 0"
+                @click="confirmBulkDelete('selected')"
+              >
+                Delete ({{ selectedIds.size }})
+              </RButton>
+              <RButton
+                size="small"
+                class="btn-secondary-danger"
+                :disabled="entries.length === 0"
+                @click="confirmBulkDelete('range')"
+              >
+                Delete all {{ entries.length }}
+              </RButton>
+            </template>
+            <!-- Date filter - hidden in selection mode (state sentence shows the range) -->
+            <template v-if="!selectionMode">
+              <span class="date-label">From</span>
+              <input v-model="startDate" type="date" class="date-input" />
+              <span class="date-label">to</span>
+              <input v-model="endDate" type="date" class="date-input" />
+            </template>
+          </div>
+        </div>
       </template>
 
-      <RList>
-        <RListItem
-          v-for="entry in group.entries"
-          :key="entry.id"
-          class="entry-item"
+      <!-- State sentence - shows what you're viewing -->
+      <div class="state-sentence">
+        <RText class="text-secondary">
+          {{ stateMessage }}
+        </RText>
+      </div>
+
+      <!-- Loading -->
+      <div v-if="isLoading" class="p-8 text-center">
+        <RText class="text-secondary">Loading...</RText>
+      </div>
+
+      <!-- Empty state -->
+      <div v-else-if="groupedEntries.length === 0" class="p-8 text-center">
+        <RText class="text-secondary">No time entries for this period.</RText>
+      </div>
+
+      <!-- Entries grouped by day -->
+      <div v-else class="entries-container">
+        <RCard
+          v-for="group in groupedEntries"
+          :key="group.date"
+          class="day-card"
         >
-          <!-- Edit time mode -->
-          <form v-if="editingEntryId === entry.id" @submit.prevent="saveEdit" class="space-y-3 w-full">
-            <RSpace>
-              <RFormItem label="Start">
+          <template #title>
+            <RSpace justify="space-between" class="w-full">
+              <RSpace align="center">
                 <input
-                  v-model="editForm.startedAt"
-                  type="datetime-local"
-                  class="date-input"
-                  required
+                  v-if="selectionMode"
+                  type="checkbox"
+                  :checked="isDaySelected(group.entries)"
+                  @change="toggleDay(group.entries)"
+                  class="bulk-checkbox"
                 />
-              </RFormItem>
-              <RFormItem label="End">
-                <input
-                  v-model="editForm.endedAt"
-                  type="datetime-local"
-                  class="date-input"
-                />
-              </RFormItem>
-              <RSpace class="self-end">
-                <RButton type="submit" size="small" filled>Save</RButton>
-                <RButton type="button" size="small" @click="cancelEditing">Cancel</RButton>
+                <RText>{{ formatDate(group.date) }}</RText>
               </RSpace>
+              <RText class="text-secondary">Total: {{ formatDuration(group.totalSeconds) }}</RText>
             </RSpace>
-          </form>
+          </template>
 
-          <!-- Edit notes mode -->
-          <div v-else-if="editingNotesId === entry.id" class="space-y-2 w-full">
-            <RText class="text-secondary text-sm">
-              <strong>{{ entry.issue.externalId }}</strong> {{ entry.issue.name }}
-            </RText>
-            <RInput
-              v-model="notesForm"
-              :lines="4"
-              placeholder="Add notes about what you worked on..."
-            />
-            <RSpace>
-              <RButton size="small" filled @click="saveNotes">Save Notes</RButton>
-              <RButton size="small" @click="cancelEditingNotes">Cancel</RButton>
-            </RSpace>
-          </div>
+          <RList>
+            <RListItem
+              v-for="entry in group.entries"
+              :key="entry.id"
+              class="entry-item"
+            >
+              <!-- Edit time mode -->
+              <form v-if="editingEntryId === entry.id" @submit.prevent="saveEdit" class="space-y-3 w-full">
+                <RSpace>
+                  <RFormItem label="Start">
+                    <input
+                      v-model="editForm.startedAt"
+                      type="datetime-local"
+                      class="date-input"
+                      required
+                    />
+                  </RFormItem>
+                  <RFormItem label="End">
+                    <input
+                      v-model="editForm.endedAt"
+                      type="datetime-local"
+                      class="date-input"
+                    />
+                  </RFormItem>
+                  <RSpace class="self-end">
+                    <RButton type="submit" size="small" filled>Save</RButton>
+                    <RButton type="button" size="small" @click="cancelEditing">Cancel</RButton>
+                  </RSpace>
+                </RSpace>
+              </form>
 
-          <!-- Edit issue mode -->
-          <form v-else-if="editingIssueId === entry.issue.id" @submit.prevent="saveIssueEdit" class="flex items-center gap-3 w-full">
-            <RInput
-              v-model="issueEditForm.link"
-              placeholder="Issue URL"
-              class="w-48"
-            />
-            <RInput
-              v-model="issueEditForm.name"
-              placeholder="Name"
-              class="flex-1"
-            />
-            <RButton type="submit" size="small" filled>Save</RButton>
-            <RButton type="button" size="small" @click="cancelEditingIssue">Cancel</RButton>
-          </form>
-
-          <!-- Normal display mode -->
-          <div v-else class="flex items-center gap-4 w-full">
-            <input
-              v-if="selectionMode"
-              type="checkbox"
-              :checked="selectedIds.has(entry.id)"
-              @change="toggleEntry(entry.id)"
-              class="bulk-checkbox"
-            />
-            <div class="flex-1">
-              <div class="flex items-center gap-2">
-                <RText class="font-medium">{{ entry.issue.externalId }}</RText>
-                <RText class="text-secondary">{{ entry.issue.name }}</RText>
+              <!-- Edit notes mode -->
+              <div v-else-if="editingNotesId === entry.id" class="space-y-2 w-full">
+                <RText class="text-secondary text-sm">
+                  <strong>{{ entry.issue.externalId }}</strong> {{ entry.issue.name }}
+                </RText>
+                <RInput
+                  v-model="notesForm"
+                  :lines="4"
+                  placeholder="Add notes about what you worked on..."
+                />
+                <RSpace>
+                  <RButton size="small" filled @click="saveNotes">Save Notes</RButton>
+                  <RButton size="small" @click="cancelEditingNotes">Cancel</RButton>
+                </RSpace>
               </div>
-              <RText size="small" class="text-secondary">
-                {{ formatTime(entry.startedAt) }} - {{ entry.endedAt ? formatTime(entry.endedAt) : 'ongoing' }}
-                <span v-if="entry.pausedReason" class="ml-2">({{ entry.pausedReason }})</span>
-              </RText>
-              <RText v-if="entry.notes" size="small" class="text-secondary italic block mt-1">
-                {{ entry.notes }}
-              </RText>
-            </div>
-            <RText class="font-medium">
-              {{ formatDuration(entryDuration(entry)) }}
-            </RText>
 
-            <!-- Action buttons (ghosted, visible on hover) -->
-            <div class="entry-actions" v-if="!selectionMode">
-              <RButton
-                size="small"
-                @click="startEditingNotes(entry)"
-                title="Notes"
-              >
-                <Icon name="note" :size="16" />
-              </RButton>
-              <RButton
-                size="small"
-                @click="startEditing(entry)"
-                title="Edit time"
-              >
-                <Icon name="clock" :size="16" />
-              </RButton>
-              <RButton
-                size="small"
-                @click="startEditingIssue(entry)"
-                title="Edit issue"
-              >
-                <Icon name="pencil" :size="16" />
-              </RButton>
-              <RButton
-                v-if="confirmingDeleteId !== entry.id"
-                size="small"
-                @click="confirmDelete(entry.id)"
-                title="Delete"
-              >
-                <Icon name="delete" :size="16" />
-              </RButton>
-              <div v-else class="delete-confirm">
-                <RButton size="small" color="error" filled @click="executeDelete(entry.id)" title="Confirm delete">Yes</RButton>
-                <RButton size="small" @click="cancelDelete" title="Cancel delete">No</RButton>
+              <!-- Edit issue mode -->
+              <form v-else-if="editingIssueId === entry.issue.id" @submit.prevent="saveIssueEdit" class="flex items-center gap-3 w-full">
+                <RInput
+                  v-model="issueEditForm.link"
+                  placeholder="Issue URL"
+                  class="w-48"
+                />
+                <RInput
+                  v-model="issueEditForm.name"
+                  placeholder="Name"
+                  class="flex-1"
+                />
+                <RButton type="submit" size="small" filled>Save</RButton>
+                <RButton type="button" size="small" @click="cancelEditingIssue">Cancel</RButton>
+              </form>
+
+              <!-- Normal display mode -->
+              <div v-else class="flex items-center gap-4 w-full">
+                <input
+                  v-if="selectionMode"
+                  type="checkbox"
+                  :checked="selectedIds.has(entry.id)"
+                  @change="toggleEntry(entry.id)"
+                  class="bulk-checkbox"
+                />
+                <div class="flex-1">
+                  <div class="flex items-center gap-2">
+                    <RText class="font-medium">{{ entry.issue.externalId }}</RText>
+                    <RText class="text-secondary">{{ entry.issue.name }}</RText>
+                  </div>
+                  <RText size="small" class="text-secondary">
+                    {{ formatTime(entry.startedAt) }} - {{ entry.endedAt ? formatTime(entry.endedAt) : 'ongoing' }}
+                    <span v-if="entry.pausedReason" class="ml-2">({{ entry.pausedReason }})</span>
+                  </RText>
+                  <RText v-if="entry.notes" size="small" class="text-secondary italic block mt-1">
+                    {{ entry.notes }}
+                  </RText>
+                </div>
+                <RText class="font-medium">
+                  {{ formatDuration(entryDuration(entry)) }}
+                </RText>
+
+                <!-- Action buttons (ghosted, visible on hover) -->
+                <div class="entry-actions" v-if="!selectionMode">
+                  <RButton
+                    size="small"
+                    @click="startEditingNotes(entry)"
+                    title="Notes"
+                  >
+                    <Icon name="note" :size="16" />
+                  </RButton>
+                  <RButton
+                    size="small"
+                    @click="startEditing(entry)"
+                    title="Edit time"
+                  >
+                    <Icon name="clock" :size="16" />
+                  </RButton>
+                  <RButton
+                    size="small"
+                    @click="startEditingIssue(entry)"
+                    title="Edit issue"
+                  >
+                    <Icon name="pencil" :size="16" />
+                  </RButton>
+                  <RButton
+                    v-if="confirmingDeleteId !== entry.id"
+                    size="small"
+                    @click="confirmDelete(entry.id)"
+                    title="Delete"
+                  >
+                    <Icon name="delete" :size="16" />
+                  </RButton>
+                  <div v-else class="delete-confirm">
+                    <RButton size="small" color="error" filled @click="executeDelete(entry.id)" title="Confirm delete">Yes</RButton>
+                    <RButton size="small" @click="cancelDelete" title="Cancel delete">No</RButton>
+                  </div>
+                </div>
               </div>
-            </div>
-          </div>
-        </RListItem>
-      </RList>
+            </RListItem>
+          </RList>
+        </RCard>
+      </div>
     </RCard>
 
     <!-- Bulk Delete Confirmation Dialog -->
@@ -671,25 +717,68 @@ defineExpose({ openAddEntryModal, loadEntries })
   color: var(--color-text-secondary);
 }
 
-.control-bar {
+/* Card header styling (matches IssueList) */
+.card-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  width: 100%;
   gap: 1rem;
-  padding: 0.25rem 0;
-  margin-bottom: 0.25rem;
 }
 
-.control-left {
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.header-right {
   display: flex;
   align-items: center;
   gap: 0.5rem;
 }
 
-.control-right {
+.card-title {
+  font-weight: 600;
+  font-size: 1.1rem;
+}
+
+.view-toggle {
   display: flex;
-  align-items: center;
   gap: 0.5rem;
+}
+
+/* Both buttons look similar, inactive one is faded */
+.view-toggle > :not(.view-active) {
+  opacity: 0.5;
+}
+
+/* Demote secondary controls in selection mode */
+.demoted {
+  opacity: 0.3;
+  pointer-events: none;
+}
+
+.card-header :deep(.r-button) {
+  font-size: 0.8rem;
+}
+
+/* State sentence - "you are here" anchor */
+.state-sentence {
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--color-border);
+  margin-bottom: 0.5rem;
+}
+
+/* Entries container */
+.entries-container {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.day-card {
+  --r-card-padding: 0.5rem;
 }
 
 .date-label {
@@ -806,7 +895,7 @@ defineExpose({ openAddEntryModal, loadEntries })
 .entry-actions {
   display: flex;
   gap: 0.25rem;
-  opacity: 0.2;
+  opacity: 0.15;
   transition: opacity 0.15s ease;
 }
 
