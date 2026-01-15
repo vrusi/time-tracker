@@ -4,7 +4,7 @@ import { useIssuesStore } from '../stores/issues.store'
 import { useTrackerStore } from '../stores/tracker.store'
 import { useSettingsStore } from '../stores/settings.store'
 import type { Issue } from '../types'
-import { RCard, RButton, RText } from 'roughness'
+import { RButton } from 'roughness'
 
 const issuesStore = useIssuesStore()
 const trackerStore = useTrackerStore()
@@ -87,86 +87,71 @@ async function handleSubmit() {
 </script>
 
 <template>
-  <RCard>
-    <template #title>
-      <RText>Start Tracking</RText>
-    </template>
-
-    <form @submit.prevent="handleSubmit" class="form-row">
-      <div class="url-field">
-        <label class="field-label">Issue URL (optional)</label>
-        <input
-          v-model="link"
-          type="text"
-          placeholder="https://github.com/org/repo/issues/123"
-          class="field-input"
-        />
-      </div>
-
-      <div class="name-field">
-        <label class="field-label">Name</label>
-        <input
-          v-model="name"
-          type="text"
-          placeholder="Brief description"
-          class="field-input"
-        />
-      </div>
-
-      <span class="submit-wrapper" :title="submitTooltip">
-        <RButton
-          filled
-          type="submit"
-          :loading="isSubmitting"
-          :disabled="!canSubmit"
-          :class="{ 'btn-waiting': !canSubmit }"
-        >
-          {{ isSubmitting ? 'Starting...' : (matchedIssue ? 'Resume' : 'Start') }}
-        </RButton>
-      </span>
-    </form>
-    <p v-if="!canSubmit" class="form-hint">Enter a name to start tracking</p>
-  </RCard>
+  <form @submit.prevent="handleSubmit" class="quick-track">
+    <span class="form-label">Track something new</span>
+    <input
+      v-model="link"
+      type="text"
+      placeholder="URL (optional)"
+      class="field-input url-input"
+    />
+    <input
+      v-model="name"
+      type="text"
+      placeholder="Name"
+      class="field-input name-input"
+    />
+    <span class="submit-wrapper" :title="submitTooltip">
+      <RButton
+        type="submit"
+        size="small"
+        color="success"
+        :loading="isSubmitting"
+        :disabled="!canSubmit"
+        :class="{ 'btn-waiting': !canSubmit }"
+      >
+        {{ isSubmitting ? '...' : (matchedIssue ? 'Resume' : 'Start') }}
+      </RButton>
+    </span>
+  </form>
 </template>
 
 <style scoped>
-.form-row {
+.quick-track {
   display: flex;
-  align-items: flex-end;
-  gap: 0.75rem;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--color-border);
+  margin-bottom: 0.5rem;
 }
 
-.url-field {
-  flex: 2;
-  min-width: 0;
+.form-label {
+  font-size: 0.75rem;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+  opacity: 0.8;
 }
 
-.name-field {
+.field-input {
+  padding: 0.3rem 0.5rem;
+  border: 1px solid var(--color-border);
+  border-radius: 3px;
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: inherit;
+  font-size: 0.8rem;
+  box-sizing: border-box;
+}
+
+.url-input {
   flex: 1;
   min-width: 0;
 }
 
-.submit-wrapper {
-  flex-shrink: 0;
-}
-
-.field-label {
-  display: block;
-  font-size: 0.8rem;
-  margin-bottom: 0.25rem;
-  color: var(--color-text-secondary);
-}
-
-.field-input {
-  width: 100%;
-  padding: 0.4rem 0.6rem;
-  border: 1px solid var(--color-border);
-  border-radius: 4px;
-  background: var(--color-bg);
-  color: var(--color-text);
-  font-family: inherit;
-  font-size: 0.9rem;
-  box-sizing: border-box;
+.name-input {
+  flex: 2;
+  min-width: 0;
 }
 
 .field-input:focus {
@@ -176,19 +161,16 @@ async function handleSubmit() {
 
 .field-input::placeholder {
   color: var(--color-text-secondary);
-  opacity: 0.6;
+  opacity: 0.5;
 }
 
-.form-hint {
-  margin: 0.5rem 0 0 0;
-  font-size: 0.75rem;
-  color: var(--color-text-secondary);
-  opacity: 0.7;
+.submit-wrapper {
+  flex-shrink: 0;
 }
 
 /* Disabled button = waiting, not forbidden */
 .btn-waiting :deep(.r-button) {
   text-decoration: none !important;
-  opacity: 0.5;
+  opacity: 0.35;
 }
 </style>

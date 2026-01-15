@@ -123,7 +123,7 @@ defineExpose({ loadProgress })
       class="earnings-row"
       :title="`${monthlyHours.toFixed(1)} hours × ${formatMoney(settingsStore.settings.hourlyRate)}/hour`"
     >
-      <RText class="text-success font-bold text-xl">{{ formatMoney(monthlyEarnings) }}</RText>
+      <RText class="earnings-amount">{{ formatMoney(monthlyEarnings) }}</RText>
       <RText class="text-secondary text-sm">
         of {{ formatMoney(targetEarnings) }} target
       </RText>
@@ -176,6 +176,13 @@ defineExpose({ loadProgress })
   margin-bottom: 0.75rem;
   padding-bottom: 0.75rem;
   border-bottom: 1px solid var(--color-border);
+}
+
+.earnings-amount {
+  color: var(--color-success);
+  font-size: 1.1rem;
+  font-weight: 500;
+  opacity: 0.85;
 }
 
 .progress-row {
