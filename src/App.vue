@@ -7,7 +7,6 @@ import { useProjectsStore } from './stores/projects.store'
 import type { TrackingRecoveryInfo } from './types'
 import TrackerStatus from './components/TrackerStatus.vue'
 import IssueList from './components/IssueList.vue'
-import IssueForm from './components/IssueForm.vue'
 import HistoryView from './components/HistoryView.vue'
 import ExportDialog from './components/ExportDialog.vue'
 import RecoveryDialog from './components/RecoveryDialog.vue'
@@ -86,10 +85,9 @@ onMounted(async () => {
       <!-- Main navigation tabs -->
       <RTabs v-model="activeTab" class="w-full">
         <RTabItem label="Track" value="track">
-          <RSpace vertical class="mt-4">
-            <IssueForm />
+          <div class="track-section">
             <IssueList />
-          </RSpace>
+          </div>
         </RTabItem>
 
         <RTabItem label="History" value="history">
@@ -139,3 +137,9 @@ onMounted(async () => {
     />
   </div>
 </template>
+
+<style scoped>
+.track-section {
+  margin-top: 1rem;
+}
+</style>

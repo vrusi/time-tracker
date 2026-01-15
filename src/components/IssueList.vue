@@ -6,6 +6,7 @@ import { useSettingsStore } from '../stores/settings.store'
 import type { Issue, TimeEntry } from '../types'
 import { RCard, RButton, RInput, RText, RSpace, RDialog } from 'roughness'
 import Icon from './Icon.vue'
+import IssueForm from './IssueForm.vue'
 
 const issuesStore = useIssuesStore()
 const trackerStore = useTrackerStore()
@@ -268,6 +269,9 @@ async function executeBulkDelete() {
       </div>
     </template>
 
+    <!-- Quick track inline form -->
+    <IssueForm />
+
     <div v-if="issuesStore.isLoading" class="p-8 text-center">
       <RText class="text-secondary">Loading...</RText>
     </div>
@@ -355,7 +359,8 @@ async function executeBulkDelete() {
                 @click="toggleTracking(issue)"
                 :disabled="issue.archived"
                 :color="isCurrentlyTracking(issue) ? 'error' : 'success'"
-                :title="isCurrentlyTracking(issue) ? 'Stop tracking' : 'Start tracking'"
+                :class="{ 'btn-archived': issue.archived }"
+                :title="issue.archived ? 'Restore issue to track' : (isCurrentlyTracking(issue) ? 'Stop tracking' : 'Start tracking')"
               >
                 <Icon :name="isCurrentlyTracking(issue) ? 'pause' : 'play'" :size="16" />
               </RButton>
@@ -536,6 +541,12 @@ async function executeBulkDelete() {
   width: 2.5rem;
   flex-shrink: 0;
   margin: 0 0.5rem;
+}
+
+/* Archived issues - grayed out play button */
+.btn-archived {
+  opacity: 0.3 !important;
+  filter: grayscale(1);
 }
 
 .action-buttons {
