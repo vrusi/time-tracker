@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, watch, onMounted, inject } from 'vue'
 import { useSettingsStore } from '../stores/settings.store'
-import { RCard, RButton, RInput, RText, RSpace, RSwitch, RFormItem, RDialog } from 'roughness'
+import { RButton, RText, RSpace, RDialog, RCard } from 'roughness'
 import { useIssuesStore } from '../stores/issues.store'
 import { useTrackerStore } from '../stores/tracker.store'
 
@@ -184,29 +184,15 @@ async function wipeDatabase() {
 
 <template>
   <div class="settings-view">
-    <!-- Main Settings Card (same container model as Track/History) -->
     <RCard>
-      <template #title>
-        <div class="card-header">
-          <span class="card-title">Settings</span>
-          <div class="header-actions">
-            <span v-if="saveMessage" :class="['save-message', saveMessage.includes('Error') ? 'error' : 'success']">
-              {{ saveMessage }}
-            </span>
-            <RButton size="small" filled @click="saveSettings" :loading="isSaving">
-              {{ isSaving ? 'Saving...' : 'Save' }}
-            </RButton>
-          </div>
-        </div>
-      </template>
-
       <!-- ═══════════════════════════════════════════════════════════════
            SECTION: Tracking
            ═══════════════════════════════════════════════════════════════ -->
       <div class="section">
         <div class="section-header">Tracking</div>
+        <div class="section-divider"></div>
 
-        <div class="setting-row">
+        <div class="setting-row row-md">
           <div class="setting-label">Daily Target</div>
           <div class="setting-control">
             <input v-model.number="form.dailyTargetHours" type="number" min="1" max="24" step="0.5" class="input-number" />
@@ -214,7 +200,7 @@ async function wipeDatabase() {
           </div>
         </div>
 
-        <div class="setting-row">
+        <div class="setting-row row-md">
           <div class="setting-label">Monthly Target</div>
           <div class="setting-control">
             <input v-model.number="form.monthlyTargetHours" type="number" min="1" max="744" step="1" class="input-number" />
@@ -222,7 +208,7 @@ async function wipeDatabase() {
           </div>
         </div>
 
-        <div class="setting-row">
+        <div class="setting-row row-md">
           <div class="setting-label">
             Idle Warning
             <span class="setting-hint">Show indicator after inactivity</span>
@@ -233,7 +219,7 @@ async function wipeDatabase() {
           </div>
         </div>
 
-        <div class="setting-row">
+        <div class="setting-row row-md">
           <div class="setting-label">
             Auto-Pause
             <span class="setting-hint">Stop tracking after idle</span>
@@ -250,8 +236,9 @@ async function wipeDatabase() {
            ═══════════════════════════════════════════════════════════════ -->
       <div class="section">
         <div class="section-header">Display</div>
+        <div class="section-divider"></div>
 
-        <div class="setting-row">
+        <div class="setting-row row-sm">
           <div class="setting-label">Theme</div>
           <div class="setting-control">
             <div class="segmented-control">
@@ -262,34 +249,48 @@ async function wipeDatabase() {
           </div>
         </div>
 
-        <div class="setting-row">
+        <div class="setting-row row-sm">
           <div class="setting-label">
             Notifications
             <span class="setting-hint">Idle pauses and daily target alerts</span>
           </div>
           <div class="setting-control">
-            <RSwitch v-model="form.notificationsEnabled" />
+            <label class="toggle">
+              <input type="checkbox" v-model="form.notificationsEnabled" />
+              <span class="toggle-slider"></span>
+            </label>
           </div>
         </div>
+      </div>
 
-        <div class="setting-row">
+      <!-- ═══════════════════════════════════════════════════════════════
+           SECTION: Earnings
+           ═══════════════════════════════════════════════════════════════ -->
+      <div class="section">
+        <div class="section-header">Earnings</div>
+        <div class="section-divider"></div>
+
+        <div class="setting-row row-sm">
           <div class="setting-label">
             Show Earnings
             <span class="setting-hint">Display on main screen</span>
           </div>
           <div class="setting-control">
-            <RSwitch v-model="form.showEarnings" />
+            <label class="toggle">
+              <input type="checkbox" v-model="form.showEarnings" />
+              <span class="toggle-slider"></span>
+            </label>
           </div>
         </div>
 
-        <div class="setting-row">
+        <div class="setting-row row-md sub-row">
           <div class="setting-label">Hourly Rate</div>
           <div class="setting-control">
             <input v-model.number="form.hourlyRate" type="number" min="0" step="0.01" class="input-number input-wide" />
           </div>
         </div>
 
-        <div class="setting-row">
+        <div class="setting-row row-md sub-row">
           <div class="setting-label">Currency</div>
           <div class="setting-control">
             <select v-model="form.currency" @change="onCurrencyChange" class="input-select">
@@ -304,8 +305,9 @@ async function wipeDatabase() {
            ═══════════════════════════════════════════════════════════════ -->
       <div class="section">
         <div class="section-header">Integrations</div>
+        <div class="section-divider"></div>
 
-        <div class="setting-row">
+        <div class="setting-row row-sm">
           <div class="setting-label">
             Issue Tracker
             <span class="setting-hint">Extract IDs from URLs</span>
@@ -322,7 +324,7 @@ async function wipeDatabase() {
           </div>
         </div>
 
-        <div v-if="form.issueUrlPattern === 'custom'" class="setting-row">
+        <div v-if="form.issueUrlPattern === 'custom'" class="setting-row row-md">
           <div class="setting-label">
             Custom Pattern
             <span class="setting-hint">Regex with capture group</span>
@@ -338,35 +340,38 @@ async function wipeDatabase() {
            ═══════════════════════════════════════════════════════════════ -->
       <div class="section">
         <div class="section-header">Data</div>
+        <div class="section-divider"></div>
 
-        <div class="setting-row">
+        <div class="setting-row row-sm">
           <div class="setting-label">
             Export Backup
             <span class="setting-hint">Download .json file</span>
           </div>
           <div class="setting-control">
-            <RButton size="small" @click="exportDatabase">Export</RButton>
+            <button class="btn" @click="exportDatabase">Export</button>
           </div>
         </div>
 
-        <div class="setting-row">
+        <div class="setting-row row-sm">
           <div class="setting-label">
             Import Backup
             <span class="setting-hint">Restore from .json (replaces data)</span>
           </div>
           <div class="setting-control">
-            <RButton size="small" @click="showImportConfirm = true">Import</RButton>
+            <button class="btn" @click="showImportConfirm = true">Import</button>
           </div>
         </div>
       </div>
 
       <!-- ═══════════════════════════════════════════════════════════════
-           SECTION: Danger Zone (visually separated)
+           SECTION: Danger Zone
            ═══════════════════════════════════════════════════════════════ -->
       <div class="section danger-section">
         <div class="section-header danger-header">Danger Zone</div>
+        <div class="section-hint">Irreversible actions</div>
+        <div class="section-divider danger-divider"></div>
 
-        <div class="setting-row">
+        <div class="setting-row row-sm">
           <div class="setting-label">
             Wipe Database
             <span class="setting-hint">Delete all issues and time entries</span>
@@ -376,6 +381,18 @@ async function wipeDatabase() {
           </div>
         </div>
       </div>
+
+      <!-- ═══════════════════════════════════════════════════════════════
+           Footer with Save
+           ═══════════════════════════════════════════════════════════════ -->
+    <div class="save-footer">
+      <span v-if="saveMessage" :class="['save-message', saveMessage.includes('Error') ? 'error' : 'success']">
+        {{ saveMessage }}
+      </span>
+      <button class="btn btn-primary" @click="saveSettings" :disabled="isSaving">
+        {{ isSaving ? 'Saving...' : 'Save Settings' }}
+      </button>
+    </div>
     </RCard>
 
     <!-- Import Confirmation Dialog -->
@@ -412,33 +429,80 @@ async function wipeDatabase() {
 
 <style scoped>
 /* ═══════════════════════════════════════════════════════════════
-   Settings View - Same container model as Track/History
+   Settings View - Same width as Track/History
    ═══════════════════════════════════════════════════════════════ */
 
 .settings-view {
-  margin-top: 1rem;
-}
-
-/* ═══════════════════════════════════════════════════════════════
-   Card Header (matches IssueList/HistoryView)
-   ═══════════════════════════════════════════════════════════════ */
-
-.card-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
   width: 100%;
 }
 
-.card-title {
-  font-weight: 600;
-  font-size: 1.1rem;
+/* ═══════════════════════════════════════════════════════════════
+   Sections - Strong landmarks for a tall page
+   ═══════════════════════════════════════════════════════════════ */
+
+.section {
+  padding-top: 1.75rem;
+  padding-bottom: 0.25rem;
 }
 
-.header-actions {
+.section:first-child {
+  padding-top: 0.25rem;
+}
+
+.section-header {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--color-text-secondary);
+  margin-bottom: 0.25rem;
+}
+
+.section-hint {
+  font-size: 0.7rem;
+  color: var(--color-text-secondary);
+  opacity: 0.7;
+  margin-bottom: 0.25rem;
+}
+
+.section-divider {
+  height: 1px;
+  background: var(--color-border);
+  opacity: 0.6;
+  margin-bottom: 0.5rem;
+}
+
+/* Danger section - clear separation */
+.danger-section {
+  margin-top: 2rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--color-border);
+}
+
+.danger-header {
+  color: var(--color-error);
+}
+
+.danger-divider {
+  background: var(--color-error);
+  opacity: 0.4;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Save Footer - Clear conclusion
+   ═══════════════════════════════════════════════════════════════ */
+
+.save-footer {
   display: flex;
   align-items: center;
+  justify-content: flex-end;
   gap: 0.75rem;
+  margin-top: 1.5rem;
+  padding: 0.75rem 0;
+  position: sticky;
+  bottom: 0;
+  background: var(--color-bg);
+  border-top: 1px solid var(--color-border);
 }
 
 .save-message {
@@ -454,56 +518,39 @@ async function wipeDatabase() {
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   Sections (like day groups in History)
-   ═══════════════════════════════════════════════════════════════ */
-
-.section {
-  padding: 0.5rem 0;
-}
-
-.section:not(:last-child) {
-  border-bottom: 1px solid var(--color-border);
-}
-
-.section-header {
-  font-size: 0.7rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--color-text-secondary);
-  padding: 0.5rem 0;
-  margin-bottom: 0.25rem;
-}
-
-/* Danger section styling */
-.danger-section {
-  background: var(--color-bg-secondary);
-  margin: 0 -1rem;
-  padding: 0.5rem 1rem;
-  margin-top: 0.5rem;
-}
-
-.danger-header {
-  color: var(--color-error);
-}
-
-/* ═══════════════════════════════════════════════════════════════
-   Setting Rows - Two column grid: label | control
+   Setting Rows - Fixed label column, two row heights
    ═══════════════════════════════════════════════════════════════ */
 
 .setting-row {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
+  gap: 2rem;
+}
+
+/* Row heights */
+.row-md {
+  min-height: 3rem;
   padding: 0.5rem 0;
+}
+
+.row-sm {
+  min-height: 2.5rem;
+  padding: 0.375rem 0;
+}
+
+/* Sub-rows in Earnings - tighter spacing */
+.sub-row {
+  padding: 0.25rem 0;
   min-height: 2.5rem;
 }
 
 .setting-label {
   flex: 1;
+  min-width: 180px;
+  max-width: 280px;
   font-size: 0.9rem;
   color: var(--color-text);
+  line-height: 1.4;
 }
 
 .setting-hint {
@@ -512,6 +559,7 @@ async function wipeDatabase() {
   color: var(--color-text-secondary);
   font-weight: normal;
   margin-top: 0.125rem;
+  line-height: 1.3;
 }
 
 .setting-control {
@@ -519,6 +567,7 @@ async function wipeDatabase() {
   align-items: center;
   gap: 0.5rem;
   flex-shrink: 0;
+  min-width: 160px;
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -650,6 +699,90 @@ async function wipeDatabase() {
   background: var(--color-accent);
   border-color: var(--color-accent);
   color: var(--color-bg);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Clean Toggle Switch
+   ═══════════════════════════════════════════════════════════════ */
+
+.toggle {
+  position: relative;
+  display: inline-block;
+  width: 40px;
+  height: 22px;
+  cursor: pointer;
+}
+
+.toggle input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.toggle-slider {
+  position: absolute;
+  inset: 0;
+  background: var(--color-border);
+  border-radius: 22px;
+  transition: 0.2s;
+}
+
+.toggle-slider::before {
+  content: '';
+  position: absolute;
+  height: 16px;
+  width: 16px;
+  left: 3px;
+  bottom: 3px;
+  background: var(--color-bg);
+  border-radius: 50%;
+  transition: 0.2s;
+}
+
+.toggle input:checked + .toggle-slider {
+  background: var(--color-accent);
+}
+
+.toggle input:checked + .toggle-slider::before {
+  transform: translateX(18px);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Clean Buttons (non-sketchy)
+   ═══════════════════════════════════════════════════════════════ */
+
+.btn {
+  padding: 0.4rem 0.75rem;
+  font-size: 0.85rem;
+  font-family: inherit;
+  background: var(--color-bg);
+  border: 2px solid var(--color-border);
+  border-radius: 4px;
+  color: var(--color-text);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn:hover {
+  background: var(--color-bg-secondary);
+  border-color: var(--color-text-secondary);
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-primary {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+  color: var(--color-bg);
+}
+
+.btn-primary:hover {
+  opacity: 0.9;
+  background: var(--color-accent);
+  border-color: var(--color-accent);
 }
 
 /* ═══════════════════════════════════════════════════════════════
