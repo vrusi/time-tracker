@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import type { MonthlyReport } from '../types'
-import { RDialog, RButton, RText, RSpace, RFormItem, RTable } from 'roughness'
+import { RDialog, RButton, RText } from 'roughness'
 
 const props = defineProps<{
   open: boolean
@@ -26,6 +26,30 @@ const months = [
 
 const years = Array.from({ length: 5 }, (_, i) => now.getFullYear() - i)
 
+// Format hours as HH:MM:SS
+function formatTime(hours: number): string {
+  const totalSeconds = Math.round(hours * 3600)
+  const h = Math.floor(totalSeconds / 3600)
+  const m = Math.floor((totalSeconds % 3600) / 60)
+  const s = totalSeconds % 60
+  return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`
+}
+
+// Aggregate by externalId to combine duplicates
+const aggregatedReport = computed(() => {
+  if (!report.value) return null
+  const byId = new Map<string, { externalId: string; name: string; totalHours: number }>()
+  for (const item of report.value) {
+    const existing = byId.get(item.externalId)
+    if (existing) {
+      existing.totalHours += item.totalHours
+    } else {
+      byId.set(item.externalId, { externalId: item.externalId, name: item.name, totalHours: item.totalHours })
+    }
+  }
+  return Array.from(byId.values())
+})
+
 async function generateReport() {
   isExporting.value = true
   try {
@@ -37,10 +61,10 @@ async function generateReport() {
 }
 
 function downloadCSV() {
-  if (!report.value) return
+  if (!aggregatedReport.value) return
 
-  const headers = ['Issue ID', 'Name', 'Hours']
-  const rows = report.value.map(r => [r.externalId, `"${r.name}"`, r.totalHours.toString()])
+  const headers = ['Issue ID', 'Name', 'Time']
+  const rows = aggregatedReport.value.map(r => [r.externalId, `"${r.name}"`, formatTime(r.totalHours)])
 
   const csv = [
     headers.join(','),
@@ -67,18 +91,18 @@ function closeDialog() {
 
     <div class="export-content">
       <!-- Month/Year selection -->
-      <RSpace align="end" class="mb-6">
-        <RFormItem label="Month">
-          <select v-model="month" class="export-select">
-            <option v-for="(m, i) in months" :key="i" :value="i + 1">{{ m }}</option>
-          </select>
-        </RFormItem>
-
-        <RFormItem label="Year">
-          <select v-model="year" class="export-select">
-            <option v-for="y in years" :key="y" :value="y">{{ y }}</option>
-          </select>
-        </RFormItem>
+      <div class="controls-row">
+        <div class="period-group">
+          <span class="period-label">Period</span>
+          <div class="period-selects">
+            <select v-model="month" class="export-select">
+              <option v-for="(m, i) in months" :key="i" :value="i + 1">{{ m }}</option>
+            </select>
+            <select v-model="year" class="export-select export-select-year">
+              <option v-for="y in years" :key="y" :value="y">{{ y }}</option>
+            </select>
+          </div>
+        </div>
 
         <RButton
           filled
@@ -87,57 +111,57 @@ function closeDialog() {
         >
           {{ isExporting ? 'Generating...' : 'Generate' }}
         </RButton>
-      </RSpace>
+      </div>
 
       <!-- Report table -->
-      <div v-if="report" class="report-table-wrapper">
+      <div v-if="aggregatedReport" class="report-table-wrapper">
         <table class="report-table">
           <thead>
             <tr>
               <th>Issue ID</th>
               <th>Name</th>
-              <th class="text-right">Hours</th>
+              <th class="text-right">Time</th>
             </tr>
           </thead>
           <tbody>
-            <tr v-for="item in report" :key="item.issueId">
+            <tr v-for="item in aggregatedReport" :key="item.externalId">
               <td class="font-medium">{{ item.externalId }}</td>
               <td class="text-secondary">{{ item.name }}</td>
-              <td class="text-right">{{ item.totalHours.toFixed(2) }}</td>
+              <td class="text-right font-mono">{{ formatTime(item.totalHours) }}</td>
             </tr>
-            <tr v-if="report.length === 0">
+            <tr v-if="aggregatedReport.length === 0">
               <td colspan="3" class="text-center py-8">
                 <RText class="text-secondary">No time tracked for this month.</RText>
               </td>
             </tr>
           </tbody>
-          <tfoot v-if="report.length > 0">
+          <tfoot v-if="aggregatedReport.length > 0" class="total-row">
             <tr>
-              <td colspan="2" class="font-semibold">Total</td>
-              <td class="text-right font-semibold">{{ totalHours.toFixed(2) }}</td>
+              <td colspan="2"><span class="total-label">Total</span></td>
+              <td class="text-right font-semibold font-mono">{{ formatTime(totalHours) }}</td>
             </tr>
           </tfoot>
         </table>
       </div>
 
       <!-- Placeholder when no report -->
-      <div v-else class="empty-state">
+      <div v-if="!aggregatedReport" class="empty-state">
         <RText class="text-secondary">Select a month and year, then click Generate to view the report.</RText>
       </div>
     </div>
 
     <!-- Footer actions -->
     <template #footer>
-      <RSpace justify="end">
-        <RButton @click="closeDialog">Close</RButton>
+      <div class="footer-actions">
+        <button class="btn-close" @click="closeDialog">Close</button>
         <RButton
-          v-if="report && report.length > 0"
+          v-if="aggregatedReport && aggregatedReport.length > 0"
           filled
           @click="downloadCSV"
         >
           Download CSV
         </RButton>
-      </RSpace>
+      </div>
     </template>
   </RDialog>
 </template>
@@ -159,6 +183,33 @@ function closeDialog() {
   min-width: 500px;
 }
 
+/* Period grouping */
+.controls-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.period-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.period-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.period-selects {
+  display: flex;
+  gap: 0.5rem;
+}
+
 .export-select {
   padding: 0.5rem 0.75rem;
   border: 2px solid var(--color-border);
@@ -166,7 +217,11 @@ function closeDialog() {
   background: var(--color-bg);
   color: var(--color-text);
   font-family: inherit;
-  min-width: 140px;
+  min-width: 120px;
+}
+
+.export-select-year {
+  min-width: 90px;
 }
 
 .export-select:focus {
@@ -209,12 +264,16 @@ function closeDialog() {
   border-bottom: none;
 }
 
-.report-table tfoot {
+.report-table .total-row {
   background: var(--color-bg-secondary);
 }
 
-.report-table tfoot td {
-  border-top: 2px solid var(--color-border);
+.report-table .total-row td {
+  border-top: 3px solid var(--color-border);
+}
+
+.total-label {
+  font-weight: 700;
 }
 
 .empty-state {
@@ -232,6 +291,11 @@ function closeDialog() {
   font-weight: 600;
 }
 
+.font-mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.9em;
+}
+
 .py-8 {
   padding-top: 2rem;
   padding-bottom: 2rem;
@@ -239,5 +303,30 @@ function closeDialog() {
 
 .mb-6 {
   margin-bottom: 1.5rem;
+}
+
+/* Footer actions */
+.footer-actions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 1rem;
+}
+
+.btn-close {
+  padding: 0.5rem 1rem;
+  font-size: 0.9rem;
+  font-family: inherit;
+  background: transparent;
+  border: 2px solid var(--color-border);
+  border-radius: 4px;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-close:hover {
+  background: var(--color-bg-secondary);
+  color: var(--color-text);
 }
 </style>
