@@ -119,11 +119,13 @@ async function handleSubmit() {
           type="submit"
           :loading="isSubmitting"
           :disabled="!canSubmit"
+          :class="{ 'btn-waiting': !canSubmit }"
         >
           {{ isSubmitting ? 'Starting...' : (matchedIssue ? 'Resume' : 'Start') }}
         </RButton>
       </span>
     </form>
+    <p v-if="!canSubmit" class="form-hint">Enter a name to start tracking</p>
   </RCard>
 </template>
 
@@ -175,5 +177,18 @@ async function handleSubmit() {
 .field-input::placeholder {
   color: var(--color-text-secondary);
   opacity: 0.6;
+}
+
+.form-hint {
+  margin: 0.5rem 0 0 0;
+  font-size: 0.75rem;
+  color: var(--color-text-secondary);
+  opacity: 0.7;
+}
+
+/* Disabled button = waiting, not forbidden */
+.btn-waiting :deep(.r-button) {
+  text-decoration: none !important;
+  opacity: 0.5;
 }
 </style>

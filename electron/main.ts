@@ -469,10 +469,16 @@ function setupIpcHandlers() {
     if (!lastSeenRow) return null
 
     const lastSeenAt = new Date(lastSeenRow.value)
+    const startedAt = new Date(current.entry.startedAt)
+
+    // Skip if lastSeenAt is stale (before entry started) - clear it and return null
+    if (lastSeenAt.getTime() < startedAt.getTime()) {
+      db.prepare('DELETE FROM settings WHERE key = ?').run('lastSeenAt')
+      return null
+    }
+
     const now = new Date()
     const elapsedSinceLastSeen = (now.getTime() - lastSeenAt.getTime()) / 1000
-
-    const startedAt = new Date(current.entry.startedAt)
     const totalElapsed = (now.getTime() - startedAt.getTime()) / 1000
 
     return {
