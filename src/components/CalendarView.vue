@@ -187,26 +187,41 @@ const monthTotal = computed(() => {
 
 watch([year, month], loadEntries)
 onMounted(loadEntries)
+
+const emit = defineEmits<{
+  (e: 'view-change', view: 'list' | 'calendar'): void
+}>()
 </script>
 
 <template>
   <RCard>
     <template #title>
-      <RSpace justify="between" align="center" class="w-full">
-        <RButton @click="prevMonth">←</RButton>
-
-        <div class="text-center">
-          <RText class="font-semibold">{{ monthName }}</RText>
-          <RText size="small" class="text-secondary block">
-            Total: {{ formatHours(monthTotal) || '0h' }}
-          </RText>
+      <div class="card-header">
+        <div class="header-left">
+          <span class="card-title">History</span>
+          <div class="view-toggle">
+            <RButton size="small" @click="emit('view-change', 'list')">
+              List
+            </RButton>
+            <RButton size="small" class="view-active" @click="emit('view-change', 'calendar')">
+              Calendar
+            </RButton>
+          </div>
         </div>
-
-        <RSpace>
-          <RButton size="small" @click="goToToday">Today</RButton>
-          <RButton @click="nextMonth">→</RButton>
-        </RSpace>
-      </RSpace>
+        <div class="header-right">
+          <RButton @click="prevMonth">←</RButton>
+          <div class="text-center month-display">
+            <RText class="font-semibold">{{ monthName }}</RText>
+            <RText size="small" class="text-secondary block">
+              Total: {{ formatHours(monthTotal) || '0h' }}
+            </RText>
+          </div>
+          <RSpace>
+            <RButton size="small" @click="goToToday">Today</RButton>
+            <RButton @click="nextMonth">→</RButton>
+          </RSpace>
+        </div>
+      </div>
     </template>
 
     <!-- Loading -->
@@ -295,6 +310,50 @@ onMounted(loadEntries)
 
 .text-accent {
   color: var(--color-accent);
+}
+
+/* Card header styling (matches IssueList/HistoryView) */
+.card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  gap: 1rem;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.card-title {
+  font-weight: 600;
+  font-size: 1.1rem;
+}
+
+.view-toggle {
+  display: flex;
+  gap: 0.5rem;
+}
+
+/* Both buttons look similar, inactive one is faded */
+.view-toggle > :not(.view-active) {
+  opacity: 0.5;
+}
+
+.card-header :deep(.r-button) {
+  font-size: 0.8rem;
+}
+
+.month-display {
+  min-width: 140px;
 }
 
 .calendar-day {
