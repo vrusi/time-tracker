@@ -2,8 +2,14 @@
 import { ref, computed } from 'vue'
 import type { MonthlyReport } from '../types'
 import { RDialog, RButton, RText } from 'roughness'
+import {
+  formatTimeHMS,
+  aggregateReport,
+  generateCSV,
+  generateExportFilename
+} from '../utils/export'
 
-const props = defineProps<{
+defineProps<{
   open: boolean
 }>()
 
@@ -26,28 +32,10 @@ const months = [
 
 const years = Array.from({ length: 5 }, (_, i) => now.getFullYear() - i)
 
-// Format hours as HH:MM:SS
-function formatTime(hours: number): string {
-  const totalSeconds = Math.round(hours * 3600)
-  const h = Math.floor(totalSeconds / 3600)
-  const m = Math.floor((totalSeconds % 3600) / 60)
-  const s = totalSeconds % 60
-  return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`
-}
-
 // Aggregate by externalId to combine duplicates
 const aggregatedReport = computed(() => {
   if (!report.value) return null
-  const byId = new Map<string, { externalId: string; name: string; totalHours: number }>()
-  for (const item of report.value) {
-    const existing = byId.get(item.externalId)
-    if (existing) {
-      existing.totalHours += item.totalHours
-    } else {
-      byId.set(item.externalId, { externalId: item.externalId, name: item.name, totalHours: item.totalHours })
-    }
-  }
-  return Array.from(byId.values())
+  return aggregateReport(report.value)
 })
 
 async function generateReport() {
@@ -63,19 +51,12 @@ async function generateReport() {
 function downloadCSV() {
   if (!aggregatedReport.value) return
 
-  const headers = ['Issue ID', 'Name', 'Time']
-  const rows = aggregatedReport.value.map(r => [r.externalId, `"${r.name}"`, formatTime(r.totalHours)])
-
-  const csv = [
-    headers.join(','),
-    ...rows.map(r => r.join(','))
-  ].join('\n')
-
+  const csv = generateCSV(aggregatedReport.value)
   const blob = new Blob([csv], { type: 'text/csv' })
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
-  a.download = `time-report-${year.value}-${month.value.toString().padStart(2, '0')}.csv`
+  a.download = generateExportFilename(year.value, month.value)
   a.click()
   URL.revokeObjectURL(url)
 }
@@ -127,7 +108,7 @@ function closeDialog() {
             <tr v-for="item in aggregatedReport" :key="item.externalId">
               <td class="font-medium">{{ item.externalId }}</td>
               <td class="text-secondary">{{ item.name }}</td>
-              <td class="text-right font-mono">{{ formatTime(item.totalHours) }}</td>
+              <td class="text-right font-mono">{{ formatTimeHMS(item.totalHours) }}</td>
             </tr>
             <tr v-if="aggregatedReport.length === 0">
               <td colspan="3" class="text-center py-8">
@@ -138,7 +119,7 @@ function closeDialog() {
           <tfoot v-if="aggregatedReport.length > 0" class="total-row">
             <tr>
               <td colspan="2"><span class="total-label">Total</span></td>
-              <td class="text-right font-semibold font-mono">{{ formatTime(totalHours) }}</td>
+              <td class="text-right font-semibold font-mono">{{ formatTimeHMS(totalHours) }}</td>
             </tr>
           </tfoot>
         </table>

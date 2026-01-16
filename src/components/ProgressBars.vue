@@ -2,7 +2,9 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useTrackerStore } from '../stores/tracker.store'
 import { useSettingsStore } from '../stores/settings.store'
-import { RCard, RProgress, RText, RSpace, RDivider } from 'roughness'
+import { RCard, RProgress, RText } from 'roughness'
+import { formatMoney } from '../utils/format'
+import { getWorkdaysInMonth, calculateProgress } from '../utils/workdays'
 
 const trackerStore = useTrackerStore()
 const settingsStore = useSettingsStore()
@@ -11,33 +13,14 @@ const todaySeconds = ref(0)
 const monthSeconds = ref(0)
 let refreshInterval: number | null = null
 
-// Calculate workdays in current month
-function getWorkdaysInMonth(year: number, month: number): number {
-  const firstDay = new Date(year, month, 1)
-  const lastDay = new Date(year, month + 1, 0)
-  let workdays = 0
-
-  for (let d = new Date(firstDay); d <= lastDay; d.setDate(d.getDate() + 1)) {
-    const dayOfWeek = d.getDay()
-    if (dayOfWeek !== 0 && dayOfWeek !== 6) {
-      workdays++
-    }
-  }
-  return workdays
-}
-
-const now = new Date()
-const workdaysInMonth = getWorkdaysInMonth(now.getFullYear(), now.getMonth())
-const workdaysHours = computed(() => workdaysInMonth * settingsStore.settings.dailyTargetHours)
+getWorkdaysInMonth(new Date().getFullYear(), new Date().getMonth())
 
 const dailyProgress = computed(() => {
-  const target = settingsStore.settings.dailyTargetHours * 3600
-  return Math.min(100, (todaySeconds.value / target) * 100)
+  return calculateProgress(todaySeconds.value, settingsStore.settings.dailyTargetHours)
 })
 
 const monthlyProgress = computed(() => {
-  const target = settingsStore.settings.monthlyTargetHours * 3600
-  return Math.min(100, (monthSeconds.value / target) * 100)
+  return calculateProgress(monthSeconds.value, settingsStore.settings.monthlyTargetHours)
 })
 
 const monthlyHours = computed(() => {
@@ -52,14 +35,14 @@ const targetEarnings = computed(() => {
   return settingsStore.settings.monthlyTargetHours * settingsStore.settings.hourlyRate
 })
 
-function formatHours(seconds: number): string {
+function formatHoursDisplay(seconds: number): string {
   const hours = Math.floor(seconds / 3600)
   const minutes = Math.floor((seconds % 3600) / 60)
   return `${hours}h ${minutes}m`
 }
 
-function formatMoney(amount: number): string {
-  return `${settingsStore.settings.currencySymbol}${amount.toFixed(2)}`
+function formatMoneyDisplay(amount: number): string {
+  return formatMoney(amount, settingsStore.settings.currencySymbol)
 }
 
 async function loadProgress() {
@@ -121,11 +104,11 @@ defineExpose({ loadProgress })
     <div
       v-if="settingsStore.settings.showEarnings"
       class="earnings-row"
-      :title="`${monthlyHours.toFixed(1)} hours × ${formatMoney(settingsStore.settings.hourlyRate)}/hour`"
+      :title="`${monthlyHours.toFixed(1)} hours × ${formatMoneyDisplay(settingsStore.settings.hourlyRate)}/hour`"
     >
-      <RText class="earnings-amount">{{ formatMoney(monthlyEarnings) }}</RText>
+      <RText class="earnings-amount">{{ formatMoneyDisplay(monthlyEarnings) }}</RText>
       <RText class="text-secondary text-sm">
-        of {{ formatMoney(targetEarnings) }} target
+        of {{ formatMoneyDisplay(targetEarnings) }} target
       </RText>
     </div>
 
@@ -134,7 +117,7 @@ defineExpose({ loadProgress })
       <div class="progress-label">
         <RText size="small">Today</RText>
         <RText size="small" class="text-secondary">
-          {{ formatHours(todaySeconds) }} / {{ settingsStore.settings.dailyTargetHours }}h
+          {{ formatHoursDisplay(todaySeconds) }} / {{ settingsStore.settings.dailyTargetHours }}h
         </RText>
       </div>
       <div class="progress-bar-wrapper">
@@ -150,7 +133,7 @@ defineExpose({ loadProgress })
       <div class="progress-label">
         <RText size="small">Month</RText>
         <RText size="small" class="text-secondary">
-          {{ formatHours(monthSeconds) }} / {{ settingsStore.settings.monthlyTargetHours }}h
+          {{ formatHoursDisplay(monthSeconds) }} / {{ settingsStore.settings.monthlyTargetHours }}h
         </RText>
       </div>
       <div class="progress-bar-wrapper">
