@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
 import { useTrackerStore } from '../stores/tracker.store'
-import { RCard, RButton, RInput, RBadge, RProgress, RText, RSpace } from 'roughness'
+import { RCard, RButton, RInput, RProgress, RText } from 'roughness'
 import Icon from './Icon.vue'
 
 const trackerStore = useTrackerStore()
