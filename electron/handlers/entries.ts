@@ -30,6 +30,24 @@ export function setupEntryHandlers(db: Database.Database) {
     }, 0)
   })
 
+  // Get total time tracked for multiple issues in a single batch call
+  ipcMain.handle('get-issue-times-batch', (_, issueIds: number[]) => {
+    const times: Record<number, number> = {}
+    for (const id of issueIds) {
+      const result = db.prepare(`
+        SELECT COALESCE(SUM(
+          CASE
+            WHEN ended_at IS NULL THEN (julianday('now') - julianday(started_at)) * 86400
+            ELSE (julianday(ended_at) - julianday(started_at)) * 86400
+          END
+        ), 0) as total_seconds
+        FROM time_entries WHERE issue_id = ?
+      `).get(id) as { total_seconds: number }
+      times[id] = Math.floor(result.total_seconds)
+    }
+    return times
+  })
+
   // Get all entries for a specific issue
   ipcMain.handle('get-issue-entries', (_, issueId: number) => {
     const entries = db.prepare(`

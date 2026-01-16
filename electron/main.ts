@@ -3,11 +3,7 @@ import { join, dirname } from 'path'
 import { fileURLToPath } from 'url'
 import { initDatabase, db } from './db'
 import { loadProjectsConfig, getProjectDbPath } from './projects'
-import {
-  type IssueRow,
-  type TimeEntryRow,
-  mapTrackingResult
-} from './mappers'
+import type { TimeEntry } from '../src/types'
 import {
   setupIssueHandlers,
   setupTrackingHandlers,
@@ -15,9 +11,10 @@ import {
   setupSettingsHandlers,
   setupExportHandlers,
   getSettings,
-  getEffectiveIdleTime
+  getEffectiveIdleTime,
+  getCurrentTracking,
+  pauseTracking
 } from './handlers'
-import type { TimeEntry } from '../src/types'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
@@ -123,45 +120,13 @@ function createTray() {
   })
 }
 
-// Database operation used by tray menu
-function getCurrentTracking(): { entry: TimeEntry; issue: { id: number; externalId: string; name: string; link: string | null; notes: string | null; archived: boolean; createdAt: string } } | null {
-  const entry = db.prepare(`
-    SELECT * FROM time_entries WHERE ended_at IS NULL LIMIT 1
-  `).get() as TimeEntryRow | undefined
-
-  if (!entry) return null
-
-  const issue = db.prepare('SELECT * FROM issues WHERE id = ?').get(entry.issue_id) as IssueRow
-
-  return mapTrackingResult(entry, issue)
-}
-
-// Pause tracking used by tray menu and idle watcher
-function pauseTracking(reason: 'manual' | 'idle' | 'switched'): TimeEntry | null {
-  const current = getCurrentTracking()
-  if (!current) return null
-
-  // When pausing due to idle, subtract the idle threshold to get actual stop time
-  // (idle triggers after threshold, so user stopped working threshold seconds ago)
-  const endTime = reason === 'idle'
-    ? new Date(Date.now() - idleThreshold * 1000).toISOString()
-    : new Date().toISOString()
-
-  db.prepare(`
-    UPDATE time_entries SET ended_at = ?, paused_reason = ? WHERE id = ?
-  `).run(endTime, reason, current.entry.id)
-
-  updateTrayMenu()
-  mainWindow?.webContents.send('tracking-update', null)
-
-  // Check if daily target was just reached
-  checkDailyTargetNotification()
-
-  return { ...current.entry, endedAt: endTime, pausedReason: reason }
+// Helper to call the imported pauseTracking with all required parameters
+function doPauseTracking(reason: 'manual' | 'idle' | 'switched'): TimeEntry | null {
+  return pauseTracking(db, reason, idleThreshold, mainWindow, updateTrayMenu, checkDailyTargetNotification)
 }
 
 function updateTrayMenu() {
-  const current = getCurrentTracking()
+  const current = getCurrentTracking(db)
 
   const contextMenu = Menu.buildFromTemplate([
     {
@@ -178,7 +143,7 @@ function updateTrayMenu() {
       label: current ? 'Pause' : 'Resume',
       click: () => {
         if (current) {
-          pauseTracking('manual')
+          doPauseTracking('manual')
         }
         // Resume would need to know which issue - user should use main window
       }
@@ -218,7 +183,7 @@ function setPresenceMode(enabled: boolean) {
 function startIdleWatcher() {
   idleCheckInterval = setInterval(() => {
     const idleTime = getEffectiveIdleTime(idleResetTime, (value) => { idleResetTime = value })
-    const current = getCurrentTracking()
+    const current = getCurrentTracking(db)
 
     // Send idle time to renderer
     mainWindow?.webContents.send('idle-update', idleTime)
@@ -227,7 +192,7 @@ function startIdleWatcher() {
     if (presenceMode) return
 
     if (idleTime >= idleThreshold && current) {
-      pauseTracking('idle')
+      doPauseTracking('idle')
 
       const settings = getSettings(db)
       if (settings.notificationsEnabled) {
@@ -266,7 +231,7 @@ function setupIpcHandlers() {
     getIdleThreshold: () => idleThreshold,
     setIdleThreshold: (value: number) => { idleThreshold = value },
     updateTrayMenu,
-    pauseTracking,
+    pauseTracking: doPauseTracking,
     getIdleResetTime: () => idleResetTime,
     setIdleResetTime: (value: number | null) => { idleResetTime = value },
     getPresenceMode: () => presenceMode,
