@@ -86,7 +86,13 @@ onMounted(loadEntries)
 
 const emit = defineEmits<{
   (e: 'view-change', view: 'list' | 'calendar'): void
+  (e: 'add-entry', date: string): void
 }>()
+
+function handleAddEntry(dateStr: string) {
+  expandedDate.value = null
+  emit('add-entry', dateStr)
+}
 </script>
 
 <template>
@@ -156,7 +162,8 @@ const emit = defineEmits<{
               dailyTotals.get(dayInfo.dateStr) && 'has-entries',
               expandedDate === dayInfo.dateStr && 'expanded'
             ]"
-            @click="dailyTotals.get(dayInfo.dateStr) && toggleDay(dayInfo.dateStr)"
+            @click="dayInfo.isCurrentMonth && toggleDay(dayInfo.dateStr)"
+            @dblclick="dayInfo.isCurrentMonth && handleAddEntry(dayInfo.dateStr)"
           >
             <div class="flex justify-between items-start">
               <span
@@ -178,12 +185,12 @@ const emit = defineEmits<{
 
             <!-- Expanded issue breakdown -->
             <div
-              v-if="expandedDate === dayInfo.dateStr && dailyIssueBreakdown.get(dayInfo.dateStr)"
+              v-if="expandedDate === dayInfo.dateStr"
               class="issue-breakdown"
               @click.stop
             >
               <div
-                v-for="item in dailyIssueBreakdown.get(dayInfo.dateStr)"
+                v-for="item in dailyIssueBreakdown.get(dayInfo.dateStr) || []"
                 :key="item.issue.id"
                 class="issue-row"
               >
@@ -191,6 +198,13 @@ const emit = defineEmits<{
                 <span class="issue-name">{{ item.issue.name }}</span>
                 <span class="issue-hours">{{ formatHours(item.totalSeconds) }}</span>
               </div>
+              <RButton
+                size="small"
+                class="add-entry-btn"
+                @click="handleAddEntry(dayInfo.dateStr)"
+              >
+                + Add entry for this day
+              </RButton>
             </div>
           </div>
         </div>
@@ -368,5 +382,10 @@ const emit = defineEmits<{
   color: var(--color-text-secondary);
   font-weight: 500;
   flex-shrink: 0;
+}
+
+.add-entry-btn {
+  width: 100%;
+  margin-top: 0.5rem;
 }
 </style>
