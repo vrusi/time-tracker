@@ -4,6 +4,8 @@ A minimal, offline-first desktop time tracking app for freelancers and developer
 
 Built with Electron, Vue 3, and SQLite. All data stays local on your machine.
 
+**Why a desktop app?** Unlike browser-based trackers, this app detects system-wide idle time and automatically pauses tracking when you step away. No more forgetting to stop the timer and logging 8 hours of "lunch break".
+
 ## Features
 
 - **Issue Tracking** - Add issues from GitLab, GitHub, Jira, or custom URLs
