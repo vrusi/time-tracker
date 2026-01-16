@@ -27,6 +27,7 @@ const electronAPI: ElectronAPI = {
   // History
   getTimeEntries: (startDate, endDate) => ipcRenderer.invoke('get-time-entries', startDate, endDate),
   getIssueTime: (issueId) => ipcRenderer.invoke('get-issue-time', issueId),
+  getIssueTimesBatch: (issueIds: number[]) => ipcRenderer.invoke('get-issue-times-batch', issueIds),
   getIssueEntries: (issueId) => ipcRenderer.invoke('get-issue-entries', issueId),
 
   // Time entry management
