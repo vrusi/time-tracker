@@ -115,26 +115,25 @@ describe('RecoveryDialog Logic', () => {
     })
   })
 
-  describe('recovery threshold (60 seconds minimum)', () => {
+  describe('recovery threshold (60 seconds minimum gap)', () => {
     /**
-     * Recovery dialog should only appear if tracked time before close >= 60 seconds.
-     * This prevents showing "recover 0m" when only seconds were tracked.
+     * Recovery dialog should only appear if app was closed for >= 60 seconds.
+     * If reopened quickly (< 60s), silently continue tracking (no dialog).
      */
     const RECOVERY_THRESHOLD_SECONDS = 60
 
-    function shouldShowRecovery(totalSeconds: number, elapsedSinceClose: number): boolean {
-      const timeAtClose = totalSeconds - elapsedSinceClose
-      return timeAtClose >= RECOVERY_THRESHOLD_SECONDS
+    function shouldShowRecovery(elapsedSinceClose: number): boolean {
+      return elapsedSinceClose >= RECOVERY_THRESHOLD_SECONDS
     }
 
-    it('shows recovery when tracked time >= 60 seconds', () => {
-      // Time at close = 60 seconds (exactly at threshold)
-      expect(shouldShowRecovery(3660, 3600)).toBe(true)
+    it('shows recovery when app was closed >= 60 seconds', () => {
+      // App was closed for exactly 60 seconds
+      expect(shouldShowRecovery(60)).toBe(true)
     })
 
-    it('skips recovery when tracked time < 60 seconds', () => {
-      // Time at close = 30 seconds (below threshold)
-      expect(shouldShowRecovery(3630, 3600)).toBe(false)
+    it('silently resumes when app was closed < 60 seconds', () => {
+      // App was closed for only 30 seconds - treat as accidental close
+      expect(shouldShowRecovery(30)).toBe(false)
     })
   })
 
