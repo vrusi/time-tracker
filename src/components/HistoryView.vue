@@ -191,11 +191,11 @@ async function executeDelete(entryId: number) {
 }
 
 // Add entry functions
-function openAddEntryModal() {
+function openAddEntryModal(prefillDate?: string) {
   addEntryForm.value = {
     issueText: '',
     issueLink: '',
-    date: today.toISOString().split('T')[0],
+    date: prefillDate || today.toISOString().split('T')[0],
     startTime: '09:00',
     endTime: '17:00',
     notes: ''
@@ -448,7 +448,18 @@ defineExpose({ openAddEntryModal, loadEntries })
                 />
                 <RText>{{ formatDate(group.date) }}</RText>
               </RSpace>
-              <RText class="text-secondary">Total: {{ formatDuration(group.totalSeconds) }}</RText>
+              <RSpace align="center">
+                <RText class="text-secondary">Total: {{ formatDuration(group.totalSeconds) }}</RText>
+                <RButton
+                  v-if="!selectionMode"
+                  size="small"
+                  class="day-add-btn"
+                  @click.stop="openAddEntryModal(group.date)"
+                  title="Add entry for this day"
+                >
+                  +
+                </RButton>
+              </RSpace>
             </RSpace>
           </template>
 
@@ -846,6 +857,22 @@ defineExpose({ openAddEntryModal, loadEntries })
 .delete-confirm {
   display: flex;
   gap: 0.25rem;
+}
+
+/* Day-level add button - subtle, appears on hover */
+.day-add-btn {
+  opacity: 0.3;
+  transition: opacity 0.15s ease;
+  padding: 0 0.5rem;
+  min-width: unset;
+}
+
+.day-card:hover .day-add-btn {
+  opacity: 0.7;
+}
+
+.day-add-btn:hover {
+  opacity: 1 !important;
 }
 
 </style>
