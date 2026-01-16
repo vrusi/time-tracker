@@ -1,9 +1,18 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted } from 'vue'
-import type { TimeEntry, Issue } from '../types'
 import { RCard, RButton, RText, RSpace } from 'roughness'
+import { formatHours } from '../utils/format'
+import {
+  calculateDailyTotals,
+  calculateDailyIssueBreakdown,
+  generateCalendarWeeks,
+  getHoursClass,
+  isToday,
+  isWeekend,
+  type TimeEntryWithIssue
+} from '../utils/calendar'
 
-const entries = ref<(TimeEntry & { issue: Issue })[]>([])
+const entries = ref<TimeEntryWithIssue[]>([])
 const isLoading = ref(false)
 const expandedDate = ref<string | null>(null)
 
@@ -20,60 +29,10 @@ const monthName = computed(() => {
 const weekDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 
 // Calculate daily totals from entries
-const dailyTotals = computed(() => {
-  const totals = new Map<string, number>()
-
-  entries.value.forEach(entry => {
-    const date = entry.startedAt.split('T')[0]
-    const start = new Date(entry.startedAt).getTime()
-    const end = entry.endedAt ? new Date(entry.endedAt).getTime() : Date.now()
-    const seconds = (end - start) / 1000
-
-    totals.set(date, (totals.get(date) || 0) + seconds)
-  })
-
-  return totals
-})
+const dailyTotals = computed(() => calculateDailyTotals(entries.value))
 
 // Calculate per-issue breakdown for each day
-interface IssueBreakdown {
-  issue: Issue
-  totalSeconds: number
-}
-
-const dailyIssueBreakdown = computed(() => {
-  const breakdown = new Map<string, Map<number, IssueBreakdown>>()
-
-  entries.value.forEach(entry => {
-    const date = entry.startedAt.split('T')[0]
-    const start = new Date(entry.startedAt).getTime()
-    const end = entry.endedAt ? new Date(entry.endedAt).getTime() : Date.now()
-    const seconds = (end - start) / 1000
-
-    if (!breakdown.has(date)) {
-      breakdown.set(date, new Map())
-    }
-    const dayMap = breakdown.get(date)!
-
-    if (dayMap.has(entry.issueId)) {
-      dayMap.get(entry.issueId)!.totalSeconds += seconds
-    } else {
-      dayMap.set(entry.issueId, {
-        issue: entry.issue,
-        totalSeconds: seconds
-      })
-    }
-  })
-
-  // Convert to array format sorted by total time
-  const result = new Map<string, IssueBreakdown[]>()
-  breakdown.forEach((dayMap, date) => {
-    const issues = Array.from(dayMap.values()).sort((a, b) => b.totalSeconds - a.totalSeconds)
-    result.set(date, issues)
-  })
-
-  return result
-})
+const dailyIssueBreakdown = computed(() => calculateDailyIssueBreakdown(entries.value))
 
 function toggleDay(dateStr: string) {
   if (expandedDate.value === dateStr) {
@@ -84,70 +43,7 @@ function toggleDay(dateStr: string) {
 }
 
 // Build calendar grid
-const calendarWeeks = computed(() => {
-  const weeks: { date: Date; day: number; isCurrentMonth: boolean; dateStr: string }[][] = []
-  const firstDay = new Date(year.value, month.value, 1)
-  const lastDay = new Date(year.value, month.value + 1, 0)
-
-  // Get the Monday of the week containing the first day
-  let startDate = new Date(firstDay)
-  const dayOfWeek = startDate.getDay()
-  const diff = dayOfWeek === 0 ? -6 : 1 - dayOfWeek // Adjust to Monday
-  startDate.setDate(startDate.getDate() + diff)
-
-  // Build weeks until we pass the last day of the month
-  let currentWeek: { date: Date; day: number; isCurrentMonth: boolean; dateStr: string }[] = []
-
-  while (startDate <= lastDay || currentWeek.length > 0) {
-    const dateStr = startDate.toISOString().split('T')[0]
-    currentWeek.push({
-      date: new Date(startDate),
-      day: startDate.getDate(),
-      isCurrentMonth: startDate.getMonth() === month.value,
-      dateStr
-    })
-
-    if (currentWeek.length === 7) {
-      weeks.push(currentWeek)
-      currentWeek = []
-
-      // Stop if we've completed a week that ends after the month
-      if (startDate > lastDay) break
-    }
-
-    startDate.setDate(startDate.getDate() + 1)
-  }
-
-  return weeks
-})
-
-function formatHours(seconds: number): string {
-  if (seconds === 0) return ''
-  const hours = seconds / 3600
-  if (hours >= 1) {
-    return `${hours.toFixed(1)}h`
-  }
-  const minutes = Math.floor(seconds / 60)
-  return `${minutes}m`
-}
-
-function getHoursClass(seconds: number): string {
-  if (seconds === 0) return ''
-  const hours = seconds / 3600
-  if (hours >= 8) return 'hours-great'
-  if (hours >= 6) return 'hours-good'
-  if (hours >= 4) return 'hours-ok'
-  return 'hours-low'
-}
-
-function isToday(dateStr: string): boolean {
-  return dateStr === new Date().toISOString().split('T')[0]
-}
-
-function isWeekend(date: Date): boolean {
-  const day = date.getDay()
-  return day === 0 || day === 6
-}
+const calendarWeeks = computed(() => generateCalendarWeeks(year.value, month.value))
 
 async function loadEntries() {
   isLoading.value = true

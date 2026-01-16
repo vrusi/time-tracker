@@ -14,7 +14,7 @@ import ProgressBars from './components/ProgressBars.vue'
 import CalendarView from './components/CalendarView.vue'
 import SettingsView from './components/SettingsView.vue'
 import ProjectSwitcher from './components/ProjectSwitcher.vue'
-import { RButton, RCard, RSpace, RTabs, RTabItem } from 'roughness'
+import { RButton, RTabs, RTabItem } from 'roughness'
 
 const trackerStore = useTrackerStore()
 const issuesStore = useIssuesStore()
