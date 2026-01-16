@@ -115,6 +115,29 @@ describe('RecoveryDialog Logic', () => {
     })
   })
 
+  describe('recovery threshold (60 seconds minimum)', () => {
+    /**
+     * Recovery dialog should only appear if tracked time before close >= 60 seconds.
+     * This prevents showing "recover 0m" when only seconds were tracked.
+     */
+    const RECOVERY_THRESHOLD_SECONDS = 60
+
+    function shouldShowRecovery(totalSeconds: number, elapsedSinceClose: number): boolean {
+      const timeAtClose = totalSeconds - elapsedSinceClose
+      return timeAtClose >= RECOVERY_THRESHOLD_SECONDS
+    }
+
+    it('shows recovery when tracked time >= 60 seconds', () => {
+      // Time at close = 60 seconds (exactly at threshold)
+      expect(shouldShowRecovery(3660, 3600)).toBe(true)
+    })
+
+    it('skips recovery when tracked time < 60 seconds', () => {
+      // Time at close = 30 seconds (below threshold)
+      expect(shouldShowRecovery(3630, 3600)).toBe(false)
+    })
+  })
+
   describe('button label time estimates', () => {
     function calculateTimeAtClose(totalSeconds: number, elapsedSinceClose: number): string {
       const timeAtCloseSeconds = Math.max(0, totalSeconds - elapsedSinceClose)

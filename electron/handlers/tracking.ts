@@ -133,6 +133,15 @@ export function setupTrackingHandlers(ctx: TrackingContext) {
     const now = new Date()
     const elapsedSinceLastSeen = (now.getTime() - lastSeenAt.getTime()) / 1000
     const totalElapsed = (now.getTime() - startedAt.getTime()) / 1000
+    const timeAtClose = totalElapsed - elapsedSinceLastSeen
+
+    // Skip recovery if tracked time before close was less than 60 seconds
+    if (timeAtClose < 60) {
+      // Auto-discard trivial sessions
+      db.prepare('DELETE FROM time_entries WHERE id = ?').run(current.entry.id)
+      db.prepare('DELETE FROM settings WHERE key = ?').run('lastSeenAt')
+      return null
+    }
 
     return {
       entry: current.entry,

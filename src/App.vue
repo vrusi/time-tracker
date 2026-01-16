@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, provide } from 'vue'
+import { ref, onMounted, provide, watch } from 'vue'
 import { useTrackerStore } from './stores/tracker.store'
 import { useIssuesStore } from './stores/issues.store'
 import { useSettingsStore } from './stores/settings.store'
@@ -35,6 +35,12 @@ function refreshProgress() {
 
 // Provide refresh function to child components
 provide('refreshProgress', refreshProgress)
+
+// Refresh history view when tracking state changes (e.g., pause/stop sets endedAt)
+watch(() => trackerStore.currentEntry, () => {
+  historyViewRef.value?.loadEntries()
+  refreshProgress()
+})
 
 async function handleRecoveryResolve(action: 'keep-all' | 'end-at-close' | 'discard') {
   await window.electronAPI.resolveTrackingRecovery(action)
