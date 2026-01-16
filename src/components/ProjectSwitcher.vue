@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onUnmounted } from 'vue'
 import { useProjectsStore } from '../stores/projects.store'
 import { useIssuesStore } from '../stores/issues.store'
 import { useTrackerStore } from '../stores/tracker.store'
@@ -117,6 +117,10 @@ function closeDropdown(e: MouseEvent) {
 if (typeof window !== 'undefined') {
   window.addEventListener('click', closeDropdown)
 }
+
+onUnmounted(() => {
+  window.removeEventListener('click', closeDropdown)
+})
 </script>
 
 <template>
