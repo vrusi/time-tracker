@@ -1,0 +1,52 @@
+/* Shared CSS styles extracted from components to reduce duplication */
+
+/* Text utility */
+.text-secondary {
+  color: var(--color-text-secondary);
+}
+
+/* Card header layout - used in HistoryView and IssueList */
+.card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  gap: 1rem;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* View toggle buttons - used in HistoryView and IssueList */
+.view-toggle {
+  display: flex;
+  gap: 0.5rem;
+}
+
+/* Both buttons look similar, inactive one is faded */
+.view-toggle > :not(.view-active) {
+  opacity: 0.5;
+}
+
+/* Bulk checkbox - used in HistoryView and IssueList */
+.bulk-checkbox {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+  accent-color: var(--color-primary);
+}
+
+/* Modal actions - used in HistoryView, IssueList, and SettingsView */
+.modal-actions {
+  margin-top: 1rem;
+  justify-content: flex-end;
+}

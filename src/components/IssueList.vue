@@ -7,6 +7,7 @@ import type { Issue, TimeEntry } from '../types'
 import { RCard, RButton, RInput, RText, RSpace, RDialog } from 'roughness'
 import Icon from './Icon.vue'
 import IssueForm from './IssueForm.vue'
+import { formatDuration } from '@/utils/format'
 
 const issuesStore = useIssuesStore()
 const trackerStore = useTrackerStore()
@@ -32,9 +33,12 @@ const notesForm = ref('')
 const workLogEntries = ref<TimeEntry[]>([])
 
 async function loadIssueTimes() {
-  for (const issue of issuesStore.issues) {
-    const seconds = await window.electronAPI.getIssueTime(issue.id)
-    issueTimes.value.set(issue.id, seconds)
+  const issueIds = issuesStore.issues.map(i => i.id)
+  if (issueIds.length === 0) return
+
+  const times = await window.electronAPI.getIssueTimesBatch(issueIds)
+  for (const [id, seconds] of Object.entries(times)) {
+    issueTimes.value.set(Number(id), seconds)
   }
 }
 
@@ -47,15 +51,6 @@ watch(() => trackerStore.isTracking, (isTracking, wasTracking) => {
     loadIssueTimes()
   }
 })
-
-function formatDuration(seconds: number): string {
-  const hours = Math.floor(seconds / 3600)
-  const minutes = Math.floor((seconds % 3600) / 60)
-  if (hours > 0) {
-    return `${hours}h ${minutes}m`
-  }
-  return `${minutes}m`
-}
 
 function isCurrentlyTracking(issue: Issue): boolean {
   return trackerStore.currentIssue?.id === issue.id && trackerStore.isTracking
@@ -153,7 +148,7 @@ async function saveNotes() {
   workLogEntries.value = []
 }
 
-function formatDate(isoString: string): string {
+function formatDateTime(isoString: string): string {
   return new Date(isoString).toLocaleDateString('en-US', {
     month: 'short',
     day: 'numeric',
@@ -329,7 +324,7 @@ async function executeBulkDelete() {
                 :key="entry.id"
                 class="work-log-entry"
               >
-                <RText size="small" class="text-secondary">{{ formatDate(entry.startedAt) }}</RText>
+                <RText size="small" class="text-secondary">{{ formatDateTime(entry.startedAt) }}</RText>
                 <RText size="small">{{ entry.notes }}</RText>
               </div>
             </div>
@@ -495,10 +490,6 @@ async function executeBulkDelete() {
 </template>
 
 <style scoped>
-.text-secondary {
-  color: var(--color-text-secondary);
-}
-
 .issues-list {
   display: flex;
   flex-direction: column;
@@ -676,52 +667,9 @@ async function executeBulkDelete() {
   min-width: 150px;
 }
 
-.bulk-checkbox {
-  width: 18px;
-  height: 18px;
-  cursor: pointer;
-  accent-color: var(--color-primary);
-}
-
-.modal-actions {
-  margin-top: 1rem;
-  justify-content: flex-end;
-}
-
-/* Header styling */
-.card-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  width: 100%;
-  gap: 1rem;
-}
-
-.header-left {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-}
-
-.header-right {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
 .card-title {
   font-weight: 600;
   font-size: 1.1rem;
-}
-
-.view-toggle {
-  display: flex;
-  gap: 0.5rem;
-}
-
-/* Both buttons look similar, inactive one is faded */
-.view-toggle > :not(.view-active) {
-  opacity: 0.5;
 }
 
 .card-header :deep(.r-button) {

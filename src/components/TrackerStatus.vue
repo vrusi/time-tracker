@@ -283,10 +283,6 @@ watch(() => trackerStore.currentEntry?.id, () => {
   border-top: 1px solid var(--color-border);
 }
 
-.text-secondary {
-  color: var(--color-text-secondary);
-}
-
 .text-success {
   color: var(--color-success);
 }

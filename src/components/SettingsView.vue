@@ -113,6 +113,7 @@ async function saveSettings() {
     saveMessage.value = 'Settings saved!'
     setTimeout(() => { saveMessage.value = '' }, 2000)
   } catch (err) {
+    console.error('Failed to save settings:', err)
     saveMessage.value = 'Error saving settings'
   } finally {
     isSaving.value = false
@@ -148,6 +149,7 @@ async function importDatabase() {
       setTimeout(() => { saveMessage.value = '' }, 2000)
     }
   } catch (err) {
+    console.error('Failed to import database:', err)
     saveMessage.value = 'Error importing database'
   } finally {
     isImporting.value = false
@@ -175,6 +177,7 @@ async function wipeDatabase() {
     saveMessage.value = 'Database wiped successfully'
     setTimeout(() => { saveMessage.value = '' }, 2000)
   } catch (err) {
+    console.error('Failed to wipe database:', err)
     saveMessage.value = 'Error wiping database'
   } finally {
     isWiping.value = false
@@ -785,12 +788,4 @@ async function wipeDatabase() {
   border-color: var(--color-accent);
 }
 
-/* ═══════════════════════════════════════════════════════════════
-   Modal
-   ═══════════════════════════════════════════════════════════════ */
-
-.modal-actions {
-  margin-top: 1rem;
-  justify-content: flex-end;
-}
 </style>

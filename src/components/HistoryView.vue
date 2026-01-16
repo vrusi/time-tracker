@@ -2,6 +2,7 @@
 import { ref, computed, watch, onMounted } from 'vue'
 import type { TimeEntry, Issue, DayGroup } from '../types'
 import { useIssuesStore } from '../stores/issues.store'
+import { formatTime, formatDuration, formatDate } from '@/utils/format'
 import { RCard, RButton, RInput, RText, RSpace, RList, RListItem, RDialog, RFormItem } from 'roughness'
 import Icon from './Icon.vue'
 
@@ -93,32 +94,6 @@ async function loadEntries() {
   } finally {
     isLoading.value = false
   }
-}
-
-function formatTime(isoString: string): string {
-  return new Date(isoString).toLocaleTimeString('en-US', {
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false
-  })
-}
-
-function formatDuration(seconds: number): string {
-  const hours = Math.floor(seconds / 3600)
-  const minutes = Math.floor((seconds % 3600) / 60)
-  if (hours > 0) {
-    return `${hours}h ${minutes}m`
-  }
-  return `${minutes}m`
-}
-
-function formatDate(dateStr: string): string {
-  const date = new Date(dateStr + 'T00:00:00')
-  return date.toLocaleDateString('en-US', {
-    weekday: 'long',
-    month: 'short',
-    day: 'numeric'
-  })
 }
 
 function entryDuration(entry: TimeEntry): number {
@@ -713,44 +688,9 @@ defineExpose({ openAddEntryModal, loadEntries })
   gap: 0.25rem;
 }
 
-.text-secondary {
-  color: var(--color-text-secondary);
-}
-
-/* Card header styling (matches IssueList) */
-.card-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  width: 100%;
-  gap: 1rem;
-}
-
-.header-left {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-}
-
-.header-right {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
 .card-title {
   font-weight: 600;
   font-size: 1.1rem;
-}
-
-.view-toggle {
-  display: flex;
-  gap: 0.5rem;
-}
-
-/* Both buttons look similar, inactive one is faded */
-.view-toggle > :not(.view-active) {
-  opacity: 0.5;
 }
 
 /* Demote secondary controls in selection mode */
@@ -908,15 +848,4 @@ defineExpose({ openAddEntryModal, loadEntries })
   gap: 0.25rem;
 }
 
-.bulk-checkbox {
-  width: 18px;
-  height: 18px;
-  cursor: pointer;
-  accent-color: var(--color-primary);
-}
-
-.modal-actions {
-  margin-top: 1rem;
-  justify-content: flex-end;
-}
 </style>
