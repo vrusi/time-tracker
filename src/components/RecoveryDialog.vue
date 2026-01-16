@@ -14,7 +14,7 @@ const emit = defineEmits<{
   'resolve': [action: 'keep-all' | 'end-at-close' | 'discard']
 }>()
 
-const closedAgo = computed(() => {
+const timeSinceClose = computed(() => {
   if (!props.recovery) return ''
   return formatDuration(props.recovery.elapsedSinceLastSeenSeconds)
 })
@@ -24,12 +24,17 @@ const totalElapsed = computed(() => {
   return formatDuration(props.recovery.totalElapsedSeconds)
 })
 
-const timeAtClose = computed(() => {
-  if (!props.recovery) return ''
-  // Time from entry start to last seen (prevent negative from stale data)
-  const timeAtCloseSeconds = Math.max(0, props.recovery.totalElapsedSeconds - props.recovery.elapsedSinceLastSeenSeconds)
-  return formatDuration(timeAtCloseSeconds)
+const timeAtCloseSeconds = computed(() => {
+  if (!props.recovery) return 0
+  return Math.max(0, props.recovery.totalElapsedSeconds - props.recovery.elapsedSinceLastSeenSeconds)
 })
+
+const timeAtClose = computed(() => {
+  return formatDuration(timeAtCloseSeconds.value)
+})
+
+// De-emphasize when values are near-zero (< 60 seconds)
+const isLowTime = computed(() => timeAtCloseSeconds.value < 60)
 
 const closedAtFormatted = computed(() => {
   if (!props.recovery) return ''
@@ -56,37 +61,39 @@ function handleAction(action: 'keep-all' | 'end-at-close' | 'discard') {
     <div class="recovery-content" v-if="recovery">
       <div class="recovery-message">
         <RText>
-          You were tracking <strong>{{ recovery.issue.externalId }}</strong> when the app closed.
+          You were tracking <strong>{{ recovery.issue.externalId }}</strong> when the app was closed unexpectedly.
         </RText>
         <RText class="text-secondary issue-name">{{ recovery.issue.name }}</RText>
       </div>
 
-      <div class="recovery-stats">
+      <div class="recovery-stats" :class="{ 'low-time': isLowTime }">
         <div class="stat">
-          <span class="stat-label">App closed</span>
+          <span class="stat-label">App closed at</span>
           <span class="stat-value">{{ closedAtFormatted }}</span>
-          <span class="stat-sub">{{ closedAgo }} ago</span>
         </div>
         <div class="stat">
-          <span class="stat-label">Tracked before close</span>
+          <span class="stat-label">Tracked before</span>
           <span class="stat-value">{{ timeAtClose }}</span>
         </div>
         <div class="stat">
-          <span class="stat-label">Total elapsed</span>
-          <span class="stat-value highlight">{{ totalElapsed }}</span>
+          <span class="stat-label">Time since close</span>
+          <span class="stat-value">{{ timeSinceClose }}</span>
         </div>
       </div>
 
-      <RText class="recovery-question">How much time should be recorded?</RText>
+      <RText class="recovery-question">What should we do with this tracking session?</RText>
     </div>
 
     <template #footer>
       <RSpace vertical class="w-full" size="small">
+        <div class="primary-action">
+          <RButton class="w-full" filled @click="handleAction('keep-all')">
+            Keep all time ({{ totalElapsed }})
+          </RButton>
+          <span class="helper-text">Recommended if you were still working</span>
+        </div>
         <RButton class="w-full" @click="handleAction('end-at-close')">
           End at close time ({{ timeAtClose }})
-        </RButton>
-        <RButton class="w-full" @click="handleAction('keep-all')">
-          Keep all time ({{ totalElapsed }})
         </RButton>
         <RButton class="w-full discard-btn" @click="handleAction('discard')">
           Discard session
@@ -98,8 +105,8 @@ function handleAction(action: 'keep-all' | 'end-at-close' | 'discard') {
 
 <style scoped>
 .recovery-content {
-  min-width: 320px;
-  max-width: 400px;
+  min-width: 20rem;
+  max-width: 25rem;
 }
 
 .recovery-message {
@@ -126,7 +133,13 @@ function handleAction(action: 'keep-all' | 'end-at-close' | 'discard') {
   margin-bottom: 1.5rem;
   padding: 1rem;
   background: var(--color-bg-secondary);
-  border-radius: 4px;
+  border-radius: 0.25rem;
+}
+
+/* De-emphasize when tracked time is near-zero */
+.recovery-stats.low-time .stat-value {
+  color: var(--color-text-secondary);
+  font-weight: 500;
 }
 
 .stat {
@@ -147,16 +160,6 @@ function handleAction(action: 'keep-all' | 'end-at-close' | 'discard') {
   font-weight: 600;
 }
 
-.stat-value.highlight {
-  color: var(--color-accent);
-}
-
-.stat-sub {
-  display: block;
-  font-size: 0.75rem;
-  color: var(--color-text-secondary);
-}
-
 .recovery-question {
   font-weight: 500;
   margin-bottom: 0.5rem;
@@ -166,8 +169,22 @@ function handleAction(action: 'keep-all' | 'end-at-close' | 'discard') {
   width: 100%;
 }
 
+.primary-action {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+}
+
+.helper-text {
+  font-size: 0.75rem;
+  color: var(--color-text-secondary);
+  margin-top: 0.25rem;
+}
+
 .discard-btn {
-  opacity: 0.7;
+  --r-button-color: var(--color-error, #dc3545) !important;
+  opacity: 0.8;
 }
 
 .discard-btn:hover {

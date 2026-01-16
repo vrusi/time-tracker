@@ -133,12 +133,10 @@ export function setupTrackingHandlers(ctx: TrackingContext) {
     const now = new Date()
     const elapsedSinceLastSeen = (now.getTime() - lastSeenAt.getTime()) / 1000
     const totalElapsed = (now.getTime() - startedAt.getTime()) / 1000
-    const timeAtClose = totalElapsed - elapsedSinceLastSeen
 
-    // Skip recovery if tracked time before close was less than 60 seconds
-    if (timeAtClose < 60) {
-      // Auto-discard trivial sessions
-      db.prepare('DELETE FROM time_entries WHERE id = ?').run(current.entry.id)
+    // If app was closed for less than 60 seconds, silently continue tracking (no dialog)
+    if (elapsedSinceLastSeen < 60) {
+      // Clear lastSeenAt so we don't prompt again, tracking continues as-is
       db.prepare('DELETE FROM settings WHERE key = ?').run('lastSeenAt')
       return null
     }
