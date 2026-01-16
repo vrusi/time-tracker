@@ -2,7 +2,7 @@
 import { ref, computed, watch, onMounted } from 'vue'
 import type { TimeEntry, Issue, DayGroup } from '../types'
 import { useIssuesStore } from '../stores/issues.store'
-import { RCard, RButton, RInput, RText, RSpace, RList, RListItem, RDialog, RFormItem, RSelect } from 'roughness'
+import { RCard, RButton, RInput, RText, RSpace, RList, RListItem, RDialog, RFormItem } from 'roughness'
 import Icon from './Icon.vue'
 
 defineProps<{
@@ -22,20 +22,20 @@ const monthEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0)
 const startDate = ref(monthStart.toISOString().split('T')[0])
 const endDate = ref(monthEnd.toISOString().split('T')[0])
 
-// Edit state (for time only)
-const editingEntryId = ref<number | null>(null)
+// Edit mode - discriminated union for mutually exclusive edit states
+type EditMode =
+  | { type: 'normal' }
+  | { type: 'editTime'; entryId: number }
+  | { type: 'editNotes'; entryId: number }
+  | { type: 'editIssue'; issueId: number }
+  | { type: 'deleteConfirm'; entryId: number }
+
+const editMode = ref<EditMode>({ type: 'normal' })
+
+// Form data for each edit type
 const editForm = ref({ startedAt: '', endedAt: '' })
-
-// Notes state (separate from time edit)
-const editingNotesId = ref<number | null>(null)
 const notesForm = ref('')
-
-// Issue edit state
-const editingIssueId = ref<number | null>(null)
 const issueEditForm = ref({ name: '', link: '' })
-
-// Delete confirmation state
-const confirmingDeleteId = ref<number | null>(null)
 
 // Bulk delete state
 const selectionMode = ref(false)
@@ -129,7 +129,7 @@ function entryDuration(entry: TimeEntry): number {
 
 // Edit functions (time only)
 function startEditing(entry: TimeEntry & { issue: Issue }) {
-  editingEntryId.value = entry.id
+  editMode.value = { type: 'editTime', entryId: entry.id }
   editForm.value = {
     startedAt: entry.startedAt.slice(0, 16), // Format for datetime-local input
     endedAt: entry.endedAt ? entry.endedAt.slice(0, 16) : ''
@@ -137,11 +137,11 @@ function startEditing(entry: TimeEntry & { issue: Issue }) {
 }
 
 function cancelEditing() {
-  editingEntryId.value = null
+  editMode.value = { type: 'normal' }
 }
 
 async function saveEdit() {
-  if (!editingEntryId.value) return
+  if (editMode.value.type !== 'editTime') return
 
   const updates: { startedAt?: string; endedAt?: string } = {}
 
@@ -152,32 +152,32 @@ async function saveEdit() {
     updates.endedAt = new Date(editForm.value.endedAt).toISOString()
   }
 
-  await window.electronAPI.updateTimeEntry(editingEntryId.value, updates)
-  editingEntryId.value = null
+  await window.electronAPI.updateTimeEntry(editMode.value.entryId, updates)
+  editMode.value = { type: 'normal' }
   await loadEntries()
 }
 
-// Notes functions (separate)
+// Notes functions
 function startEditingNotes(entry: TimeEntry & { issue: Issue }) {
-  editingNotesId.value = entry.id
+  editMode.value = { type: 'editNotes', entryId: entry.id }
   notesForm.value = entry.notes || ''
 }
 
 function cancelEditingNotes() {
-  editingNotesId.value = null
+  editMode.value = { type: 'normal' }
 }
 
 async function saveNotes() {
-  if (!editingNotesId.value) return
+  if (editMode.value.type !== 'editNotes') return
 
-  await window.electronAPI.updateTimeEntry(editingNotesId.value, { notes: notesForm.value || undefined })
-  editingNotesId.value = null
+  await window.electronAPI.updateTimeEntry(editMode.value.entryId, { notes: notesForm.value || undefined })
+  editMode.value = { type: 'normal' }
   await loadEntries()
 }
 
 // Issue edit functions
 function startEditingIssue(entry: TimeEntry & { issue: Issue }) {
-  editingIssueId.value = entry.issue.id
+  editMode.value = { type: 'editIssue', issueId: entry.issue.id }
   issueEditForm.value = {
     name: entry.issue.name,
     link: entry.issue.link || ''
@@ -185,32 +185,32 @@ function startEditingIssue(entry: TimeEntry & { issue: Issue }) {
 }
 
 function cancelEditingIssue() {
-  editingIssueId.value = null
+  editMode.value = { type: 'normal' }
 }
 
 async function saveIssueEdit() {
-  if (!editingIssueId.value) return
+  if (editMode.value.type !== 'editIssue') return
 
-  await issuesStore.updateIssue(editingIssueId.value, {
+  await issuesStore.updateIssue(editMode.value.issueId, {
     name: issueEditForm.value.name.trim(),
     link: issueEditForm.value.link.trim() || null
   })
-  editingIssueId.value = null
+  editMode.value = { type: 'normal' }
   await loadEntries()
 }
 
 // Delete functions
 function confirmDelete(entryId: number) {
-  confirmingDeleteId.value = entryId
+  editMode.value = { type: 'deleteConfirm', entryId }
 }
 
 function cancelDelete() {
-  confirmingDeleteId.value = null
+  editMode.value = { type: 'normal' }
 }
 
 async function executeDelete(entryId: number) {
   await window.electronAPI.deleteTimeEntry(entryId)
-  confirmingDeleteId.value = null
+  editMode.value = { type: 'normal' }
   await loadEntries()
   emit('entries-changed')
 }
@@ -484,7 +484,7 @@ defineExpose({ openAddEntryModal, loadEntries })
               class="entry-item"
             >
               <!-- Edit time mode -->
-              <form v-if="editingEntryId === entry.id" @submit.prevent="saveEdit" class="space-y-3 w-full">
+              <form v-if="editMode.type === 'editTime' && editMode.entryId === entry.id" @submit.prevent="saveEdit" class="space-y-3 w-full">
                 <RSpace>
                   <RFormItem label="Start">
                     <input
@@ -509,7 +509,7 @@ defineExpose({ openAddEntryModal, loadEntries })
               </form>
 
               <!-- Edit notes mode -->
-              <div v-else-if="editingNotesId === entry.id" class="space-y-2 w-full">
+              <div v-else-if="editMode.type === 'editNotes' && editMode.entryId === entry.id" class="space-y-2 w-full">
                 <RText class="text-secondary text-sm">
                   <strong>{{ entry.issue.externalId }}</strong> {{ entry.issue.name }}
                 </RText>
@@ -525,7 +525,7 @@ defineExpose({ openAddEntryModal, loadEntries })
               </div>
 
               <!-- Edit issue mode -->
-              <form v-else-if="editingIssueId === entry.issue.id" @submit.prevent="saveIssueEdit" class="flex items-center gap-3 w-full">
+              <form v-else-if="editMode.type === 'editIssue' && editMode.issueId === entry.issue.id" @submit.prevent="saveIssueEdit" class="flex items-center gap-3 w-full">
                 <RInput
                   v-model="issueEditForm.link"
                   placeholder="Issue URL"
@@ -590,7 +590,7 @@ defineExpose({ openAddEntryModal, loadEntries })
                     <Icon name="pencil" :size="16" />
                   </RButton>
                   <RButton
-                    v-if="confirmingDeleteId !== entry.id"
+                    v-if="!(editMode.type === 'deleteConfirm' && editMode.entryId === entry.id)"
                     size="small"
                     @click="confirmDelete(entry.id)"
                     title="Delete"
