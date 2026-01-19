@@ -97,7 +97,8 @@ function createWindow() {
     mainWindow.loadURL(process.env.VITE_DEV_SERVER_URL)
     mainWindow.webContents.openDevTools()
   } else {
-    mainWindow.loadFile(join(__dirname, '../dist/index.html'))
+    // In production, use app.getAppPath() for reliable path resolution
+    mainWindow.loadFile(join(app.getAppPath(), 'dist/index.html'))
   }
 
   mainWindow.on('close', (e) => {
