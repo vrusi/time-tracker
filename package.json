@@ -38,6 +38,14 @@
   "build": {
     "appId": "com.vrusi.time-tracker",
     "productName": "Time Tracker",
+    "files": [
+      "dist/**/*",
+      "dist-electron/**/*",
+      "!dist/mac-arm64",
+      "!dist/*.dmg",
+      "!dist/*.zip",
+      "!dist/*.blockmap"
+    ],
     "mac": {
       "category": "public.app-category.productivity"
     }
