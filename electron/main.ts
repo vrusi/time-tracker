@@ -53,6 +53,7 @@ function getTodayTotalSeconds(): number {
 let dailyTargetNotified = false
 
 function checkDailyTargetNotification() {
+  if (dailyTargetNotified) return
   const settings = getSettings(db)
   if (!settings.notificationsEnabled) return
 
@@ -188,6 +189,11 @@ function startIdleWatcher() {
 
     // Send idle time to renderer
     mainWindow?.webContents.send('idle-update', idleTime)
+
+    // Check daily target during active tracking
+    if (current) {
+      checkDailyTargetNotification()
+    }
 
     // Skip idle pause if presence mode is enabled
     if (presenceMode) return
