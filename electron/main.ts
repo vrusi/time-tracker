@@ -1,4 +1,4 @@
-import { app, BrowserWindow, Tray, Menu, nativeImage, Notification } from 'electron'
+import { app, BrowserWindow, Tray, Menu, nativeImage, Notification, powerMonitor } from 'electron'
 import { join, dirname } from 'path'
 import { fileURLToPath } from 'url'
 import { initDatabase, db } from './db'
@@ -26,6 +26,7 @@ let presenceMode = false
 let idleResetTime: number | null = null
 let idleThreshold = 600 // 10 minutes in seconds (loaded from settings)
 let isQuitting = false
+let suspendedAt: number | null = null
 
 function loadIdleThreshold() {
   const settings = getSettings(db)
@@ -266,6 +267,33 @@ app.whenReady().then(() => {
   setupIpcHandlers()
   startIdleWatcher()
   scheduleDailyReset()
+
+  // Handle system sleep/wake for idle detection
+  powerMonitor.on('suspend', () => {
+    suspendedAt = Date.now()
+  })
+
+  powerMonitor.on('resume', () => {
+    if (suspendedAt && !presenceMode) {
+      const sleepDuration = Math.floor((Date.now() - suspendedAt) / 1000)
+      const current = getCurrentTracking(db)
+
+      if (sleepDuration >= idleThreshold && current) {
+        doPauseTracking('idle')
+
+        const settings = getSettings(db)
+        if (settings.notificationsEnabled) {
+          new Notification({
+            title: 'Time Tracker',
+            body: `Paused "${current.issue.name}" - laptop was asleep for ${Math.floor(sleepDuration / 60)} minutes`
+          }).show()
+        }
+
+        mainWindow?.webContents.send('idle-pause')
+      }
+    }
+    suspendedAt = null
+  })
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
