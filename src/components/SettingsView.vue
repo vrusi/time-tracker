@@ -21,6 +21,7 @@ const isImporting = ref(false)
 // Local form state
 const form = ref({
   dailyTargetHours: 8,
+  weeklyTargetHours: 40,
   monthlyTargetHours: 160,
   hourlyRate: 18.67,
   currency: 'GBP',
@@ -70,6 +71,7 @@ function syncFormFromStore() {
   const s = settingsStore.settings
   form.value = {
     dailyTargetHours: s.dailyTargetHours,
+    weeklyTargetHours: s.weeklyTargetHours,
     monthlyTargetHours: s.monthlyTargetHours,
     hourlyRate: s.hourlyRate,
     currency: s.currency,
@@ -98,6 +100,7 @@ async function saveSettings() {
   try {
     await settingsStore.updateSettings({
       dailyTargetHours: form.value.dailyTargetHours,
+      weeklyTargetHours: form.value.weeklyTargetHours,
       monthlyTargetHours: form.value.monthlyTargetHours,
       hourlyRate: form.value.hourlyRate,
       currency: form.value.currency,
@@ -199,6 +202,14 @@ async function wipeDatabase() {
           <div class="setting-label">Daily Target</div>
           <div class="setting-control">
             <input v-model.number="form.dailyTargetHours" type="number" min="1" max="24" step="0.5" class="input-number" />
+            <span class="input-unit">hours</span>
+          </div>
+        </div>
+
+        <div class="setting-row row-md">
+          <div class="setting-label">Weekly Target</div>
+          <div class="setting-control">
+            <input v-model.number="form.weeklyTargetHours" type="number" min="1" max="168" step="1" class="input-number" />
             <span class="input-unit">hours</span>
           </div>
         </div>

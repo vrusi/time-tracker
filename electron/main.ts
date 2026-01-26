@@ -51,7 +51,34 @@ function getTodayTotalSeconds(): number {
   }, 0)
 }
 
+function getThisWeekTotalSeconds(): number {
+  const now = new Date()
+  const day = now.getDay()
+  // Get Monday of this week
+  const diff = day === 0 ? -6 : 1 - day
+  const weekStart = new Date(now)
+  weekStart.setDate(weekStart.getDate() + diff)
+  weekStart.setHours(0, 0, 0, 0)
+
+  // Get Sunday end of this week
+  const weekEnd = new Date(weekStart)
+  weekEnd.setDate(weekEnd.getDate() + 6)
+  weekEnd.setHours(23, 59, 59, 999)
+
+  const entries = db.prepare(`
+    SELECT started_at, ended_at FROM time_entries
+    WHERE started_at >= ? AND started_at <= ?
+  `).all(weekStart.toISOString(), weekEnd.toISOString()) as { started_at: string; ended_at: string | null }[]
+
+  return entries.reduce((total, entry) => {
+    const start = new Date(entry.started_at).getTime()
+    const end = entry.ended_at ? new Date(entry.ended_at).getTime() : Date.now()
+    return total + (end - start) / 1000
+  }, 0)
+}
+
 let dailyTargetNotified = false
+let weeklyTargetNotified = false
 
 function checkDailyTargetNotification() {
   if (dailyTargetNotified) return
@@ -70,6 +97,23 @@ function checkDailyTargetNotification() {
   }
 }
 
+function checkWeeklyTargetNotification() {
+  if (weeklyTargetNotified) return
+  const settings = getSettings(db)
+  if (!settings.notificationsEnabled) return
+
+  const weekSeconds = getThisWeekTotalSeconds()
+  const targetSeconds = settings.weeklyTargetHours * 3600
+
+  if (weekSeconds >= targetSeconds && !weeklyTargetNotified) {
+    weeklyTargetNotified = true
+    new Notification({
+      title: 'Weekly Target Reached!',
+      body: `You've completed ${settings.weeklyTargetHours} hours this week`
+    }).show()
+  }
+}
+
 // Reset daily notification flag at midnight
 function scheduleDailyReset() {
   const now = new Date()
@@ -82,6 +126,23 @@ function scheduleDailyReset() {
     dailyTargetNotified = false
     scheduleDailyReset()
   }, msUntilMidnight)
+}
+
+// Reset weekly notification flag on Monday 00:00
+function scheduleWeeklyReset() {
+  const now = new Date()
+  const day = now.getDay()
+  // Calculate days until next Monday
+  const daysUntilMonday = day === 0 ? 1 : day === 1 ? 7 : 8 - day
+  const nextMonday = new Date(now)
+  nextMonday.setDate(nextMonday.getDate() + daysUntilMonday)
+  nextMonday.setHours(0, 0, 0, 0)
+  const msUntilMonday = nextMonday.getTime() - now.getTime()
+
+  setTimeout(() => {
+    weeklyTargetNotified = false
+    scheduleWeeklyReset()
+  }, msUntilMonday)
 }
 
 function createWindow() {
@@ -125,7 +186,7 @@ function createTray() {
 
 // Helper to call the imported pauseTracking with all required parameters
 function doPauseTracking(reason: 'manual' | 'idle' | 'switched'): TimeEntry | null {
-  return pauseTracking(db, reason, idleThreshold, mainWindow, updateTrayMenu, checkDailyTargetNotification)
+  return pauseTracking(db, reason, idleThreshold, mainWindow, updateTrayMenu, checkDailyTargetNotification, checkWeeklyTargetNotification)
 }
 
 function updateTrayMenu() {
@@ -191,9 +252,10 @@ function startIdleWatcher() {
     // Send idle time to renderer
     mainWindow?.webContents.send('idle-update', idleTime)
 
-    // Check daily target during active tracking
+    // Check daily and weekly targets during active tracking
     if (current) {
       checkDailyTargetNotification()
+      checkWeeklyTargetNotification()
     }
 
     // Skip idle pause if presence mode is enabled
@@ -226,7 +288,8 @@ function setupIpcHandlers() {
     getMainWindow: () => mainWindow,
     getIdleThreshold: () => idleThreshold,
     updateTrayMenu,
-    checkDailyTargetNotification
+    checkDailyTargetNotification,
+    checkWeeklyTargetNotification
   })
 
   // Setup entry handlers
@@ -267,6 +330,7 @@ app.whenReady().then(() => {
   setupIpcHandlers()
   startIdleWatcher()
   scheduleDailyReset()
+  scheduleWeeklyReset()
 
   // Handle system sleep/wake for idle detection
   powerMonitor.on('suspend', () => {

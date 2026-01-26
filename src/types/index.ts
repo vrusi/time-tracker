@@ -57,6 +57,7 @@ export interface TrackingRecoveryInfo {
 
 export interface AppSettings {
   dailyTargetHours: number
+  weeklyTargetHours: number
   monthlyTargetHours: number
   hourlyRate: number
   currency: string

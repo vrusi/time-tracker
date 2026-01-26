@@ -42,6 +42,7 @@ function initDatabase(dbPath: string) {
   // Insert default settings if not exist
   const defaultSettings = {
     dailyTargetHours: '8',
+    weeklyTargetHours: '40',
     monthlyTargetHours: '160',
     hourlyRate: '18.67',
     currency: 'GBP',

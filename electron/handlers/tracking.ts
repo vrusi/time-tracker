@@ -9,6 +9,7 @@ export interface TrackingContext {
   getIdleThreshold: () => number
   updateTrayMenu: () => void
   checkDailyTargetNotification: () => void
+  checkWeeklyTargetNotification: () => void
 }
 
 export function getCurrentTracking(db: Database.Database): { entry: TimeEntry; issue: Issue } | null {
@@ -29,7 +30,8 @@ export function pauseTracking(
   idleThreshold: number,
   mainWindow: BrowserWindow | null,
   updateTrayMenu: () => void,
-  checkDailyTargetNotification: () => void
+  checkDailyTargetNotification: () => void,
+  checkWeeklyTargetNotification: () => void
 ): TimeEntry | null {
   const current = getCurrentTracking(db)
   if (!current) return null
@@ -47,8 +49,9 @@ export function pauseTracking(
   updateTrayMenu()
   mainWindow?.webContents.send('tracking-update', null)
 
-  // Check if daily target was just reached
+  // Check if daily/weekly targets were just reached
   checkDailyTargetNotification()
+  checkWeeklyTargetNotification()
 
   return { ...current.entry, endedAt: endTime, pausedReason: reason }
 }
@@ -89,10 +92,10 @@ export function startTracking(
 }
 
 export function setupTrackingHandlers(ctx: TrackingContext) {
-  const { db, getMainWindow, getIdleThreshold, updateTrayMenu, checkDailyTargetNotification } = ctx
+  const { db, getMainWindow, getIdleThreshold, updateTrayMenu, checkDailyTargetNotification, checkWeeklyTargetNotification } = ctx
 
   const doPause = (reason: 'manual' | 'idle' | 'switched') => {
-    return pauseTracking(db, reason, getIdleThreshold(), getMainWindow(), updateTrayMenu, checkDailyTargetNotification)
+    return pauseTracking(db, reason, getIdleThreshold(), getMainWindow(), updateTrayMenu, checkDailyTargetNotification, checkWeeklyTargetNotification)
   }
 
   ipcMain.handle('start-tracking', (_, issueId: number) => {

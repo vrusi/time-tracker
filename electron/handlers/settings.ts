@@ -33,6 +33,7 @@ export function getSettings(db: Database.Database): AppSettings {
   }
   cachedSettings = {
     dailyTargetHours: parseFloat(settings.dailyTargetHours) || 8,
+    weeklyTargetHours: parseFloat(settings.weeklyTargetHours) || 40,
     monthlyTargetHours: parseFloat(settings.monthlyTargetHours) || 160,
     hourlyRate: parseFloat(settings.hourlyRate) || 18.67,
     currency: settings.currency || 'GBP',
