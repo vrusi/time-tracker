@@ -1,6 +1,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import {
   getWorkdaysInMonth,
+  getWeekStart,
+  getWeekEnd,
   calculateProgress,
   aggregateEntrySeconds
 } from '../../src/utils/workdays'
@@ -54,6 +56,94 @@ describe('ProgressBars Logic', () => {
     })
   })
 
+  describe('getWeekStart', () => {
+    it('returns Monday for a Wednesday', () => {
+      // Wednesday, January 17, 2024
+      const date = new Date('2024-01-17T14:30:00.000Z')
+      const weekStart = getWeekStart(date)
+
+      expect(weekStart.getFullYear()).toBe(2024)
+      expect(weekStart.getMonth()).toBe(0) // January
+      expect(weekStart.getDate()).toBe(15) // Monday
+      expect(weekStart.getHours()).toBe(0)
+      expect(weekStart.getMinutes()).toBe(0)
+      expect(weekStart.getSeconds()).toBe(0)
+    })
+
+    it('returns Monday for a Monday', () => {
+      // Monday, January 15, 2024
+      const date = new Date('2024-01-15T10:00:00.000Z')
+      const weekStart = getWeekStart(date)
+
+      expect(weekStart.getDate()).toBe(15) // Same day
+    })
+
+    it('returns previous Monday for a Sunday', () => {
+      // Sunday, January 21, 2024
+      const date = new Date('2024-01-21T10:00:00.000Z')
+      const weekStart = getWeekStart(date)
+
+      expect(weekStart.getDate()).toBe(15) // Previous Monday
+    })
+
+    it('returns Monday for a Saturday', () => {
+      // Saturday, January 20, 2024
+      const date = new Date('2024-01-20T10:00:00.000Z')
+      const weekStart = getWeekStart(date)
+
+      expect(weekStart.getDate()).toBe(15) // Monday of that week
+    })
+
+    it('handles week crossing month boundary', () => {
+      // Thursday, February 1, 2024 - week started in January
+      const date = new Date('2024-02-01T10:00:00.000Z')
+      const weekStart = getWeekStart(date)
+
+      expect(weekStart.getMonth()).toBe(0) // January
+      expect(weekStart.getDate()).toBe(29) // Monday, Jan 29
+    })
+  })
+
+  describe('getWeekEnd', () => {
+    it('returns Sunday for a Wednesday', () => {
+      // Wednesday, January 17, 2024
+      const date = new Date('2024-01-17T14:30:00.000Z')
+      const weekEnd = getWeekEnd(date)
+
+      expect(weekEnd.getFullYear()).toBe(2024)
+      expect(weekEnd.getMonth()).toBe(0) // January
+      expect(weekEnd.getDate()).toBe(21) // Sunday
+      expect(weekEnd.getHours()).toBe(23)
+      expect(weekEnd.getMinutes()).toBe(59)
+      expect(weekEnd.getSeconds()).toBe(59)
+    })
+
+    it('returns Sunday for a Sunday', () => {
+      // Sunday, January 21, 2024
+      const date = new Date('2024-01-21T10:00:00.000Z')
+      const weekEnd = getWeekEnd(date)
+
+      expect(weekEnd.getDate()).toBe(21) // Same day
+    })
+
+    it('returns next Sunday for a Monday', () => {
+      // Monday, January 15, 2024
+      const date = new Date('2024-01-15T10:00:00.000Z')
+      const weekEnd = getWeekEnd(date)
+
+      expect(weekEnd.getDate()).toBe(21) // Sunday of that week
+    })
+
+    it('handles week crossing month boundary', () => {
+      // Monday, January 29, 2024 - week ends in February
+      const date = new Date('2024-01-29T10:00:00.000Z')
+      const weekEnd = getWeekEnd(date)
+
+      expect(weekEnd.getMonth()).toBe(1) // February
+      expect(weekEnd.getDate()).toBe(4) // Sunday, Feb 4
+    })
+  })
+
   describe('calculateProgress', () => {
     describe('daily progress', () => {
       it('calculates progress as percentage of target', () => {
@@ -73,6 +163,18 @@ describe('ProgressBars Logic', () => {
       it('handles fractional hours', () => {
         // 6 hours of 8 hour target = 75%
         expect(calculateProgress(21600, 8)).toBe(75)
+      })
+    })
+
+    describe('weekly progress', () => {
+      it('calculates progress as percentage of weekly target', () => {
+        // 20 hours of 40 hour target = 50%
+        expect(calculateProgress(72000, 40)).toBe(50)
+      })
+
+      it('caps at 100%', () => {
+        // 50 hours of 40 hour target = 125%, capped to 100
+        expect(calculateProgress(180000, 40)).toBe(100)
       })
     })
 

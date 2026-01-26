@@ -13,6 +13,7 @@ describe('Settings Handler Logic', () => {
     function parseSettings(rawSettings: Record<string, string>) {
       return {
         dailyTargetHours: parseFloat(rawSettings.dailyTargetHours) || 8,
+        weeklyTargetHours: parseFloat(rawSettings.weeklyTargetHours) || 40,
         monthlyTargetHours: parseFloat(rawSettings.monthlyTargetHours) || 160,
         hourlyRate: parseFloat(rawSettings.hourlyRate) || 18.67,
         currency: rawSettings.currency || 'GBP',
@@ -31,6 +32,7 @@ describe('Settings Handler Logic', () => {
       const settings = parseSettings({})
 
       expect(settings.dailyTargetHours).toBe(8)
+      expect(settings.weeklyTargetHours).toBe(40)
       expect(settings.monthlyTargetHours).toBe(160)
       expect(settings.hourlyRate).toBe(18.67)
       expect(settings.currency).toBe('GBP')
@@ -46,10 +48,12 @@ describe('Settings Handler Logic', () => {
     it('parses numeric values correctly', () => {
       const settings = parseSettings({
         dailyTargetHours: '7.5',
+        weeklyTargetHours: '35',
         hourlyRate: '25.50'
       })
 
       expect(settings.dailyTargetHours).toBe(7.5)
+      expect(settings.weeklyTargetHours).toBe(35)
       expect(settings.hourlyRate).toBe(25.50)
     })
 
@@ -69,6 +73,7 @@ describe('Settings Handler Logic', () => {
     it('handles all settings together', () => {
       const settings = parseSettings({
         dailyTargetHours: '6',
+        weeklyTargetHours: '30',
         monthlyTargetHours: '120',
         hourlyRate: '30',
         currency: 'USD',
@@ -82,6 +87,7 @@ describe('Settings Handler Logic', () => {
       })
 
       expect(settings.dailyTargetHours).toBe(6)
+      expect(settings.weeklyTargetHours).toBe(30)
       expect(settings.monthlyTargetHours).toBe(120)
       expect(settings.hourlyRate).toBe(30)
       expect(settings.currency).toBe('USD')

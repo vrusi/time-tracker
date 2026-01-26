@@ -5,6 +5,7 @@ import type { AppSettings } from '@/types'
 export const useSettingsStore = defineStore('settings', () => {
   const settings = ref<AppSettings>({
     dailyTargetHours: 8,
+    weeklyTargetHours: 40,
     monthlyTargetHours: 160,
     hourlyRate: 18.67,
     currency: 'GBP',

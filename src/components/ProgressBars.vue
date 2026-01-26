@@ -4,12 +4,13 @@ import { useTrackerStore } from '../stores/tracker.store'
 import { useSettingsStore } from '../stores/settings.store'
 import { RCard, RProgress, RText } from 'roughness'
 import { formatMoney } from '../utils/format'
-import { getWorkdaysInMonth, calculateProgress } from '../utils/workdays'
+import { getWorkdaysInMonth, calculateProgress, getWeekStart, getWeekEnd } from '../utils/workdays'
 
 const trackerStore = useTrackerStore()
 const settingsStore = useSettingsStore()
 
 const todaySeconds = ref(0)
+const weekSeconds = ref(0)
 const monthSeconds = ref(0)
 let refreshInterval: number | null = null
 
@@ -17,6 +18,10 @@ getWorkdaysInMonth(new Date().getFullYear(), new Date().getMonth())
 
 const dailyProgress = computed(() => {
   return calculateProgress(todaySeconds.value, settingsStore.settings.dailyTargetHours)
+})
+
+const weeklyProgress = computed(() => {
+  return calculateProgress(weekSeconds.value, settingsStore.settings.weeklyTargetHours)
 })
 
 const monthlyProgress = computed(() => {
@@ -51,6 +56,9 @@ async function loadProgress() {
   const todayEnd = new Date()
   todayEnd.setHours(23, 59, 59, 999)
 
+  const weekStart = getWeekStart(today)
+  const weekEnd = getWeekEnd(today)
+
   const monthStart = new Date(today.getFullYear(), today.getMonth(), 1)
   const monthEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0, 23, 59, 59, 999)
 
@@ -59,12 +67,23 @@ async function loadProgress() {
     todayEnd.toISOString()
   )
 
+  const weekEntries = await window.electronAPI.getTimeEntries(
+    weekStart.toISOString(),
+    weekEnd.toISOString()
+  )
+
   const monthEntries = await window.electronAPI.getTimeEntries(
     monthStart.toISOString(),
     monthEnd.toISOString()
   )
 
   todaySeconds.value = todayEntries.reduce((total, entry) => {
+    const start = new Date(entry.startedAt).getTime()
+    const end = entry.endedAt ? new Date(entry.endedAt).getTime() : Date.now()
+    return total + (end - start) / 1000
+  }, 0)
+
+  weekSeconds.value = weekEntries.reduce((total, entry) => {
     const start = new Date(entry.startedAt).getTime()
     const end = entry.endedAt ? new Date(entry.endedAt).getTime() : Date.now()
     return total + (end - start) / 1000
@@ -124,6 +143,22 @@ defineExpose({ loadProgress })
         <RProgress
           :value="dailyProgress / 100"
           :color="dailyProgress >= 100 ? 'success' : 'primary'"
+        />
+      </div>
+    </div>
+
+    <!-- Weekly Progress -->
+    <div class="progress-row">
+      <div class="progress-label">
+        <RText size="small">Week</RText>
+        <RText size="small" class="text-secondary">
+          {{ formatHoursDisplay(weekSeconds) }} / {{ settingsStore.settings.weeklyTargetHours }}h
+        </RText>
+      </div>
+      <div class="progress-bar-wrapper">
+        <RProgress
+          :value="weeklyProgress / 100"
+          :color="weeklyProgress >= 100 ? 'success' : 'primary'"
         />
       </div>
     </div>

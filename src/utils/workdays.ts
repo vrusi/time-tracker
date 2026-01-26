@@ -1,4 +1,31 @@
 /**
+ * Get the start of the week (Monday 00:00:00) for a given date
+ */
+export function getWeekStart(date: Date): Date {
+  const d = new Date(date)
+  const day = d.getDay()
+  // getDay() returns 0 for Sunday, 1 for Monday, etc.
+  // We want Monday as the start of the week
+  const diff = day === 0 ? -6 : 1 - day
+  d.setDate(d.getDate() + diff)
+  d.setHours(0, 0, 0, 0)
+  return d
+}
+
+/**
+ * Get the end of the week (Sunday 23:59:59.999) for a given date
+ */
+export function getWeekEnd(date: Date): Date {
+  const d = new Date(date)
+  const day = d.getDay()
+  // getDay() returns 0 for Sunday, 1 for Monday, etc.
+  const diff = day === 0 ? 0 : 7 - day
+  d.setDate(d.getDate() + diff)
+  d.setHours(23, 59, 59, 999)
+  return d
+}
+
+/**
  * Calculate the number of workdays (Mon-Fri) in a given month
  */
 export function getWorkdaysInMonth(year: number, month: number): number {
