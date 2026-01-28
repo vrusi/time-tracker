@@ -186,11 +186,11 @@ function createTray() {
 
 // Helper to call the imported pauseTracking with all required parameters
 function doPauseTracking(reason: 'manual' | 'idle' | 'switched'): TimeEntry | null {
-  return pauseTracking(db, reason, idleThreshold, mainWindow, updateTrayMenu, checkDailyTargetNotification, checkWeeklyTargetNotification)
+  return pauseTracking(reason, idleThreshold, mainWindow, updateTrayMenu, checkDailyTargetNotification, checkWeeklyTargetNotification)
 }
 
 function updateTrayMenu() {
-  const current = getCurrentTracking(db)
+  const current = getCurrentTracking()
 
   const contextMenu = Menu.buildFromTemplate([
     {
@@ -247,7 +247,7 @@ function setPresenceMode(enabled: boolean) {
 function startIdleWatcher() {
   idleCheckInterval = setInterval(() => {
     const idleTime = getEffectiveIdleTime(idleResetTime, (value) => { idleResetTime = value })
-    const current = getCurrentTracking(db)
+    const current = getCurrentTracking()
 
     // Send idle time to renderer
     mainWindow?.webContents.send('idle-update', idleTime)
@@ -280,11 +280,10 @@ function startIdleWatcher() {
 // IPC handlers setup using modular handlers
 function setupIpcHandlers() {
   // Setup issue handlers
-  setupIssueHandlers(db)
+  setupIssueHandlers()
 
   // Setup tracking handlers
   setupTrackingHandlers({
-    db,
     getMainWindow: () => mainWindow,
     getIdleThreshold: () => idleThreshold,
     updateTrayMenu,
@@ -293,11 +292,10 @@ function setupIpcHandlers() {
   })
 
   // Setup entry handlers
-  setupEntryHandlers(db)
+  setupEntryHandlers()
 
   // Setup settings handlers
   setupSettingsHandlers({
-    db,
     getMainWindow: () => mainWindow,
     getIdleThreshold: () => idleThreshold,
     setIdleThreshold: (value: number) => { idleThreshold = value },
@@ -311,7 +309,6 @@ function setupIpcHandlers() {
 
   // Setup export handlers
   setupExportHandlers({
-    db,
     getMainWindow: () => mainWindow
   })
 }
@@ -340,7 +337,7 @@ app.whenReady().then(() => {
   powerMonitor.on('resume', () => {
     if (suspendedAt && !presenceMode) {
       const sleepDuration = Math.floor((Date.now() - suspendedAt) / 1000)
-      const current = getCurrentTracking(db)
+      const current = getCurrentTracking()
 
       if (sleepDuration >= idleThreshold && current) {
         doPauseTracking('idle')

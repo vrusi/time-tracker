@@ -1,9 +1,9 @@
 import { ipcMain } from 'electron'
-import type Database from 'better-sqlite3'
 import type { TimeEntry } from '../../src/types'
 import { type TimeEntryRow, type TimeEntryWithIssueRow, mapTimeEntry, mapTimeEntries, mapTimeEntriesWithIssue } from '../mappers'
+import { db } from '../db'
 
-export function setupEntryHandlers(db: Database.Database) {
+export function setupEntryHandlers() {
   // Get time entries with issue data for a date range (used in History view)
   ipcMain.handle('get-time-entries', (_, startDate: string, endDate: string) => {
     const entries = db.prepare(`

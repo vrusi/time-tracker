@@ -1,16 +1,14 @@
 import { ipcMain, dialog, BrowserWindow } from 'electron'
 import { copyFileSync } from 'fs'
-import type Database from 'better-sqlite3'
 import { getActiveProject, getProjectDbPath } from '../projects'
-import { switchDatabase } from '../db'
+import { switchDatabase, db } from '../db'
 
 export interface ExportContext {
-  db: Database.Database
   getMainWindow: () => BrowserWindow | null
 }
 
 export function setupExportHandlers(ctx: ExportContext) {
-  const { db, getMainWindow } = ctx
+  const { getMainWindow } = ctx
 
   // Export database file to user-selected location
   ipcMain.handle('export-database', async (): Promise<boolean> => {

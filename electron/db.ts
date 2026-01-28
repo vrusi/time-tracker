@@ -73,10 +73,20 @@ function initDatabase(dbPath: string) {
 }
 
 function switchDatabase(dbPath: string) {
-  if (db) {
-    db.close()
+  try {
+    if (db) {
+      db.close()
+    }
+  } catch (error) {
+    console.error('Error closing database:', error)
   }
-  initDatabase(dbPath)
+
+  try {
+    initDatabase(dbPath)
+  } catch (error) {
+    console.error('Error initializing database at', dbPath, ':', error)
+    throw error
+  }
 }
 
 function closeDatabase() {

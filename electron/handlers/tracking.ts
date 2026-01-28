@@ -1,10 +1,9 @@
 import { ipcMain, BrowserWindow } from 'electron'
-import type Database from 'better-sqlite3'
 import type { Issue, TimeEntry } from '../../src/types'
 import { type IssueRow, type TimeEntryRow, mapIssue, mapTrackingResult } from '../mappers'
+import { db } from '../db'
 
 export interface TrackingContext {
-  db: Database.Database
   getMainWindow: () => BrowserWindow | null
   getIdleThreshold: () => number
   updateTrayMenu: () => void
@@ -12,7 +11,7 @@ export interface TrackingContext {
   checkWeeklyTargetNotification: () => void
 }
 
-export function getCurrentTracking(db: Database.Database): { entry: TimeEntry; issue: Issue } | null {
+export function getCurrentTracking(): { entry: TimeEntry; issue: Issue } | null {
   const entry = db.prepare(`
     SELECT * FROM time_entries WHERE ended_at IS NULL LIMIT 1
   `).get() as TimeEntryRow | undefined
@@ -25,7 +24,6 @@ export function getCurrentTracking(db: Database.Database): { entry: TimeEntry; i
 }
 
 export function pauseTracking(
-  db: Database.Database,
   reason: 'manual' | 'idle' | 'switched',
   idleThreshold: number,
   mainWindow: BrowserWindow | null,
@@ -33,7 +31,7 @@ export function pauseTracking(
   checkDailyTargetNotification: () => void,
   checkWeeklyTargetNotification: () => void
 ): TimeEntry | null {
-  const current = getCurrentTracking(db)
+  const current = getCurrentTracking()
   if (!current) return null
 
   // When pausing due to idle, subtract the idle threshold to get actual stop time
@@ -57,7 +55,6 @@ export function pauseTracking(
 }
 
 export function startTracking(
-  db: Database.Database,
   issueId: number,
   mainWindow: BrowserWindow | null,
   updateTrayMenu: () => void,
@@ -92,15 +89,14 @@ export function startTracking(
 }
 
 export function setupTrackingHandlers(ctx: TrackingContext) {
-  const { db, getMainWindow, getIdleThreshold, updateTrayMenu, checkDailyTargetNotification, checkWeeklyTargetNotification } = ctx
+  const { getMainWindow, getIdleThreshold, updateTrayMenu, checkDailyTargetNotification, checkWeeklyTargetNotification } = ctx
 
   const doPause = (reason: 'manual' | 'idle' | 'switched') => {
-    return pauseTracking(db, reason, getIdleThreshold(), getMainWindow(), updateTrayMenu, checkDailyTargetNotification, checkWeeklyTargetNotification)
+    return pauseTracking(reason, getIdleThreshold(), getMainWindow(), updateTrayMenu, checkDailyTargetNotification, checkWeeklyTargetNotification)
   }
 
   ipcMain.handle('start-tracking', (_, issueId: number) => {
     return startTracking(
-      db,
       issueId,
       getMainWindow(),
       updateTrayMenu,
@@ -113,12 +109,12 @@ export function setupTrackingHandlers(ctx: TrackingContext) {
   })
 
   ipcMain.handle('get-current-tracking', () => {
-    return getCurrentTracking(db)
+    return getCurrentTracking()
   })
 
   // Recovery check - detect if app was closed while tracking
   ipcMain.handle('check-tracking-recovery', () => {
-    const current = getCurrentTracking(db)
+    const current = getCurrentTracking()
     if (!current) return null
 
     const lastSeenRow = db.prepare('SELECT value FROM settings WHERE key = ?').get('lastSeenAt') as { value: string } | undefined
@@ -155,7 +151,7 @@ export function setupTrackingHandlers(ctx: TrackingContext) {
 
   // Resolve tracking recovery - adjust or discard the entry
   ipcMain.handle('resolve-tracking-recovery', (_, action: 'keep-all' | 'end-at-close' | 'discard') => {
-    const current = getCurrentTracking(db)
+    const current = getCurrentTracking()
     if (!current) return null
 
     const lastSeenRow = db.prepare('SELECT value FROM settings WHERE key = ?').get('lastSeenAt') as { value: string } | undefined
@@ -177,6 +173,6 @@ export function setupTrackingHandlers(ctx: TrackingContext) {
     // Clear last-seen timestamp
     db.prepare('DELETE FROM settings WHERE key = ?').run('lastSeenAt')
 
-    return getCurrentTracking(db)
+    return getCurrentTracking()
   })
 }
