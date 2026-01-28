@@ -1,9 +1,9 @@
 import { ipcMain } from 'electron'
-import type Database from 'better-sqlite3'
 import type { Issue } from '../../src/types'
 import { type IssueRow, mapIssue, mapIssues } from '../mappers'
+import { db } from '../db'
 
-export function setupIssueHandlers(db: Database.Database) {
+export function setupIssueHandlers() {
   ipcMain.handle('get-issues', (_, includeArchived = false) => {
     const query = includeArchived
       ? 'SELECT * FROM issues ORDER BY created_at DESC'

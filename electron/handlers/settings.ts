@@ -12,7 +12,7 @@ import {
   type Project,
   type ProjectsConfig
 } from '../projects'
-import { switchDatabase } from '../db'
+import { switchDatabase, db } from '../db'
 
 // Settings cache - invalidated when settings are updated or project is switched
 let cachedSettings: AppSettings | null = null
@@ -69,7 +69,6 @@ export function getEffectiveIdleTime(idleResetTime: number | null, setIdleResetT
 }
 
 export interface SettingsContext {
-  db: Database.Database
   getMainWindow: () => BrowserWindow | null
   getIdleThreshold: () => number
   setIdleThreshold: (value: number) => void
@@ -82,7 +81,7 @@ export interface SettingsContext {
 }
 
 export function setupSettingsHandlers(ctx: SettingsContext) {
-  const { db, getMainWindow, setIdleThreshold, updateTrayMenu, pauseTracking, getIdleResetTime, setIdleResetTime, getPresenceMode, setPresenceMode } = ctx
+  const { getMainWindow, setIdleThreshold, updateTrayMenu, pauseTracking, getIdleResetTime, setIdleResetTime, getPresenceMode, setPresenceMode } = ctx
 
   // Settings
   ipcMain.handle('get-settings', () => {

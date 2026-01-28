@@ -19,16 +19,22 @@ const CONFIG_FILE = 'projects.json'
 const PROJECTS_DIR = 'projects'
 const OLD_DB_NAME = 'time-tracker.db'
 
+// Use separate directory for development to avoid interfering with production data
+function getBasePath(): string {
+  const isDev = !!process.env.VITE_DEV_SERVER_URL
+  return isDev ? join(app.getPath('userData'), 'dev') : app.getPath('userData')
+}
+
 function getConfigPath(): string {
-  return join(app.getPath('userData'), CONFIG_FILE)
+  return join(getBasePath(), CONFIG_FILE)
 }
 
 function getProjectsDir(): string {
-  return join(app.getPath('userData'), PROJECTS_DIR)
+  return join(getBasePath(), PROJECTS_DIR)
 }
 
 export function getProjectDbPath(project: Project): string {
-  return join(app.getPath('userData'), project.dbFile)
+  return join(getBasePath(), project.dbFile)
 }
 
 export function loadProjectsConfig(): ProjectsConfig {
@@ -50,7 +56,7 @@ export function saveProjectsConfig(config: ProjectsConfig): void {
 
 function migrateOrCreateDefault(): ProjectsConfig {
   const projectsDir = getProjectsDir()
-  const oldDbPath = join(app.getPath('userData'), OLD_DB_NAME)
+  const oldDbPath = join(getBasePath(), OLD_DB_NAME)
 
   // Ensure projects directory exists
   if (!existsSync(projectsDir)) {
