@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
-  formatTimeHMS,
+  formatTimeHM,
+  roundToHalfHour,
   aggregateReport,
   generateCSV,
   generateExportFilename,
@@ -13,37 +14,48 @@ import type { MonthlyReport } from '../../src/types'
  * These tests verify the real utility functions used by the component.
  */
 describe('ExportDialog Logic', () => {
-  describe('formatTimeHMS', () => {
-    it('formats whole hours', () => {
-      expect(formatTimeHMS(1)).toBe('01:00:00')
-      expect(formatTimeHMS(8)).toBe('08:00:00')
-      expect(formatTimeHMS(12)).toBe('12:00:00')
+  describe('roundToHalfHour', () => {
+    it('rounds to nearest half hour', () => {
+      expect(roundToHalfHour(1.1)).toBe(1)
+      expect(roundToHalfHour(1.3)).toBe(1.5)
+      expect(roundToHalfHour(1.7)).toBe(1.5)
+      expect(roundToHalfHour(1.8)).toBe(2)
     })
 
-    it('formats fractional hours', () => {
-      expect(formatTimeHMS(1.5)).toBe('01:30:00')
-      expect(formatTimeHMS(2.25)).toBe('02:15:00')
-      expect(formatTimeHMS(0.5)).toBe('00:30:00')
+    it('keeps exact half hours unchanged', () => {
+      expect(roundToHalfHour(0)).toBe(0)
+      expect(roundToHalfHour(0.5)).toBe(0.5)
+      expect(roundToHalfHour(1)).toBe(1)
+      expect(roundToHalfHour(1.5)).toBe(1.5)
+    })
+  })
+
+  describe('formatTimeHM', () => {
+    it('formats whole hours', () => {
+      expect(formatTimeHM(1)).toBe('1:00')
+      expect(formatTimeHM(8)).toBe('8:00')
+      expect(formatTimeHM(12)).toBe('12:00')
+    })
+
+    it('formats half hours', () => {
+      expect(formatTimeHM(1.5)).toBe('1:30')
+      expect(formatTimeHM(0.5)).toBe('0:30')
+    })
+
+    it('rounds to nearest half hour', () => {
+      expect(formatTimeHM(1.2)).toBe('1:00')
+      expect(formatTimeHM(1.3)).toBe('1:30')
+      expect(formatTimeHM(1.7)).toBe('1:30')
+      expect(formatTimeHM(1.8)).toBe('2:00')
     })
 
     it('handles zero', () => {
-      expect(formatTimeHMS(0)).toBe('00:00:00')
+      expect(formatTimeHM(0)).toBe('0:00')
     })
 
     it('handles large values', () => {
-      expect(formatTimeHMS(24)).toBe('24:00:00')
-      expect(formatTimeHMS(100)).toBe('100:00:00')
-    })
-
-    it('handles small fractions', () => {
-      // 0.01 hours = 36 seconds
-      expect(formatTimeHMS(0.01)).toBe('00:00:36')
-    })
-
-    it('rounds seconds correctly', () => {
-      // 1.0014 hours = 3605.04 seconds, rounds to 3605
-      const result = formatTimeHMS(1.0014)
-      expect(result).toBe('01:00:05')
+      expect(formatTimeHM(24)).toBe('24:00')
+      expect(formatTimeHM(100)).toBe('100:00')
     })
   })
 
@@ -98,7 +110,7 @@ describe('ExportDialog Logic', () => {
       const csv = generateCSV(items)
       const lines = csv.split('\n')
 
-      expect(lines[0]).toBe('Issue ID,Name,Time')
+      expect(lines[0]).toBe('Task,Time')
     })
 
     it('quotes names to handle commas', () => {
@@ -111,14 +123,14 @@ describe('ExportDialog Logic', () => {
       expect(csv).toContain('"Issue with, comma"')
     })
 
-    it('formats time correctly in CSV', () => {
+    it('formats time as H:MM rounded to half hours', () => {
       const items: AggregatedReportItem[] = [
         { externalId: '#123', name: 'Issue', totalHours: 1.5 }
       ]
 
       const csv = generateCSV(items)
 
-      expect(csv).toContain('01:30:00')
+      expect(csv).toContain('1:30')
     })
 
     it('handles multiple rows', () => {
@@ -139,7 +151,7 @@ describe('ExportDialog Logic', () => {
       const lines = csv.split('\n')
 
       expect(lines).toHaveLength(1)
-      expect(lines[0]).toBe('Issue ID,Name,Time')
+      expect(lines[0]).toBe('Task,Time')
     })
   })
 

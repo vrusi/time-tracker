@@ -3,7 +3,7 @@ import { ref, computed } from 'vue'
 import type { MonthlyReport } from '../types'
 import { RDialog, RButton, RText } from 'roughness'
 import {
-  formatTimeHMS,
+  formatTimeHM,
   aggregateReport,
   generateCSV,
   generateExportFilename
@@ -99,27 +99,25 @@ function closeDialog() {
         <table class="report-table">
           <thead>
             <tr>
-              <th>Issue ID</th>
-              <th>Name</th>
+              <th>Task</th>
               <th class="text-right">Time</th>
             </tr>
           </thead>
           <tbody>
             <tr v-for="item in aggregatedReport" :key="item.externalId">
-              <td class="font-medium">{{ item.externalId }}</td>
-              <td class="text-secondary">{{ item.name }}</td>
-              <td class="text-right font-mono">{{ formatTimeHMS(item.totalHours) }}</td>
+              <td>{{ item.name }}</td>
+              <td class="text-right font-mono">{{ formatTimeHM(item.totalHours) }}</td>
             </tr>
             <tr v-if="aggregatedReport.length === 0">
-              <td colspan="3" class="text-center py-8">
+              <td colspan="2" class="text-center py-8">
                 <RText class="text-secondary">No time tracked for this month.</RText>
               </td>
             </tr>
           </tbody>
           <tfoot v-if="aggregatedReport.length > 0" class="total-row">
             <tr>
-              <td colspan="2"><span class="total-label">Total</span></td>
-              <td class="text-right font-semibold font-mono">{{ formatTimeHMS(totalHours) }}</td>
+              <td><span class="total-label">Total</span></td>
+              <td class="text-right font-semibold font-mono">{{ formatTimeHM(totalHours) }}</td>
             </tr>
           </tfoot>
         </table>
