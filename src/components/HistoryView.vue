@@ -2,7 +2,7 @@
 import { ref, computed, watch, onMounted } from 'vue'
 import type { TimeEntry, Issue, DayGroup } from '../types'
 import { useIssuesStore } from '../stores/issues.store'
-import { formatTime, formatDuration, formatDate } from '@/utils/format'
+import { formatTime, formatDuration, formatDate, toLocalDateTimeInput } from '@/utils/format'
 import { RCard, RButton, RInput, RText, RSpace, RList, RListItem, RDialog, RFormItem } from 'roughness'
 import Icon from './Icon.vue'
 
@@ -106,8 +106,8 @@ function entryDuration(entry: TimeEntry): number {
 function startEditing(entry: TimeEntry & { issue: Issue }) {
   editMode.value = { type: 'editTime', entryId: entry.id }
   editForm.value = {
-    startedAt: entry.startedAt.slice(0, 16), // Format for datetime-local input
-    endedAt: entry.endedAt ? entry.endedAt.slice(0, 16) : ''
+    startedAt: toLocalDateTimeInput(entry.startedAt),
+    endedAt: entry.endedAt ? toLocalDateTimeInput(entry.endedAt) : ''
   }
 }
 

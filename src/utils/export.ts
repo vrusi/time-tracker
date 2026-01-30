@@ -7,14 +7,20 @@ export interface AggregatedReportItem {
 }
 
 /**
- * Format hours to HH:MM:SS string
+ * Round hours to nearest half hour
  */
-export function formatTimeHMS(hours: number): string {
-  const totalSeconds = Math.round(hours * 3600)
-  const h = Math.floor(totalSeconds / 3600)
-  const m = Math.floor((totalSeconds % 3600) / 60)
-  const s = totalSeconds % 60
-  return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`
+export function roundToHalfHour(hours: number): number {
+  return Math.round(hours * 2) / 2
+}
+
+/**
+ * Format hours to H:MM string (rounded to half hours)
+ */
+export function formatTimeHM(hours: number): string {
+  const rounded = roundToHalfHour(hours)
+  const h = Math.floor(rounded)
+  const m = Math.round((rounded - h) * 60)
+  return `${h}:${m.toString().padStart(2, '0')}`
 }
 
 /**
@@ -43,8 +49,8 @@ export function aggregateReport(report: MonthlyReport[]): AggregatedReportItem[]
  * Generate CSV content from aggregated report
  */
 export function generateCSV(items: AggregatedReportItem[]): string {
-  const headers = ['Issue ID', 'Name', 'Time']
-  const rows = items.map(r => [r.externalId, `"${r.name}"`, formatTimeHMS(r.totalHours)])
+  const headers = ['Task', 'Time']
+  const rows = items.map(r => [`"${r.name}"`, formatTimeHM(r.totalHours)])
 
   return [
     headers.join(','),
