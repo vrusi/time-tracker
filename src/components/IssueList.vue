@@ -34,6 +34,7 @@ const openMenuId = ref<number | null>(null)
 const editingNotesId = ref<number | null>(null)
 const notesForm = ref('')
 const workLogEntries = ref<TimeEntry[]>([])
+const noteSavedMessage = ref('')
 
 async function loadIssueTimes() {
   const issueIds = issuesStore.issues.map(i => i.id)
@@ -150,6 +151,18 @@ async function saveNotes() {
   await issuesStore.updateIssue(editingNotesId.value, { notes: notesForm.value || null })
   editingNotesId.value = null
   workLogEntries.value = []
+}
+
+// Save notes on blur (without closing the panel)
+async function saveNotesOnBlur() {
+  if (!editingNotesId.value) return
+
+  await issuesStore.updateIssue(editingNotesId.value, { notes: notesForm.value || null })
+  // Show brief confirmation
+  noteSavedMessage.value = 'Note saved'
+  setTimeout(() => {
+    noteSavedMessage.value = ''
+  }, 2000)
 }
 
 function formatDateTime(isoString: string): string {
@@ -316,7 +329,11 @@ async function executeBulkDelete() {
               v-model="notesForm"
               :lines="3"
               placeholder="Add notes about this issue..."
+              @blur="saveNotesOnBlur"
             />
+            <div v-if="noteSavedMessage" class="note-saved-toast">
+              {{ noteSavedMessage }}
+            </div>
           </div>
 
           <!-- Work log -->
@@ -359,6 +376,9 @@ async function executeBulkDelete() {
               <div class="issue-title">
                 <span v-if="issue.externalId" class="issue-id">{{ issue.externalId }}</span>
                 <span class="issue-name">{{ issue.name }}</span>
+                <span v-if="issue.notes" class="notes-indicator" title="Has notes">
+                  <Icon name="note" :size="12" />
+                </span>
               </div>
               <div class="issue-meta">
                 Total: {{ formatDuration(issueTimes.get(issue.id) || 0) }}
@@ -676,6 +696,14 @@ async function executeBulkDelete() {
   color: var(--color-text);
 }
 
+.notes-indicator {
+  display: inline-flex;
+  align-items: center;
+  color: var(--color-text-secondary);
+  opacity: 0.6;
+  margin-left: 0.25rem;
+}
+
 .issue-meta {
   font-size: 0.75rem;
   color: var(--color-text-secondary);
@@ -691,6 +719,24 @@ async function executeBulkDelete() {
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
+}
+
+.note-saved-toast {
+  margin-top: 0.5rem;
+  padding: 0.375rem 0.75rem;
+  background: var(--color-success);
+  color: white;
+  border-radius: 4px;
+  font-size: 0.875rem;
+  text-align: center;
+  animation: fadeInOut 2s ease-in-out;
+}
+
+@keyframes fadeInOut {
+  0% { opacity: 0; }
+  10% { opacity: 1; }
+  80% { opacity: 1; }
+  100% { opacity: 0; }
 }
 
 .section-label {
