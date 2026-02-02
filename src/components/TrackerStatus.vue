@@ -8,6 +8,21 @@ const trackerStore = useTrackerStore()
 
 const showNotes = ref(false)
 const currentNotes = ref('')
+const noteSavedMessage = ref('')
+
+// Save notes on blur
+async function saveNotesOnBlur() {
+  if (trackerStore.currentEntry && currentNotes.value.trim()) {
+    await window.electronAPI.updateTimeEntry(trackerStore.currentEntry.id, {
+      notes: currentNotes.value.trim()
+    })
+    // Show brief confirmation
+    noteSavedMessage.value = 'Note saved'
+    setTimeout(() => {
+      noteSavedMessage.value = ''
+    }, 2000)
+  }
+}
 
 // Save notes to current entry when pausing
 async function pauseWithNotes() {
@@ -127,8 +142,12 @@ watch(() => trackerStore.currentEntry?.id, () => {
           <RInput
             v-model="currentNotes"
             :lines="2"
-            placeholder="Notes (saved when you pause)"
+            placeholder="Notes for this session..."
+            @blur="saveNotesOnBlur"
           />
+          <div v-if="noteSavedMessage" class="note-saved-toast">
+            {{ noteSavedMessage }}
+          </div>
         </div>
       </div>
     </template>
@@ -281,6 +300,24 @@ watch(() => trackerStore.currentEntry?.id, () => {
 .notes-section {
   padding-top: 0.5rem;
   border-top: 1px solid var(--color-border);
+}
+
+.note-saved-toast {
+  margin-top: 0.5rem;
+  padding: 0.375rem 0.75rem;
+  background: var(--color-success);
+  color: white;
+  border-radius: 4px;
+  font-size: 0.875rem;
+  text-align: center;
+  animation: fadeInOut 2s ease-in-out;
+}
+
+@keyframes fadeInOut {
+  0% { opacity: 0; }
+  10% { opacity: 1; }
+  80% { opacity: 1; }
+  100% { opacity: 0; }
 }
 
 .text-success {
