@@ -4,7 +4,7 @@ import { useIssuesStore } from '../stores/issues.store'
 import { useTrackerStore } from '../stores/tracker.store'
 import { useSettingsStore } from '../stores/settings.store'
 import type { Issue, TimeEntry } from '../types'
-import { RCard, RButton, RInput, RText, RSpace, RDialog } from 'roughness'
+import { RCard, RButton, RInput, RText, RSpace, RDialog, RPopover } from 'roughness'
 import Icon from './Icon.vue'
 import IssueForm from './IssueForm.vue'
 import { formatDuration } from '@/utils/format'
@@ -26,6 +26,9 @@ const showBulkDeleteConfirm = ref(false)
 
 // Merge state
 const mergingIssueId = ref<number | null>(null)
+
+// Actions menu state
+const openMenuId = ref<number | null>(null)
 
 // Notes state
 const editingNotesId = ref<number | null>(null)
@@ -104,8 +107,9 @@ function cancelDelete() {
   confirmingDeleteId.value = null
 }
 
-async function executeDelete(issueId: number) {
-  await issuesStore.deleteIssue(issueId)
+async function executeDelete() {
+  if (!confirmingDeleteId.value) return
+  await issuesStore.deleteIssue(confirmingDeleteId.value)
   confirmingDeleteId.value = null
   refreshProgress?.()
 }
@@ -377,85 +381,78 @@ async function executeBulkDelete() {
                 <span class="link-icon">↗</span>
               </RButton>
 
-              <!-- Secondary actions (visible on hover, disabled in selection mode) -->
-              <div class="secondary-actions">
-                <!-- Notes -->
-                <RButton
-                  size="small"
-                  @click="startEditingNotes(issue)"
-                  title="Notes"
-                  :disabled="selectionMode"
-                >
-                  <Icon name="note" :size="16" />
-                </RButton>
-
-                <!-- Edit -->
-                <RButton
-                  size="small"
-                  @click="startEditing(issue)"
-                  title="Edit"
-                  :disabled="selectionMode"
-                >
-                  <Icon name="pencil" :size="16" />
-                </RButton>
-
-                <!-- Merge -->
-                <div class="merge-wrapper">
+              <!-- Actions dropdown menu -->
+              <RPopover
+                trigger="click"
+                side="bottom"
+                align="end"
+                :open="openMenuId === issue.id"
+                @update:open="(v: boolean) => openMenuId = v ? issue.id : null"
+              >
+                <template #anchor>
                   <RButton
-                    v-if="mergingIssueId !== issue.id"
                     size="small"
-                    @click="startMerging(issue.id)"
-                    title="Merge into another issue"
+                    title="Actions"
                     :disabled="selectionMode"
+                    class="menu-trigger"
                   >
-                    ⤵
+                    <span class="menu-dots">⋮</span>
                   </RButton>
-                  <div v-else class="merge-select">
-                    <select @change="(e) => { if ((e.target as HTMLSelectElement).value) executeMerge(Number((e.target as HTMLSelectElement).value)) }" class="merge-dropdown">
+                </template>
+
+                <div class="actions-menu">
+                  <!-- Notes -->
+                  <button class="menu-item" @click="startEditingNotes(issue); openMenuId = null">
+                    <Icon name="note" :size="16" />
+                    <span>Notes</span>
+                  </button>
+
+                  <!-- Edit -->
+                  <button class="menu-item" @click="startEditing(issue); openMenuId = null">
+                    <Icon name="pencil" :size="16" />
+                    <span>Edit</span>
+                  </button>
+
+                  <!-- Merge -->
+                  <template v-if="mergingIssueId !== issue.id">
+                    <button class="menu-item" @click="startMerging(issue.id); openMenuId = null">
+                      <span class="menu-icon-text">⤵</span>
+                      <span>Merge</span>
+                    </button>
+                  </template>
+                  <div v-else class="merge-select-inline">
+                    <select @change="(e) => { if ((e.target as HTMLSelectElement).value) { executeMerge(Number((e.target as HTMLSelectElement).value)); openMenuId = null } }" class="merge-dropdown">
                       <option value="">Merge into...</option>
                       <option v-for="target in issuesStore.issues.filter(i => i.id !== issue.id)" :key="target.id" :value="target.id">
                         {{ target.externalId || target.name }}
                       </option>
                     </select>
-                    <RButton size="small" @click="cancelMerging">✕</RButton>
+                    <button class="menu-item-small" @click="cancelMerging">✕</button>
                   </div>
-                </div>
 
-                <!-- Archive/Restore/Delete -->
-                <template v-if="issue.archived">
-                  <RButton
-                    size="small"
-                    @click="issuesStore.unarchiveIssue(issue.id)"
-                    title="Restore"
-                    :disabled="selectionMode"
+                  <div class="menu-divider"></div>
+
+                  <!-- Archive/Restore/Delete -->
+                  <template v-if="issue.archived">
+                    <button class="menu-item" @click="issuesStore.unarchiveIssue(issue.id); openMenuId = null">
+                      <span class="menu-icon-text">↩</span>
+                      <span>Restore</span>
+                    </button>
+                    <button class="menu-item menu-item-danger" @click="confirmDelete(issue.id); openMenuId = null">
+                      <Icon name="delete" :size="16" />
+                      <span>Delete</span>
+                    </button>
+                  </template>
+                  <button
+                    v-else
+                    class="menu-item"
+                    @click="issuesStore.archiveIssue(issue.id); openMenuId = null"
                   >
-                    ↩
-                  </RButton>
-                  <RButton
-                    v-if="confirmingDeleteId !== issue.id"
-                    size="small"
-                    color="error"
-                    @click="confirmDelete(issue.id)"
-                    title="Delete"
-                    :disabled="selectionMode"
-                  >
-                    <Icon name="delete" :size="16" />
-                  </RButton>
-                  <RSpace v-else>
-                    <RButton size="small" color="error" filled @click="executeDelete(issue.id)" title="Confirm delete">Yes</RButton>
-                    <RButton size="small" @click="cancelDelete" title="Cancel delete">No</RButton>
-                  </RSpace>
-                </template>
-                <RButton
-                  v-else
-                  size="small"
-                  @click="issuesStore.archiveIssue(issue.id)"
-                  title="Archive"
-                  :disabled="selectionMode"
-                >
-                  <Icon name="box" :size="16" />
-                </RButton>
-              </div><!-- end secondary-actions -->
+                    <Icon name="box" :size="16" />
+                    <span>Archive</span>
+                  </button>
+                </div>
+              </RPopover>
             </div>
 
             <!-- Play/Pause button (right side, hidden in selection mode) -->
@@ -486,6 +483,16 @@ async function executeBulkDelete() {
       <RSpace class="modal-actions">
         <RButton @click="showBulkDeleteConfirm = false">Cancel</RButton>
         <RButton color="error" filled @click="executeBulkDelete">Delete</RButton>
+      </RSpace>
+    </RDialog>
+
+    <!-- Single Issue Delete Confirmation Dialog -->
+    <RDialog :open="confirmingDeleteId !== null" @update:open="(v: boolean) => !v && cancelDelete()">
+      <template #title>Delete Issue?</template>
+      <RText>Are you sure? This is forever.</RText>
+      <RSpace class="modal-actions">
+        <RButton @click="cancelDelete">Cancel</RButton>
+        <RButton color="error" filled @click="executeDelete">Delete</RButton>
       </RSpace>
     </RDialog>
   </RCard>
@@ -553,7 +560,7 @@ async function executeBulkDelete() {
 
 .action-buttons {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 0.25rem;
   flex-shrink: 0;
 }
@@ -564,20 +571,86 @@ async function executeBulkDelete() {
   pointer-events: none;
 }
 
-.secondary-actions {
-  display: flex;
-  gap: 0.25rem;
-  opacity: 0.25;
+/* Menu trigger button */
+.menu-trigger {
+  opacity: 0.4;
   transition: opacity 0.15s ease;
 }
 
-.issue-item:hover .secondary-actions {
+.issue-item:hover .menu-trigger {
   opacity: 1;
 }
 
-/* Keep secondary actions faded in selection mode even on hover */
-.action-buttons.selection-mode .secondary-actions {
-  opacity: 1;
+.menu-dots {
+  font-size: 1.25rem;
+  line-height: 1;
+  font-weight: bold;
+}
+
+/* Actions dropdown menu */
+.actions-menu {
+  display: flex;
+  flex-direction: column;
+  min-width: 140px;
+  padding: 0.25rem 0;
+}
+
+.menu-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  border: none;
+  background: none;
+  color: var(--color-text);
+  font-family: inherit;
+  font-size: 0.875rem;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 0.1s ease;
+}
+
+.menu-item:hover {
+  background-color: var(--color-bg-secondary, rgba(0, 0, 0, 0.05));
+}
+
+.menu-item-danger {
+  color: var(--r-color-error, #e53935);
+}
+
+.menu-item-danger:hover {
+  background-color: rgba(229, 57, 53, 0.1);
+}
+
+.menu-icon-text {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  font-size: 1rem;
+}
+
+.menu-divider {
+  height: 1px;
+  margin: 0.25rem 0;
+  background-color: var(--color-border, rgba(0, 0, 0, 0.1));
+}
+
+.merge-select-inline {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.25rem 0.5rem;
+}
+
+.menu-item-small {
+  padding: 0.25rem 0.5rem;
+  border: none;
+  background: none;
+  color: var(--color-text);
+  font-family: inherit;
+  cursor: pointer;
 }
 
 
@@ -648,34 +721,15 @@ async function executeBulkDelete() {
   padding-bottom: 0;
 }
 
-.merge-wrapper {
-  position: relative;
-}
-
-.merge-select {
-  position: absolute;
-  right: 0;
-  top: 100%;
-  display: flex;
-  align-items: center;
-  gap: 0.25rem;
-  background: var(--color-bg);
-  padding: 0.5rem;
-  border: 2px solid var(--color-border);
-  border-radius: 4px;
-  z-index: 10;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.2);
-}
-
 .merge-dropdown {
   padding: 0.25rem 0.5rem;
-  border: 2px solid var(--color-border);
+  border: 1px solid var(--color-border);
   border-radius: 4px;
   background: var(--color-bg);
   color: var(--color-text);
   font-family: inherit;
-  font-size: 0.875rem;
-  min-width: 150px;
+  font-size: 0.8rem;
+  min-width: 120px;
 }
 
 .card-title {
