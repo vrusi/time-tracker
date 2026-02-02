@@ -1,5 +1,5 @@
 export { setupIssueHandlers } from './issues'
-export { setupTrackingHandlers, getCurrentTracking, pauseTracking, startTracking, type TrackingContext } from './tracking'
+export { setupTrackingHandlers, getCurrentTracking, pauseTracking, startTracking, getLastIdlePauseInfo, clearLastIdlePauseInfo, type TrackingContext } from './tracking'
 export { setupEntryHandlers } from './entries'
 export { setupSettingsHandlers, getSettings, getEffectiveIdleTime, invalidateSettingsCache, type SettingsContext } from './settings'
 export { setupExportHandlers, type ExportContext } from './export'

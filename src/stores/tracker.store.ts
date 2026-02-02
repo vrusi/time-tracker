@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import type { Issue, TimeEntry } from '@/types'
+import type { Issue, TimeEntry, IdleRecoveryInfo } from '@/types'
 import { useSettingsStore } from './settings.store'
 import { formatTimer, formatIdleTime, calculateIdleProgress } from '@/utils/format'
 
@@ -15,6 +15,7 @@ export const useTrackerStore = defineStore('tracker', () => {
   const pauseReason = ref<'manual' | 'idle' | null>(null)
   const presenceMode = ref(false)
   const idleSeconds = ref(0)
+  const idleRecoveryInfo = ref<IdleRecoveryInfo | null>(null)
   let timer: number | null = null
 
   const idleThresholdSeconds = computed(() => settingsStore.settings.idleThresholdMinutes * 60)
@@ -37,6 +38,16 @@ export const useTrackerStore = defineStore('tracker', () => {
   const idleProgress = computed(() =>
     calculateIdleProgress(idleSeconds.value, idleThresholdSeconds.value)
   )
+
+  const canRecoverIdleTime = computed(() =>
+    pauseReason.value === 'idle' && idleRecoveryInfo.value !== null
+  )
+
+  const formattedRecoverableIdleTime = computed(() => {
+    if (!idleRecoveryInfo.value) return ''
+    const minutes = Math.floor(idleRecoveryInfo.value.idleDurationSeconds / 60)
+    return `${minutes} min`
+  })
 
   function updateElapsed() {
     if (currentEntry.value && !currentEntry.value.endedAt) {
@@ -64,6 +75,9 @@ export const useTrackerStore = defineStore('tracker', () => {
     // Set flag to prevent onTrackingUpdate from saving pausedElapsedSeconds
     // when the backend pauses the old tracker
     isSwitchingTrackers = true
+
+    // Clear idle recovery info since we're starting fresh
+    idleRecoveryInfo.value = null
 
     const entry = await window.electronAPI.startTracking(issueId)
     const issues = await window.electronAPI.getIssues()
@@ -100,6 +114,24 @@ export const useTrackerStore = defineStore('tracker', () => {
     lastTrackedIssue.value = null
     pausedElapsedSeconds.value = 0
     pauseReason.value = null
+    idleRecoveryInfo.value = null
+    // Also dismiss on backend
+    window.electronAPI.dismissIdleRecovery()
+  }
+
+  async function recoverIdleTime() {
+    const result = await window.electronAPI.recoverIdleTime()
+    if (result) {
+      // Update the paused elapsed seconds to include recovered time
+      pausedElapsedSeconds.value += result.recoveredSeconds
+      idleRecoveryInfo.value = null
+    }
+    return result
+  }
+
+  async function dismissIdleRecovery() {
+    await window.electronAPI.dismissIdleRecovery()
+    idleRecoveryInfo.value = null
   }
 
   function clearState() {
@@ -136,7 +168,7 @@ export const useTrackerStore = defineStore('tracker', () => {
   }
 
   function setupListeners() {
-    window.electronAPI.onIdlePause(() => {
+    window.electronAPI.onIdlePause(async () => {
       // Save last tracked issue and elapsed time before clearing
       if (currentIssue.value) {
         lastTrackedIssue.value = currentIssue.value
@@ -147,6 +179,9 @@ export const useTrackerStore = defineStore('tracker', () => {
       currentEntry.value = null
       currentIssue.value = null
       stopTimer()
+
+      // Fetch idle recovery info for potential recovery
+      idleRecoveryInfo.value = await window.electronAPI.getIdleRecoveryInfo()
     })
 
     window.electronAPI.onTrackingUpdate((data) => {
@@ -191,6 +226,9 @@ export const useTrackerStore = defineStore('tracker', () => {
     formattedIdleTime,
     idleProgress,
     idleThresholdSeconds,
+    idleRecoveryInfo,
+    canRecoverIdleTime,
+    formattedRecoverableIdleTime,
     startTracking,
     pauseTracking,
     clearLastTracked,
@@ -198,6 +236,8 @@ export const useTrackerStore = defineStore('tracker', () => {
     loadCurrentTracking,
     togglePresenceMode,
     resetIdle,
+    recoverIdleTime,
+    dismissIdleRecovery,
     setupListeners
   }
 })
