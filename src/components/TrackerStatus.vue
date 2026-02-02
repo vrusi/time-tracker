@@ -55,7 +55,7 @@ watch(() => trackerStore.currentEntry?.id, () => {
             @click="trackerStore.clearLastTracked()"
             title="Dismiss"
           >
-            Clear
+            X
           </RButton>
         </div>
       </div>
