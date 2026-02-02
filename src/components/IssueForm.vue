@@ -42,22 +42,15 @@ watch(link, (url) => {
   }
 })
 
-const canSubmit = computed(() => name.value.trim())
-
 const submitTooltip = computed(() => {
-  if (canSubmit.value) {
-    return matchedIssue.value
-      ? 'Resume tracking existing issue'
-      : 'Start tracking this issue'
-  }
-  return 'Enter a name to start tracking'
+  return matchedIssue.value
+    ? 'Resume tracking existing issue'
+    : 'Start tracking this issue'
 })
 
 async function handleSubmit() {
   const url = link.value.trim() || null
-  const issueName = name.value.trim()
-
-  if (!issueName) return
+  const issueName = name.value.trim() || 'Untitled'
 
   isSubmitting.value = true
   try {
@@ -107,8 +100,6 @@ async function handleSubmit() {
         size="small"
         color="success"
         :loading="isSubmitting"
-        :disabled="!canSubmit"
-        :class="{ 'btn-waiting': !canSubmit }"
       >
         {{ isSubmitting ? '...' : (matchedIssue ? 'Resume' : 'Start') }}
       </RButton>
@@ -166,11 +157,5 @@ async function handleSubmit() {
 
 .submit-wrapper {
   flex-shrink: 0;
-}
-
-/* Disabled button = waiting, not forbidden */
-.btn-waiting :deep(.r-button) {
-  text-decoration: none !important;
-  opacity: 0.35;
 }
 </style>
