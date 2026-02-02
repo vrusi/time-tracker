@@ -85,7 +85,7 @@ async function handleSubmit() {
     <input
       v-model="link"
       type="text"
-      placeholder="URL (optional)"
+      placeholder="GitLab, GitHub, or Jira URL (optional)"
       class="field-input url-input"
     />
     <input
