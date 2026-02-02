@@ -1,10 +1,18 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
 import { useTrackerStore } from '../stores/tracker.store'
+import { useIssuesStore } from '../stores/issues.store'
 import { RCard, RButton, RInput, RProgress, RText } from 'roughness'
 import Icon from './Icon.vue'
 
 const trackerStore = useTrackerStore()
+const issuesStore = useIssuesStore()
+
+// Quick start: create an untitled issue and start tracking immediately
+async function quickStart() {
+  const issue = await issuesStore.createIssue('', 'Untitled', null)
+  await trackerStore.startTracking(issue.id)
+}
 
 const showNotes = ref(false)
 const currentNotes = ref('')
@@ -41,37 +49,61 @@ watch(() => trackerStore.currentEntry?.id, () => {
   currentNotes.value = ''
   showNotes.value = false
 })
+
+// Handle idle time recovery
+async function handleRecoverIdleTime() {
+  await trackerStore.recoverIdleTime()
+}
 </script>
 
 <template>
   <RCard class="tracker-hero">
     <!-- Paused state - show last tracked issue -->
     <template v-if="(!trackerStore.isTracking || !trackerStore.currentIssue) && trackerStore.lastTrackedIssue">
-      <div class="tracker-row">
-        <div class="issue-info">
-          <RText class="issue-id">{{ trackerStore.lastTrackedIssue.externalId || '\u00A0' }}</RText>
-          <RText class="issue-name">{{ trackerStore.lastTrackedIssue.name }}</RText>
+      <div class="paused-content">
+        <div class="tracker-row">
+          <div class="issue-info">
+            <RText class="issue-id">{{ trackerStore.lastTrackedIssue.externalId || '\u00A0' }}</RText>
+            <RText class="issue-name">{{ trackerStore.lastTrackedIssue.name }}</RText>
+          </div>
+          <div class="timer-section">
+            <span class="timer-display paused">{{ trackerStore.formattedPausedTime }}</span>
+            <span class="status-badge">{{ trackerStore.pauseReason === 'idle' ? 'Idle' : 'Paused' }}</span>
+          </div>
+          <div class="action-buttons">
+            <RButton
+              size="small"
+              color="success"
+              @click="trackerStore.startTracking(trackerStore.lastTrackedIssue!.id)"
+              title="Resume tracking"
+            >
+              <Icon name="play" :size="16" />
+            </RButton>
+            <RButton
+              size="small"
+              @click="trackerStore.clearLastTracked()"
+              title="Dismiss"
+            >
+              X
+            </RButton>
+          </div>
         </div>
-        <div class="timer-section">
-          <span class="timer-display paused">{{ trackerStore.formattedPausedTime }}</span>
-          <span class="status-badge">{{ trackerStore.pauseReason === 'idle' ? 'Idle' : 'Paused' }}</span>
-        </div>
-        <div class="action-buttons">
-          <RButton
-            size="small"
-            color="success"
-            @click="trackerStore.startTracking(trackerStore.lastTrackedIssue!.id)"
-            title="Resume tracking"
-          >
-            <Icon name="play" :size="16" />
-          </RButton>
-          <RButton
-            size="small"
-            @click="trackerStore.clearLastTracked()"
-            title="Dismiss"
-          >
-            X
-          </RButton>
+
+        <!-- Idle recovery option -->
+        <div v-if="trackerStore.canRecoverIdleTime" class="idle-recovery-section">
+          <div class="idle-recovery-prompt">
+            <RText size="small">
+              Were you actually working? Recover {{ trackerStore.formattedRecoverableIdleTime }} of idle time?
+            </RText>
+            <div class="idle-recovery-buttons">
+              <RButton size="small" color="success" @click="handleRecoverIdleTime">
+                Yes, recover
+              </RButton>
+              <RButton size="small" @click="trackerStore.dismissIdleRecovery()">
+                No, discard
+              </RButton>
+            </div>
+          </div>
         </div>
       </div>
     </template>
@@ -79,8 +111,14 @@ watch(() => trackerStore.currentEntry?.id, () => {
     <!-- Not tracking state (no last issue) -->
     <template v-else-if="!trackerStore.isTracking || !trackerStore.currentIssue">
       <div class="not-tracking">
-        <RText class="text-secondary">Not tracking</RText>
-        <RText size="small" class="text-secondary">Select an issue below to start</RText>
+        <div class="not-tracking-text">
+          <RText class="text-secondary">Not tracking</RText>
+          <RText size="small" class="text-secondary">Select an issue below to start</RText>
+        </div>
+        <RButton size="small" @click="quickStart">
+          <Icon name="play" :size="16" />
+          Quick start
+        </RButton>
       </div>
     </template>
 
@@ -163,9 +201,15 @@ watch(() => trackerStore.currentEntry?.id, () => {
 .not-tracking {
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
+  justify-content: space-between;
+  gap: 1rem;
   min-height: 4.5rem;
+}
+
+.not-tracking-text {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
 }
 
 .tracker-row {
@@ -326,5 +370,28 @@ watch(() => trackerStore.currentEntry?.id, () => {
 
 .text-warning {
   color: var(--color-warning);
+}
+
+.paused-content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.idle-recovery-section {
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--color-border);
+}
+
+.idle-recovery-prompt {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.idle-recovery-buttons {
+  display: flex;
+  gap: 0.5rem;
 }
 </style>
