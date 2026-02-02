@@ -338,27 +338,16 @@ async function executeBulkDelete() {
 
         <!-- Normal display mode -->
         <div v-else class="issue-row">
-          <!-- Top row: play button + title + actions (aligned) -->
+          <!-- Top row: checkbox (selection mode) + title + actions + play button -->
           <div class="issue-main">
-            <!-- Play/Pause button OR Checkbox (same slot) -->
-            <div class="play-slot">
+            <!-- Checkbox for selection mode (left side) -->
+            <div v-if="selectionMode" class="checkbox-slot">
               <input
-                v-if="selectionMode"
                 type="checkbox"
                 :checked="selectedIds.has(issue.id)"
                 @change="toggleIssue(issue.id)"
                 class="bulk-checkbox"
               />
-              <RButton
-                v-else
-                @click="toggleTracking(issue)"
-                :disabled="issue.archived"
-                :color="isCurrentlyTracking(issue) ? 'error' : 'success'"
-                :class="{ 'btn-archived': issue.archived }"
-                :title="issue.archived ? 'Restore issue to track' : (isCurrentlyTracking(issue) ? 'Stop tracking' : 'Start tracking')"
-              >
-                <Icon :name="isCurrentlyTracking(issue) ? 'pause' : 'play'" :size="16" />
-              </RButton>
             </div>
 
             <!-- Issue title and metadata -->
@@ -468,6 +457,19 @@ async function executeBulkDelete() {
                 </RButton>
               </div><!-- end secondary-actions -->
             </div>
+
+            <!-- Play/Pause button (right side, hidden in selection mode) -->
+            <div v-if="!selectionMode" class="play-slot">
+              <RButton
+                @click="toggleTracking(issue)"
+                :disabled="issue.archived"
+                :color="isCurrentlyTracking(issue) ? 'error' : 'success'"
+                :class="{ 'btn-archived': issue.archived }"
+                :title="issue.archived ? 'Restore issue to track' : (isCurrentlyTracking(issue) ? 'Stop tracking' : 'Start tracking')"
+              >
+                <Icon :name="isCurrentlyTracking(issue) ? 'pause' : 'play'" :size="16" />
+              </RButton>
+            </div>
           </div><!-- end issue-main -->
         </div>
       </div>
@@ -524,14 +526,23 @@ async function executeBulkDelete() {
   width: 100%;
 }
 
-/* Fixed-width slot for play button / checkbox */
+/* Fixed-width slot for checkbox in selection mode (left side) */
+.checkbox-slot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  flex-shrink: 0;
+}
+
+/* Fixed-width slot for play button (right side) */
 .play-slot {
   display: flex;
   align-items: center;
   justify-content: center;
   width: 2.5rem;
   flex-shrink: 0;
-  margin: 0 0.5rem;
+  margin-left: 0.5rem;
 }
 
 /* Archived issues - grayed out play button */
