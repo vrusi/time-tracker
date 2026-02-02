@@ -20,6 +20,11 @@ const electronAPI: ElectronAPI = {
   checkTrackingRecovery: () => ipcRenderer.invoke('check-tracking-recovery'),
   resolveTrackingRecovery: (action, customEndTime) => ipcRenderer.invoke('resolve-tracking-recovery', action, customEndTime),
 
+  // Idle recovery
+  getIdleRecoveryInfo: () => ipcRenderer.invoke('get-idle-recovery-info'),
+  recoverIdleTime: () => ipcRenderer.invoke('recover-idle-time'),
+  dismissIdleRecovery: () => ipcRenderer.invoke('dismiss-idle-recovery'),
+
   // Presence mode
   getPresenceMode: () => ipcRenderer.invoke('get-presence-mode'),
   setPresenceMode: (enabled) => ipcRenderer.invoke('set-presence-mode', enabled),

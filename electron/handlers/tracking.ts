@@ -11,6 +11,21 @@ export interface TrackingContext {
   checkWeeklyTargetNotification: () => void
 }
 
+// Store the last idle pause info for potential recovery
+let lastIdlePauseInfo: {
+  entryId: number
+  idleDurationSeconds: number
+  pausedAt: string
+} | null = null
+
+export function getLastIdlePauseInfo() {
+  return lastIdlePauseInfo
+}
+
+export function clearLastIdlePauseInfo() {
+  lastIdlePauseInfo = null
+}
+
 export function getCurrentTracking(): { entry: TimeEntry; issue: Issue } | null {
   const entry = db.prepare(`
     SELECT * FROM time_entries WHERE ended_at IS NULL LIMIT 1
@@ -43,6 +58,18 @@ export function pauseTracking(
   db.prepare(`
     UPDATE time_entries SET ended_at = ?, paused_reason = ? WHERE id = ?
   `).run(endTime, reason, current.entry.id)
+
+  // Store idle pause info for potential recovery
+  if (reason === 'idle') {
+    lastIdlePauseInfo = {
+      entryId: current.entry.id,
+      idleDurationSeconds: idleThreshold,
+      pausedAt: new Date().toISOString()
+    }
+  } else {
+    // Clear idle pause info if manually pausing or switching
+    lastIdlePauseInfo = null
+  }
 
   updateTrayMenu()
   mainWindow?.webContents.send('tracking-update', null)
@@ -174,5 +201,48 @@ export function setupTrackingHandlers(ctx: TrackingContext) {
     db.prepare('DELETE FROM settings WHERE key = ?').run('lastSeenAt')
 
     return getCurrentTracking()
+  })
+
+  // Get idle recovery info
+  ipcMain.handle('get-idle-recovery-info', () => {
+    return lastIdlePauseInfo
+  })
+
+  // Recover idle time - extend the previous entry's end time to include idle duration
+  ipcMain.handle('recover-idle-time', () => {
+    if (!lastIdlePauseInfo) return null
+
+    const { entryId, idleDurationSeconds } = lastIdlePauseInfo
+
+    // Get the entry to recover
+    const entry = db.prepare('SELECT * FROM time_entries WHERE id = ?').get(entryId) as TimeEntryRow | undefined
+    if (!entry || !entry.ended_at) {
+      lastIdlePauseInfo = null
+      return null
+    }
+
+    // Extend the end time by the idle duration
+    const oldEndTime = new Date(entry.ended_at)
+    const newEndTime = new Date(oldEndTime.getTime() + idleDurationSeconds * 1000)
+
+    db.prepare('UPDATE time_entries SET ended_at = ? WHERE id = ?').run(newEndTime.toISOString(), entryId)
+
+    // Clear the idle pause info after recovery
+    lastIdlePauseInfo = null
+
+    // Check if daily/weekly targets were just reached after recovering time
+    checkDailyTargetNotification()
+    checkWeeklyTargetNotification()
+
+    return {
+      entryId,
+      recoveredSeconds: idleDurationSeconds,
+      newEndTime: newEndTime.toISOString()
+    }
+  })
+
+  // Clear idle recovery info (user dismissed the recovery option)
+  ipcMain.handle('dismiss-idle-recovery', () => {
+    lastIdlePauseInfo = null
   })
 }
