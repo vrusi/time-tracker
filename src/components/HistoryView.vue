@@ -49,6 +49,7 @@ const showAddEntryModal = ref(false)
 
 // Actions menu state
 const openMenuId = ref<number | null>(null)
+const expandedNotesId = ref<number | null>(null)
 const successMessage = ref('')
 const addEntryForm = ref({
   issueText: '',
@@ -546,8 +547,16 @@ defineExpose({ openAddEntryModal, loadEntries })
                   <RText size="small" class="text-secondary">
                     {{ formatTime(entry.startedAt) }} - {{ entry.endedAt ? formatTime(entry.endedAt) : 'ongoing' }}
                     <span v-if="entry.pausedReason" class="ml-2">({{ entry.pausedReason }})</span>
+                    <button
+                      v-if="entry.notes"
+                      class="notes-toggle"
+                      @click="expandedNotesId = expandedNotesId === entry.id ? null : entry.id"
+                      title="Show notes"
+                    >
+                      <Icon name="note" :size="12" />
+                    </button>
                   </RText>
-                  <RText v-if="entry.notes" size="small" class="text-secondary italic block mt-1">
+                  <RText v-if="entry.notes && expandedNotesId === entry.id" size="small" class="text-secondary italic block mt-1 entry-notes">
                     {{ entry.notes }}
                   </RText>
                 </div>
@@ -935,6 +944,27 @@ defineExpose({ openAddEntryModal, loadEntries })
 
 .day-add-btn:hover {
   opacity: 1 !important;
+}
+
+.notes-toggle {
+  background: none;
+  border: none;
+  cursor: pointer;
+  opacity: 0.6;
+  padding: 0 0.25rem;
+  vertical-align: middle;
+}
+
+.notes-toggle:hover {
+  opacity: 1;
+}
+
+.entry-notes {
+  word-break: break-word;
+  overflow-wrap: break-word;
+  white-space: pre-wrap;
+  max-height: 4rem;
+  overflow-y: auto;
 }
 
 </style>
