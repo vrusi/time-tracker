@@ -3,7 +3,7 @@ import { ref, computed, watch, onMounted } from 'vue'
 import type { TimeEntry, Issue, DayGroup } from '../types'
 import { useIssuesStore } from '../stores/issues.store'
 import { formatTime, formatDuration, formatDate, toLocalDateTimeInput } from '@/utils/format'
-import { RCard, RButton, RInput, RText, RSpace, RList, RListItem, RDialog, RFormItem, RPopover } from 'roughness'
+import { RCard, RButton, RInput, RText, RSpace, RList, RListItem, RDialog, RPopover } from 'roughness'
 import Icon from './Icon.vue'
 
 defineProps<{
@@ -26,16 +26,14 @@ const endDate = ref(monthEnd.toISOString().split('T')[0])
 // Edit mode - discriminated union for mutually exclusive edit states
 type EditMode =
   | { type: 'normal' }
-  | { type: 'editTime'; entryId: number }
+  | { type: 'edit'; entryId: number; issueId: number }
   | { type: 'editNotes'; entryId: number }
-  | { type: 'editIssue'; issueId: number }
 
 const editMode = ref<EditMode>({ type: 'normal' })
 
-// Form data for each edit type
-const editForm = ref({ startedAt: '', endedAt: '' })
+// Form data for edit mode (combined time + issue)
+const editForm = ref({ startedAt: '', endedAt: '', issueName: '', issueLink: '' })
 const notesForm = ref('')
-const issueEditForm = ref({ name: '', link: '' })
 
 // Bulk delete state
 const selectionMode = ref(false)
@@ -105,12 +103,14 @@ function entryDuration(entry: TimeEntry): number {
   return (end - start) / 1000
 }
 
-// Edit functions (time only)
+// Combined edit function (time + issue)
 function startEditing(entry: TimeEntry & { issue: Issue }) {
-  editMode.value = { type: 'editTime', entryId: entry.id }
+  editMode.value = { type: 'edit', entryId: entry.id, issueId: entry.issue.id }
   editForm.value = {
     startedAt: toLocalDateTimeInput(entry.startedAt),
-    endedAt: entry.endedAt ? toLocalDateTimeInput(entry.endedAt) : ''
+    endedAt: entry.endedAt ? toLocalDateTimeInput(entry.endedAt) : '',
+    issueName: entry.issue.name,
+    issueLink: entry.issue.link || ''
   }
 }
 
@@ -119,18 +119,24 @@ function cancelEditing() {
 }
 
 async function saveEdit() {
-  if (editMode.value.type !== 'editTime') return
+  if (editMode.value.type !== 'edit') return
 
+  // Update time entry
   const updates: { startedAt?: string; endedAt?: string } = {}
-
   if (editForm.value.startedAt) {
     updates.startedAt = new Date(editForm.value.startedAt).toISOString()
   }
   if (editForm.value.endedAt) {
     updates.endedAt = new Date(editForm.value.endedAt).toISOString()
   }
-
   await window.electronAPI.updateTimeEntry(editMode.value.entryId, updates)
+
+  // Update issue
+  await issuesStore.updateIssue(editMode.value.issueId, {
+    name: editForm.value.issueName.trim(),
+    link: editForm.value.issueLink.trim() || null
+  })
+
   editMode.value = { type: 'normal' }
   await loadEntries()
 }
@@ -149,30 +155,6 @@ async function saveNotes() {
   if (editMode.value.type !== 'editNotes') return
 
   await window.electronAPI.updateTimeEntry(editMode.value.entryId, { notes: notesForm.value || undefined })
-  editMode.value = { type: 'normal' }
-  await loadEntries()
-}
-
-// Issue edit functions
-function startEditingIssue(entry: TimeEntry & { issue: Issue }) {
-  editMode.value = { type: 'editIssue', issueId: entry.issue.id }
-  issueEditForm.value = {
-    name: entry.issue.name,
-    link: entry.issue.link || ''
-  }
-}
-
-function cancelEditingIssue() {
-  editMode.value = { type: 'normal' }
-}
-
-async function saveIssueEdit() {
-  if (editMode.value.type !== 'editIssue') return
-
-  await issuesStore.updateIssue(editMode.value.issueId, {
-    name: issueEditForm.value.name.trim(),
-    link: issueEditForm.value.link.trim() || null
-  })
   editMode.value = { type: 'normal' }
   await loadEntries()
 }
@@ -512,29 +494,42 @@ defineExpose({ openAddEntryModal, loadEntries })
               :key="entry.id"
               class="entry-item"
             >
-              <!-- Edit time mode -->
-              <form v-if="editMode.type === 'editTime' && editMode.entryId === entry.id" @submit.prevent="saveEdit" class="space-y-3 w-full">
-                <RSpace>
-                  <RFormItem label="Start">
-                    <input
-                      v-model="editForm.startedAt"
-                      type="datetime-local"
-                      class="date-input"
-                      required
-                    />
-                  </RFormItem>
-                  <RFormItem label="End">
-                    <input
-                      v-model="editForm.endedAt"
-                      type="datetime-local"
-                      class="date-input"
-                    />
-                  </RFormItem>
-                  <RSpace class="self-end">
-                    <RButton type="submit" size="small" filled>Save</RButton>
-                    <RButton type="button" size="small" @click="cancelEditing">Cancel</RButton>
-                  </RSpace>
-                </RSpace>
+              <!-- Edit mode (combined time + issue) -->
+              <form v-if="editMode.type === 'edit' && editMode.entryId === entry.id" @submit.prevent="saveEdit" class="edit-form">
+                <div class="edit-grid">
+                  <label class="edit-label">Item</label>
+                  <input
+                    v-model="editForm.issueName"
+                    type="text"
+                    class="date-input"
+                    placeholder="Description"
+                    required
+                  />
+                  <label class="edit-label">Link</label>
+                  <input
+                    v-model="editForm.issueLink"
+                    type="text"
+                    class="date-input"
+                    placeholder="URL (optional)"
+                  />
+                  <label class="edit-label">Start</label>
+                  <input
+                    v-model="editForm.startedAt"
+                    type="datetime-local"
+                    class="date-input"
+                    required
+                  />
+                  <label class="edit-label">End</label>
+                  <input
+                    v-model="editForm.endedAt"
+                    type="datetime-local"
+                    class="date-input"
+                  />
+                </div>
+                <div class="edit-actions">
+                  <RButton type="submit" size="small" filled>Save</RButton>
+                  <RButton type="button" size="small" @click="cancelEditing">Cancel</RButton>
+                </div>
               </form>
 
               <!-- Edit notes mode -->
@@ -552,22 +547,6 @@ defineExpose({ openAddEntryModal, loadEntries })
                   <RButton size="small" @click="cancelEditingNotes">Cancel</RButton>
                 </RSpace>
               </div>
-
-              <!-- Edit issue mode -->
-              <form v-else-if="editMode.type === 'editIssue' && editMode.issueId === entry.issue.id" @submit.prevent="saveIssueEdit" class="flex items-center gap-3 w-full">
-                <RInput
-                  v-model="issueEditForm.link"
-                  placeholder="Link to tracked item"
-                  class="w-48"
-                />
-                <RInput
-                  v-model="issueEditForm.name"
-                  placeholder="Item description"
-                  class="flex-1"
-                />
-                <RButton type="submit" size="small" filled>Save</RButton>
-                <RButton type="button" size="small" @click="cancelEditingIssue">Cancel</RButton>
-              </form>
 
               <!-- Normal display mode -->
               <div v-else class="flex items-center gap-4 w-full">
@@ -629,16 +608,10 @@ defineExpose({ openAddEntryModal, loadEntries })
                         <span>Notes</span>
                       </button>
 
-                      <!-- Edit time -->
+                      <!-- Edit (combined time + issue) -->
                       <button class="menu-item" @click="startEditing(entry); openMenuId = null">
-                        <Icon name="clock" :size="16" />
-                        <span>Edit time</span>
-                      </button>
-
-                      <!-- Edit issue -->
-                      <button class="menu-item" @click="startEditingIssue(entry); openMenuId = null">
                         <Icon name="pencil" :size="16" />
-                        <span>Edit tracked item</span>
+                        <span>Edit</span>
                       </button>
 
                       <div class="menu-divider"></div>
@@ -808,6 +781,33 @@ defineExpose({ openAddEntryModal, loadEntries })
 
 .entry-item {
   padding: 0.75rem 0;
+}
+
+.edit-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 0.5rem 0;
+  width: 100%;
+}
+
+.edit-grid {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.5rem 0.75rem;
+  align-items: center;
+}
+
+.edit-label {
+  font-size: 0.8rem;
+  color: var(--color-text-secondary);
+  text-align: right;
+}
+
+.edit-actions {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: flex-end;
 }
 
 .date-input,
