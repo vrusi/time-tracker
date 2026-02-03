@@ -40,6 +40,7 @@ const electronAPI: ElectronAPI = {
   updateTimeEntry: (id, updates) => ipcRenderer.invoke('update-time-entry', id, updates),
   deleteTimeEntry: (id) => ipcRenderer.invoke('delete-time-entry', id),
   deleteTimeEntries: (ids) => ipcRenderer.invoke('delete-time-entries', ids),
+  mergeTimeEntries: (ids: number[]) => ipcRenderer.invoke('merge-time-entries', ids),
   deleteIssues: (ids) => ipcRenderer.invoke('delete-issues', ids),
   wipeDatabase: () => ipcRenderer.invoke('wipe-database'),
   exportDatabase: () => ipcRenderer.invoke('export-database'),

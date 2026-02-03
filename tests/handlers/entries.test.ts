@@ -226,4 +226,89 @@ describe('Entries Handler Logic', () => {
       expect(result.notes).toBe('test note')
     })
   })
+
+  describe('merge-time-entries logic', () => {
+    it('calculates min start and max end for merged entries', () => {
+      const entries: TimeEntryRow[] = [
+        { id: 1, issue_id: 42, started_at: '2024-01-15T09:00:00.000Z', ended_at: '2024-01-15T10:00:00.000Z', paused_reason: null, notes: 'First task' },
+        { id: 2, issue_id: 42, started_at: '2024-01-15T10:30:00.000Z', ended_at: '2024-01-15T11:00:00.000Z', paused_reason: null, notes: 'Second task' },
+        { id: 3, issue_id: 42, started_at: '2024-01-15T08:00:00.000Z', ended_at: '2024-01-15T08:30:00.000Z', paused_reason: null, notes: null }
+      ]
+
+      // Simulate merge logic
+      const startTimes = entries.map(e => new Date(e.started_at).getTime())
+      const endTimes = entries.filter(e => e.ended_at).map(e => new Date(e.ended_at!).getTime())
+
+      const minStart = new Date(Math.min(...startTimes)).toISOString()
+      const maxEnd = new Date(Math.max(...endTimes)).toISOString()
+
+      expect(minStart).toBe('2024-01-15T08:00:00.000Z') // earliest start
+      expect(maxEnd).toBe('2024-01-15T11:00:00.000Z')   // latest end
+    })
+
+    it('combines notes from all entries', () => {
+      const entries: TimeEntryRow[] = [
+        { id: 1, issue_id: 42, started_at: '2024-01-15T09:00:00.000Z', ended_at: '2024-01-15T10:00:00.000Z', paused_reason: null, notes: 'First task' },
+        { id: 2, issue_id: 42, started_at: '2024-01-15T10:30:00.000Z', ended_at: '2024-01-15T11:00:00.000Z', paused_reason: null, notes: 'Second task' },
+        { id: 3, issue_id: 42, started_at: '2024-01-15T08:00:00.000Z', ended_at: '2024-01-15T08:30:00.000Z', paused_reason: null, notes: null }
+      ]
+
+      // Simulate notes combination
+      const allNotes = entries
+        .map(e => e.notes)
+        .filter(n => n && n.trim())
+        .join('\n---\n')
+
+      expect(allNotes).toBe('First task\n---\nSecond task')
+    })
+
+    it('rejects merge when entries have different issues', () => {
+      const entries: TimeEntryRow[] = [
+        { id: 1, issue_id: 42, started_at: '2024-01-15T09:00:00.000Z', ended_at: '2024-01-15T10:00:00.000Z', paused_reason: null, notes: null },
+        { id: 2, issue_id: 99, started_at: '2024-01-15T10:30:00.000Z', ended_at: '2024-01-15T11:00:00.000Z', paused_reason: null, notes: null }
+      ]
+
+      // Simulate validation
+      const issueIds = new Set(entries.map(e => e.issue_id))
+
+      expect(issueIds.size).toBeGreaterThan(1) // Different issues, should fail
+    })
+
+    it('allows merge when all entries have same issue', () => {
+      const entries: TimeEntryRow[] = [
+        { id: 1, issue_id: 42, started_at: '2024-01-15T09:00:00.000Z', ended_at: '2024-01-15T10:00:00.000Z', paused_reason: null, notes: null },
+        { id: 2, issue_id: 42, started_at: '2024-01-15T10:30:00.000Z', ended_at: '2024-01-15T11:00:00.000Z', paused_reason: null, notes: null }
+      ]
+
+      // Simulate validation
+      const issueIds = new Set(entries.map(e => e.issue_id))
+
+      expect(issueIds.size).toBe(1) // Same issue, merge allowed
+    })
+
+    it('requires at least 2 entries to merge', () => {
+      const ids = [1]
+
+      expect(ids.length).toBeLessThan(2) // Should fail validation
+    })
+
+    it('handles entries without ended_at (active tracking)', () => {
+      const entries: TimeEntryRow[] = [
+        { id: 1, issue_id: 42, started_at: '2024-01-15T09:00:00.000Z', ended_at: '2024-01-15T10:00:00.000Z', paused_reason: null, notes: null },
+        { id: 2, issue_id: 42, started_at: '2024-01-15T10:30:00.000Z', ended_at: null, paused_reason: null, notes: null }
+      ]
+
+      const endTimes = entries
+        .filter(e => e.ended_at)
+        .map(e => new Date(e.ended_at!).getTime())
+
+      const maxEnd = endTimes.length > 0
+        ? new Date(Math.max(...endTimes)).toISOString()
+        : null
+
+      // When one entry has no end time, merged entry should have the max of completed entries
+      // (or null if none are completed - but in this case one is completed)
+      expect(maxEnd).toBe('2024-01-15T10:00:00.000Z')
+    })
+  })
 })

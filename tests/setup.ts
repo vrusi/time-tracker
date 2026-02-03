@@ -36,6 +36,9 @@ export const mockElectronAPI = {
   // Idle
   getIdleTime: vi.fn().mockResolvedValue(0),
   resetIdleTime: vi.fn(),
+  getIdleRecoveryInfo: vi.fn().mockResolvedValue(null),
+  recoverIdleTime: vi.fn().mockResolvedValue(null),
+  dismissIdleRecovery: vi.fn(),
 
   // Settings - use fixture for default values
   getSettings: vi.fn().mockResolvedValue(createMockSettings()),

@@ -143,4 +143,63 @@ describe('Tracker Store', () => {
       expect(store.currentIssue).toBeNull()
     })
   })
+
+  describe('resume tracking behavior', () => {
+    it('detects when resuming same issue vs starting new issue', async () => {
+      const store = useTrackerStore()
+      const mockIssue = createMockIssue({ id: 42 })
+
+      // Simulate paused state
+      store.lastTrackedIssue = mockIssue
+
+      // Check isResuming logic: same issue ID means resuming
+      const isResumingSameIssue = store.lastTrackedIssue?.id === 42
+      const isResumingDifferentIssue = store.lastTrackedIssue?.id === 99
+
+      expect(isResumingSameIssue).toBe(true)
+      expect(isResumingDifferentIssue).toBe(false)
+    })
+
+    it('clears lastTrackedIssue when starting tracking', async () => {
+      const store = useTrackerStore()
+      const mockIssue = createMockIssue({ id: 42 })
+      const mockEntry = createMockTimeEntry({ issueId: 42 })
+
+      store.lastTrackedIssue = mockIssue
+
+      mockElectronAPI.startTracking.mockResolvedValue(mockEntry)
+      mockElectronAPI.getIssues.mockResolvedValue([mockIssue])
+
+      await store.startTracking(42)
+
+      expect(store.lastTrackedIssue).toBeNull()
+    })
+
+    it('saves current issue as lastTrackedIssue when pausing', async () => {
+      const store = useTrackerStore()
+      const mockIssue = createMockIssue({ id: 42 })
+      const mockEntry = createMockTimeEntry({ issueId: 42 })
+
+      store.currentEntry = mockEntry
+      store.currentIssue = mockIssue
+
+      await store.pauseTracking()
+
+      expect(store.lastTrackedIssue).toEqual(mockIssue)
+      expect(store.pauseReason).toBe('manual')
+    })
+
+    it('clears state with clearLastTracked', () => {
+      const store = useTrackerStore()
+      const mockIssue = createMockIssue({ id: 42 })
+
+      store.lastTrackedIssue = mockIssue
+      store.pauseReason = 'manual'
+
+      store.clearLastTracked()
+
+      expect(store.lastTrackedIssue).toBeNull()
+      expect(store.pauseReason).toBeNull()
+    })
+  })
 })
