@@ -117,6 +117,7 @@ export function setupEntryHandlers() {
   })
 
   // Merge multiple time entries into one
+  // First entry's issue is used for the merged entry (target entry)
   ipcMain.handle('merge-time-entries', (_, ids: number[]) => {
     if (ids.length < 2) {
       throw new Error('Need at least 2 entries to merge')
@@ -131,11 +132,8 @@ export function setupEntryHandlers() {
       throw new Error('Could not find all entries to merge')
     }
 
-    // Verify all entries have the same issue
-    const issueIds = new Set(entries.map(e => e.issue_id))
-    if (issueIds.size > 1) {
-      throw new Error('Can only merge entries for the same tracked item')
-    }
+    // Sort entries to match the order of input IDs (first ID = target issue)
+    const sortedEntries = ids.map(id => entries.find(e => e.id === id)!)
 
     // Find min start and max end
     const startTimes = entries.map(e => new Date(e.started_at).getTime())
@@ -154,11 +152,12 @@ export function setupEntryHandlers() {
       .filter(n => n && n.trim())
       .join('\n---\n')
 
-    // Create merged entry
+    // Create merged entry using first entry's issue (the target)
+    const targetIssueId = sortedEntries[0].issue_id
     const result = db.prepare(`
       INSERT INTO time_entries (issue_id, started_at, ended_at, paused_reason, notes)
       VALUES (?, ?, ?, 'merged', ?)
-    `).run(entries[0].issue_id, minStart, maxEnd, allNotes || null)
+    `).run(targetIssueId, minStart, maxEnd, allNotes || null)
 
     // Delete original entries
     db.prepare(`DELETE FROM time_entries WHERE id IN (${placeholders})`).run(...ids)

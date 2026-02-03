@@ -166,6 +166,46 @@ async function deleteEntry(entryId: number) {
   emit('entries-changed')
 }
 
+// Merge up/down functions
+function getAdjacentEntry(entry: TimeEntry & { issue: Issue }, direction: 'up' | 'down'): (TimeEntry & { issue: Issue }) | null {
+  // Flatten all entries in display order (newest first)
+  const allEntries = groupedEntries.value.flatMap(g => g.entries)
+  const currentIndex = allEntries.findIndex(e => e.id === entry.id)
+
+  if (currentIndex === -1) return null
+
+  // "up" means previous in list (more recent), "down" means next in list (older)
+  const adjacentIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1
+
+  if (adjacentIndex < 0 || adjacentIndex >= allEntries.length) return null
+
+  return allEntries[adjacentIndex]
+}
+
+function canMergeWith(entry: TimeEntry & { issue: Issue }, direction: 'up' | 'down'): boolean {
+  return getAdjacentEntry(entry, direction) !== null
+}
+
+async function mergeWithAdjacent(entry: TimeEntry & { issue: Issue }, direction: 'up' | 'down') {
+  const adjacent = getAdjacentEntry(entry, direction)
+  if (!adjacent) return
+
+  try {
+    // Target entry (the one we merge INTO) comes first - its issue will be used
+    const targetEntry = adjacent
+    const ids = [targetEntry.id, entry.id]
+
+    await window.electronAPI.mergeTimeEntries(ids)
+    await loadEntries()
+    emit('entries-changed')
+
+    successMessage.value = `Merged into "${targetEntry.issue.name}"`
+    setTimeout(() => { successMessage.value = '' }, 3000)
+  } catch (err) {
+    console.error('Failed to merge:', err)
+  }
+}
+
 // Add entry functions
 function openAddEntryModal(prefillDate?: string) {
   addEntryForm.value = {
@@ -616,6 +656,30 @@ defineExpose({ openAddEntryModal, loadEntries })
 
                       <div class="menu-divider"></div>
 
+                      <!-- Merge up -->
+                      <button
+                        class="menu-item"
+                        :class="{ 'menu-item-disabled': !canMergeWith(entry, 'up') }"
+                        :disabled="!canMergeWith(entry, 'up')"
+                        @click="mergeWithAdjacent(entry, 'up'); openMenuId = null"
+                      >
+                        <Icon name="merge" :size="16" />
+                        <span>Merge up</span>
+                      </button>
+
+                      <!-- Merge down -->
+                      <button
+                        class="menu-item"
+                        :class="{ 'menu-item-disabled': !canMergeWith(entry, 'down') }"
+                        :disabled="!canMergeWith(entry, 'down')"
+                        @click="mergeWithAdjacent(entry, 'down'); openMenuId = null"
+                      >
+                        <Icon name="merge" :size="16" />
+                        <span>Merge down</span>
+                      </button>
+
+                      <div class="menu-divider"></div>
+
                       <!-- Delete -->
                       <button class="menu-item menu-item-danger" @click="deleteEntry(entry.id); openMenuId = null">
                         <Icon name="delete" :size="16" />
@@ -999,6 +1063,15 @@ defineExpose({ openAddEntryModal, loadEntries })
 
 .menu-item-danger:hover {
   background-color: rgba(229, 57, 53, 0.1);
+}
+
+.menu-item-disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.menu-item-disabled:hover {
+  background-color: transparent;
 }
 
 .menu-divider {
