@@ -262,16 +262,18 @@ describe('Entries Handler Logic', () => {
       expect(allNotes).toBe('First task\n---\nSecond task')
     })
 
-    it('rejects merge when entries have different issues', () => {
+    it('uses first entry issue as target when merging different issues', () => {
       const entries: TimeEntryRow[] = [
         { id: 1, issue_id: 42, started_at: '2024-01-15T09:00:00.000Z', ended_at: '2024-01-15T10:00:00.000Z', paused_reason: null, notes: null },
         { id: 2, issue_id: 99, started_at: '2024-01-15T10:30:00.000Z', ended_at: '2024-01-15T11:00:00.000Z', paused_reason: null, notes: null }
       ]
 
-      // Simulate validation
-      const issueIds = new Set(entries.map(e => e.issue_id))
+      // Simulate merge logic - first entry's issue is the target
+      const ids = [1, 2]
+      const sortedEntries = ids.map(id => entries.find(e => e.id === id)!)
+      const targetIssueId = sortedEntries[0].issue_id
 
-      expect(issueIds.size).toBeGreaterThan(1) // Different issues, should fail
+      expect(targetIssueId).toBe(42) // First entry's issue wins
     })
 
     it('allows merge when all entries have same issue', () => {
@@ -283,7 +285,7 @@ describe('Entries Handler Logic', () => {
       // Simulate validation
       const issueIds = new Set(entries.map(e => e.issue_id))
 
-      expect(issueIds.size).toBe(1) // Same issue, merge allowed
+      expect(issueIds.size).toBe(1) // Same issue
     })
 
     it('requires at least 2 entries to merge', () => {
