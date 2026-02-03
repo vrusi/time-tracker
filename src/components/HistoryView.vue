@@ -3,7 +3,7 @@ import { ref, computed, watch, onMounted } from 'vue'
 import type { TimeEntry, Issue, DayGroup } from '../types'
 import { useIssuesStore } from '../stores/issues.store'
 import { formatTime, formatDuration, formatDate, toLocalDateTimeInput } from '@/utils/format'
-import { RCard, RButton, RInput, RText, RSpace, RList, RListItem, RDialog, RFormItem } from 'roughness'
+import { RCard, RButton, RInput, RText, RSpace, RList, RListItem, RDialog, RFormItem, RPopover } from 'roughness'
 import Icon from './Icon.vue'
 
 defineProps<{
@@ -46,6 +46,9 @@ const bulkDeleteType = ref<'selected' | 'range'>('selected')
 
 // Add entry modal state
 const showAddEntryModal = ref(false)
+
+// Actions menu state
+const openMenuId = ref<number | null>(null)
 const successMessage = ref('')
 const addEntryForm = ref({
   issueText: '',
@@ -552,41 +555,53 @@ defineExpose({ openAddEntryModal, loadEntries })
                   {{ formatDuration(entryDuration(entry)) }}
                 </RText>
 
-                <!-- Action buttons (ghosted, visible on hover) -->
+                <!-- Actions dropdown menu -->
                 <div class="entry-actions" v-if="!selectionMode">
-                  <RButton
-                    size="small"
-                    @click="startEditingNotes(entry)"
-                    title="Notes"
+                  <RPopover
+                    trigger="click"
+                    side="bottom"
+                    align="end"
+                    :open="openMenuId === entry.id"
+                    @update:open="(v: boolean) => openMenuId = v ? entry.id : null"
                   >
-                    <Icon name="note" :size="16" />
-                  </RButton>
-                  <RButton
-                    size="small"
-                    @click="startEditing(entry)"
-                    title="Edit time"
-                  >
-                    <Icon name="clock" :size="16" />
-                  </RButton>
-                  <RButton
-                    size="small"
-                    @click="startEditingIssue(entry)"
-                    title="Edit issue"
-                  >
-                    <Icon name="pencil" :size="16" />
-                  </RButton>
-                  <RButton
-                    v-if="!(editMode.type === 'deleteConfirm' && editMode.entryId === entry.id)"
-                    size="small"
-                    @click="confirmDelete(entry.id)"
-                    title="Delete"
-                  >
-                    <Icon name="delete" :size="16" />
-                  </RButton>
-                  <div v-else class="delete-confirm">
-                    <RButton size="small" color="error" filled @click="executeDelete(entry.id)" title="Confirm delete">Yes</RButton>
-                    <RButton size="small" @click="cancelDelete" title="Cancel delete">No</RButton>
-                  </div>
+                    <template #anchor>
+                      <RButton
+                        size="small"
+                        title="Actions"
+                        class="menu-trigger"
+                      >
+                        <span class="menu-dots">&#8942;</span>
+                      </RButton>
+                    </template>
+
+                    <div class="actions-menu">
+                      <!-- Notes -->
+                      <button class="menu-item" @click="startEditingNotes(entry); openMenuId = null">
+                        <Icon name="note" :size="16" />
+                        <span>Notes</span>
+                      </button>
+
+                      <!-- Edit time -->
+                      <button class="menu-item" @click="startEditing(entry); openMenuId = null">
+                        <Icon name="clock" :size="16" />
+                        <span>Edit time</span>
+                      </button>
+
+                      <!-- Edit issue -->
+                      <button class="menu-item" @click="startEditingIssue(entry); openMenuId = null">
+                        <Icon name="pencil" :size="16" />
+                        <span>Edit issue</span>
+                      </button>
+
+                      <div class="menu-divider"></div>
+
+                      <!-- Delete -->
+                      <button class="menu-item menu-item-danger" @click="confirmDelete(entry.id); openMenuId = null">
+                        <Icon name="delete" :size="16" />
+                        <span>Delete</span>
+                      </button>
+                    </div>
+                  </RPopover>
                 </div>
               </div>
             </RListItem>
@@ -846,17 +861,64 @@ defineExpose({ openAddEntryModal, loadEntries })
 .entry-actions {
   display: flex;
   gap: 0.25rem;
-  opacity: 0.15;
+}
+
+/* Menu trigger button */
+.menu-trigger {
+  opacity: 0.4;
   transition: opacity 0.15s ease;
 }
 
-.entry-item:hover .entry-actions {
+.entry-item:hover .menu-trigger {
   opacity: 1;
 }
 
-.delete-confirm {
+.menu-dots {
+  font-size: 1.25rem;
+  line-height: 1;
+  font-weight: bold;
+}
+
+/* Actions dropdown menu */
+.actions-menu {
   display: flex;
-  gap: 0.25rem;
+  flex-direction: column;
+  min-width: 140px;
+  padding: 0.25rem 0;
+}
+
+.menu-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  border: none;
+  background: none;
+  color: var(--color-text);
+  font-family: inherit;
+  font-size: 0.875rem;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 0.1s ease;
+}
+
+.menu-item:hover {
+  background-color: var(--color-bg-secondary, rgba(0, 0, 0, 0.05));
+}
+
+.menu-item-danger {
+  color: var(--r-color-error, #e53935);
+}
+
+.menu-item-danger:hover {
+  background-color: rgba(229, 57, 53, 0.1);
+}
+
+.menu-divider {
+  height: 1px;
+  margin: 0.25rem 0;
+  background-color: var(--color-border, rgba(0, 0, 0, 0.1));
 }
 
 /* Day-level add button - subtle, appears on hover */
