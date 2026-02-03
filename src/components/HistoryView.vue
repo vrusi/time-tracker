@@ -499,8 +499,8 @@ defineExpose({ openAddEntryModal, loadEntries })
 
               <!-- Edit notes mode -->
               <div v-else-if="editMode.type === 'editNotes' && editMode.entryId === entry.id" class="space-y-2 w-full">
-                <RText class="text-secondary text-sm">
-                  <strong>{{ entry.issue.externalId }}</strong> {{ entry.issue.name }}
+                <RText class="text-sm">
+                  <span class="text-secondary">{{ entry.issue.externalId }}</span> {{ entry.issue.name }}
                 </RText>
                 <RInput
                   v-model="notesForm"
@@ -540,8 +540,8 @@ defineExpose({ openAddEntryModal, loadEntries })
                 />
                 <div class="flex-1">
                   <div class="flex items-center gap-2">
-                    <RText class="font-medium">{{ entry.issue.externalId }}</RText>
-                    <RText class="text-secondary">{{ entry.issue.name }}</RText>
+                    <RText class="text-secondary">{{ entry.issue.externalId }}</RText>
+                    <RText>{{ entry.issue.name }}</RText>
                   </div>
                   <RText size="small" class="text-secondary">
                     {{ formatTime(entry.startedAt) }} - {{ entry.endedAt ? formatTime(entry.endedAt) : 'ongoing' }}
