@@ -520,15 +520,36 @@ async function wipeDatabase() {
 }
 
 .save-message {
-  font-size: 0.85rem;
+  position: fixed;
+  top: 1rem;
+  right: 1rem;
+  padding: 0.75rem 1.25rem;
+  border-radius: 4px;
+  font-weight: 500;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 9999;
+  animation: slideIn 0.2s ease-out;
 }
 
 .save-message.success {
-  color: var(--color-success);
+  background: var(--color-success);
+  color: white;
 }
 
 .save-message.error {
-  color: var(--color-error);
+  background: var(--color-danger);
+  color: white;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateX(1rem);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
 }
 
 /* ═══════════════════════════════════════════════════════════════
