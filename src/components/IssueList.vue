@@ -6,7 +6,6 @@ import { useSettingsStore } from '../stores/settings.store'
 import type { Issue, TimeEntry } from '../types'
 import { RCard, RButton, RInput, RText, RSpace, RDialog, RPopover } from 'roughness'
 import Icon from './Icon.vue'
-import IssueForm from './IssueForm.vue'
 import { formatDuration } from '@/utils/format'
 
 const issuesStore = useIssuesStore()
@@ -175,6 +174,14 @@ function formatDateTime(isoString: string): string {
   })
 }
 
+function formatEntryDuration(entry: TimeEntry): string {
+  if (!entry.endedAt) return 'In progress'
+  const start = new Date(entry.startedAt).getTime()
+  const end = new Date(entry.endedAt).getTime()
+  const seconds = Math.floor((end - start) / 1000)
+  return formatDuration(seconds)
+}
+
 // Bulk delete functions
 function toggleSelectionMode() {
   selectionMode.value = !selectionMode.value
@@ -281,16 +288,13 @@ async function executeBulkDelete() {
       </div>
     </template>
 
-    <!-- Quick track inline form -->
-    <IssueForm />
-
     <div v-if="issuesStore.isLoading" class="p-8 text-center">
       <RText class="text-secondary">Loading...</RText>
     </div>
 
     <div v-else-if="issuesStore.displayedIssues.length === 0" class="p-8 text-center">
       <RText class="text-secondary">
-        {{ issuesStore.showArchived ? 'Archived issues will appear here.' : 'No issues yet. Add one above!' }}
+        {{ issuesStore.showArchived ? 'Archived issues will appear here.' : 'No issues yet. Start tracking from the hero area above!' }}
       </RText>
     </div>
 
@@ -329,7 +333,7 @@ async function executeBulkDelete() {
               v-model="notesForm"
               :lines="3"
               placeholder="Add notes about this issue..."
-              @blur="saveNotesOnBlur"
+              @focusout="saveNotesOnBlur"
             />
             <div v-if="noteSavedMessage" class="note-saved-toast">
               {{ noteSavedMessage }}
@@ -337,16 +341,19 @@ async function executeBulkDelete() {
           </div>
 
           <!-- Work log -->
-          <div v-if="workLogEntries.some(e => e.notes)" class="notes-section">
-            <RText size="small" class="section-label">Work Log</RText>
+          <div v-if="workLogEntries.length > 0" class="notes-section">
+            <RText size="small" class="section-label">Work Log ({{ workLogEntries.length }} {{ workLogEntries.length === 1 ? 'entry' : 'entries' }})</RText>
             <div class="work-log">
               <div
-                v-for="entry in workLogEntries.filter(e => e.notes)"
+                v-for="entry in workLogEntries"
                 :key="entry.id"
                 class="work-log-entry"
               >
-                <RText size="small" class="text-secondary">{{ formatDateTime(entry.startedAt) }}</RText>
-                <RText size="small">{{ entry.notes }}</RText>
+                <div class="work-log-header">
+                  <RText size="small" class="text-secondary">{{ formatDateTime(entry.startedAt) }}</RText>
+                  <RText size="small" class="text-secondary">{{ formatEntryDuration(entry) }}</RText>
+                </div>
+                <RText v-if="entry.notes" size="small">{{ entry.notes }}</RText>
               </div>
             </div>
           </div>
@@ -435,7 +442,7 @@ async function executeBulkDelete() {
 
                   <!-- Merge -->
                   <template v-if="mergingIssueId !== issue.id">
-                    <button class="menu-item" @click="startMerging(issue.id); openMenuId = null">
+                    <button class="menu-item" @click.stop="startMerging(issue.id)">
                       <span class="menu-icon-text">⤵</span>
                       <span>Merge</span>
                     </button>
@@ -765,6 +772,12 @@ async function executeBulkDelete() {
 .work-log-entry:last-child {
   border-bottom: none;
   padding-bottom: 0;
+}
+
+.work-log-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 
 .merge-dropdown {

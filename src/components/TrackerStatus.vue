@@ -1,17 +1,83 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { ref, watch, computed } from 'vue'
 import { useTrackerStore } from '../stores/tracker.store'
 import { useIssuesStore } from '../stores/issues.store'
+import { useSettingsStore } from '../stores/settings.store'
+import type { Issue } from '../types'
 import { RCard, RButton, RInput, RProgress, RText } from 'roughness'
 import Icon from './Icon.vue'
 
 const trackerStore = useTrackerStore()
 const issuesStore = useIssuesStore()
+const settingsStore = useSettingsStore()
 
-// Quick start: create an untitled issue and start tracking immediately
-async function quickStart() {
-  const issue = await issuesStore.createIssue('', 'Untitled', null)
-  await trackerStore.startTracking(issue.id)
+// Issue form state
+const link = ref('')
+const name = ref('')
+const isSubmitting = ref(false)
+const matchedIssue = ref<Issue | null>(null)
+
+// Watch link changes to find existing issues
+watch(link, (url) => {
+  const trimmedUrl = url.trim()
+  if (!trimmedUrl) {
+    matchedIssue.value = null
+    return
+  }
+
+  // Check by exact link match first
+  let existing = issuesStore.issues.find(i => i.link === trimmedUrl)
+
+  // If no link match, try matching by extracted ID
+  if (!existing) {
+    const extractedId = settingsStore.extractIssueId(trimmedUrl)
+    if (extractedId) {
+      existing = issuesStore.issues.find(i => i.externalId === extractedId)
+    }
+  }
+
+  if (existing) {
+    matchedIssue.value = existing
+    name.value = existing.name
+  } else {
+    matchedIssue.value = null
+  }
+})
+
+const submitTooltip = computed(() => {
+  return matchedIssue.value
+    ? 'Resume tracking existing issue'
+    : 'Start tracking this issue'
+})
+
+async function handleFormSubmit() {
+  const url = link.value.trim() || null
+  const issueName = name.value.trim() || 'Untitled'
+
+  isSubmitting.value = true
+  try {
+    let issue: Issue
+
+    if (matchedIssue.value) {
+      // Use existing issue
+      issue = matchedIssue.value
+    } else {
+      // Create new issue
+      let externalId = ''
+      if (url) {
+        externalId = settingsStore.extractIssueId(url) || ''
+      }
+      issue = await issuesStore.createIssue(externalId, issueName, url)
+    }
+
+    // Start tracking
+    await trackerStore.startTracking(issue.id)
+    link.value = ''
+    name.value = ''
+    matchedIssue.value = null
+  } finally {
+    isSubmitting.value = false
+  }
 }
 
 const showNotes = ref(false)
@@ -108,17 +174,34 @@ async function handleRecoverIdleTime() {
       </div>
     </template>
 
-    <!-- Not tracking state (no last issue) -->
+    <!-- Not tracking state (no last issue) - show issue form -->
     <template v-else-if="!trackerStore.isTracking || !trackerStore.currentIssue">
-      <div class="not-tracking">
-        <div class="not-tracking-text">
-          <RText class="text-secondary">Not tracking</RText>
-          <RText size="small" class="text-secondary">Select an issue below to start</RText>
-        </div>
-        <RButton size="small" @click="quickStart">
-          <Icon name="play" :size="16" />
-          Quick start
-        </RButton>
+      <div class="not-tracking-form">
+        <form @submit.prevent="handleFormSubmit" class="hero-form">
+          <input
+            v-model="link"
+            type="text"
+            placeholder="GitLab, GitHub, or Jira URL (optional)"
+            class="field-input url-input"
+          />
+          <input
+            v-model="name"
+            type="text"
+            placeholder="Name (optional)"
+            class="field-input name-input"
+          />
+          <span class="submit-wrapper" :title="submitTooltip">
+            <RButton
+              type="submit"
+              size="small"
+              color="success"
+              :loading="isSubmitting"
+            >
+              <Icon name="play" :size="16" />
+              {{ isSubmitting ? '...' : (matchedIssue ? 'Resume' : 'Start') }}
+            </RButton>
+          </span>
+        </form>
       </div>
     </template>
 
@@ -181,7 +264,7 @@ async function handleRecoverIdleTime() {
             v-model="currentNotes"
             :lines="2"
             placeholder="Notes for this session..."
-            @blur="saveNotesOnBlur"
+            @focusout="saveNotesOnBlur"
           />
           <div v-if="noteSavedMessage" class="note-saved-toast">
             {{ noteSavedMessage }}
@@ -198,18 +281,52 @@ async function handleRecoverIdleTime() {
   min-height: 6rem;
 }
 
-.not-tracking {
+.not-tracking-form {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
   min-height: 4.5rem;
 }
 
-.not-tracking-text {
+.hero-form {
   display: flex;
   align-items: center;
   gap: 0.5rem;
+  width: 100%;
+}
+
+.field-input {
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--color-border);
+  border-radius: 3px;
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: inherit;
+  font-size: 0.9rem;
+  box-sizing: border-box;
+}
+
+.url-input {
+  flex: 1;
+  min-width: 0;
+}
+
+.name-input {
+  flex: 2;
+  min-width: 0;
+}
+
+.field-input:focus {
+  outline: none;
+  border-color: var(--color-accent);
+}
+
+.field-input::placeholder {
+  color: var(--color-text-secondary);
+  opacity: 0.5;
+}
+
+.submit-wrapper {
+  flex-shrink: 0;
 }
 
 .tracker-row {
