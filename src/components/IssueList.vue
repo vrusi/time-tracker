@@ -315,8 +315,8 @@ async function executeBulkDelete() {
         <!-- Notes edit mode -->
         <div v-else-if="editingNotesId === issue.id" class="notes-panel w-full">
           <div class="notes-header">
-            <RText class="text-secondary text-sm">
-              <strong>{{ issue.externalId }}</strong> {{ issue.name }}
+            <RText class="text-sm">
+              <span class="text-secondary">{{ issue.externalId }}</span> {{ issue.name }}
             </RText>
             <button class="close-btn" @click="cancelEditingNotes" title="Close">×</button>
           </div>
