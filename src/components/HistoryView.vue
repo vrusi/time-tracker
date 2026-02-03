@@ -517,12 +517,12 @@ defineExpose({ openAddEntryModal, loadEntries })
               <form v-else-if="editMode.type === 'editIssue' && editMode.issueId === entry.issue.id" @submit.prevent="saveIssueEdit" class="flex items-center gap-3 w-full">
                 <RInput
                   v-model="issueEditForm.link"
-                  placeholder="Issue URL"
+                  placeholder="Link to tracked item"
                   class="w-48"
                 />
                 <RInput
                   v-model="issueEditForm.name"
-                  placeholder="Name"
+                  placeholder="Item description"
                   class="flex-1"
                 />
                 <RButton type="submit" size="small" filled>Save</RButton>
@@ -590,7 +590,7 @@ defineExpose({ openAddEntryModal, loadEntries })
                       <!-- Edit issue -->
                       <button class="menu-item" @click="startEditingIssue(entry); openMenuId = null">
                         <Icon name="pencil" :size="16" />
-                        <span>Edit issue</span>
+                        <span>Edit tracked item</span>
                       </button>
 
                       <div class="menu-divider"></div>
@@ -631,12 +631,12 @@ defineExpose({ openAddEntryModal, loadEntries })
 
       <form @submit.prevent="submitAddEntry" class="dialog-form">
         <div class="form-group">
-          <label class="form-label">Issue (select existing or type new)</label>
+          <label class="form-label">Tracked item (select existing or type new)</label>
           <input
             v-model="addEntryForm.issueText"
             list="issue-suggestions"
             class="select-input"
-            placeholder="Type issue name or select from list"
+            placeholder="Type description or select from list"
             required
           />
           <datalist id="issue-suggestions">
@@ -645,7 +645,7 @@ defineExpose({ openAddEntryModal, loadEntries })
         </div>
 
         <div class="form-group">
-          <label class="form-label">Link (optional, for new issues)</label>
+          <label class="form-label">Link (optional, for new tracked items)</label>
           <input
             v-model="addEntryForm.issueLink"
             type="text"

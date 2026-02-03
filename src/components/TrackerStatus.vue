@@ -46,8 +46,8 @@ watch(link, (url) => {
 
 const submitTooltip = computed(() => {
   return matchedIssue.value
-    ? 'Resume tracking existing issue'
-    : 'Start tracking this issue'
+    ? 'Resume tracking existing tracked item'
+    : 'Start tracking this tracked item'
 })
 
 async function handleFormSubmit() {
@@ -129,7 +129,7 @@ async function handleRecoverIdleTime() {
       <div class="paused-content">
         <div class="tracker-row">
           <div class="issue-info">
-            <RText class="issue-id">{{ trackerStore.lastTrackedIssue.externalId || '\u00A0' }}</RText>
+            <RText v-if="trackerStore.lastTrackedIssue.externalId" class="issue-id">{{ trackerStore.lastTrackedIssue.externalId }}</RText>
             <RText class="issue-name">{{ trackerStore.lastTrackedIssue.name }}</RText>
           </div>
           <div class="timer-section">
@@ -181,13 +181,13 @@ async function handleRecoverIdleTime() {
           <input
             v-model="link"
             type="text"
-            placeholder="GitLab, GitHub, or Jira URL (optional)"
+            placeholder="Link to tracked item"
             class="field-input url-input"
           />
           <input
             v-model="name"
             type="text"
-            placeholder="Name (optional)"
+            placeholder="Item description"
             class="field-input name-input"
           />
           <span class="submit-wrapper" :title="submitTooltip">
@@ -210,7 +210,7 @@ async function handleRecoverIdleTime() {
       <div class="tracking-content">
         <div class="tracker-row">
           <div class="issue-info">
-            <RText class="issue-id">{{ trackerStore.currentIssue.externalId || '\u00A0' }}</RText>
+            <RText v-if="trackerStore.currentIssue.externalId" class="issue-id">{{ trackerStore.currentIssue.externalId }}</RText>
             <RText class="issue-name">{{ trackerStore.currentIssue.name }}</RText>
           </div>
           <div class="timer-section">
@@ -354,7 +354,6 @@ async function handleRecoverIdleTime() {
   display: block;
   font-size: 0.875rem;
   color: var(--color-text-secondary);
-  min-height: 1.25rem;
 }
 
 .issue-name {
