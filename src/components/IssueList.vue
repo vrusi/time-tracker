@@ -4,7 +4,7 @@ import { useIssuesStore } from '../stores/issues.store'
 import { useTrackerStore } from '../stores/tracker.store'
 import { useSettingsStore } from '../stores/settings.store'
 import type { Issue, TimeEntry } from '../types'
-import { RCard, RButton, RInput, RText, RSpace, RDialog, RPopover } from 'roughness'
+import { RCard, RButton, RInput, RText, RSpace, RDialog, RPopover, RList, RListItem } from 'roughness'
 import Icon from './Icon.vue'
 import { formatDuration } from '@/utils/format'
 
@@ -144,14 +144,6 @@ function cancelEditingNotes() {
   workLogEntries.value = []
 }
 
-async function saveNotes() {
-  if (!editingNotesId.value) return
-
-  await issuesStore.updateIssue(editingNotesId.value, { notes: notesForm.value || null })
-  editingNotesId.value = null
-  workLogEntries.value = []
-}
-
 // Save notes on blur (without closing the panel)
 async function saveNotesOnBlur() {
   if (!editingNotesId.value) return
@@ -241,7 +233,7 @@ async function executeBulkDelete() {
     <template #title>
       <div class="card-header">
         <div class="header-left">
-          <span class="card-title">Issues</span>
+          <span class="card-title">Tracked Items</span>
           <div class="view-toggle">
             <RButton
               size="small"
@@ -294,12 +286,12 @@ async function executeBulkDelete() {
 
     <div v-else-if="issuesStore.displayedIssues.length === 0" class="p-8 text-center">
       <RText class="text-secondary">
-        {{ issuesStore.showArchived ? 'Archived issues will appear here.' : 'No issues yet. Start tracking from the hero area above!' }}
+        {{ issuesStore.showArchived ? 'Archived tracked items will appear here.' : 'No tracked items yet. Start tracking from the hero area above!' }}
       </RText>
     </div>
 
-    <div v-else class="issues-list">
-      <div
+    <RList v-else class="issues-list">
+      <RListItem
         v-for="issue in issuesStore.displayedIssues"
         :key="issue.id"
         class="issue-item"
@@ -308,12 +300,12 @@ async function executeBulkDelete() {
         <form v-if="editingIssue?.id === issue.id" @submit.prevent="saveEdit" class="flex items-center gap-3 w-full">
           <RInput
             v-model="editForm.link"
-            placeholder="Issue URL"
+            placeholder="Link to tracked item"
             class="w-48"
           />
           <RInput
             v-model="editForm.name"
-            placeholder="Name"
+            placeholder="Item description"
             class="flex-1"
           />
           <RButton type="submit" size="small" filled>Save</RButton>
@@ -322,9 +314,12 @@ async function executeBulkDelete() {
 
         <!-- Notes edit mode -->
         <div v-else-if="editingNotesId === issue.id" class="notes-panel w-full">
-          <RText class="text-secondary text-sm">
-            <strong>{{ issue.externalId }}</strong> {{ issue.name }}
-          </RText>
+          <div class="notes-header">
+            <RText class="text-secondary text-sm">
+              <strong>{{ issue.externalId }}</strong> {{ issue.name }}
+            </RText>
+            <button class="close-btn" @click="cancelEditingNotes" title="Close">×</button>
+          </div>
 
           <!-- Issue notes -->
           <div class="notes-section">
@@ -332,7 +327,7 @@ async function executeBulkDelete() {
             <RInput
               v-model="notesForm"
               :lines="3"
-              placeholder="Add notes about this issue..."
+              placeholder="Add notes about this tracked item..."
               @focusout="saveNotesOnBlur"
             />
             <div v-if="noteSavedMessage" class="note-saved-toast">
@@ -357,11 +352,6 @@ async function executeBulkDelete() {
               </div>
             </div>
           </div>
-
-          <RSpace>
-            <RButton size="small" filled @click="saveNotes">Save</RButton>
-            <RButton size="small" @click="cancelEditingNotes">Cancel</RButton>
-          </RSpace>
         </div>
 
         <!-- Normal display mode -->
@@ -489,22 +479,22 @@ async function executeBulkDelete() {
                 :disabled="issue.archived"
                 :color="isCurrentlyTracking(issue) ? 'error' : 'success'"
                 :class="{ 'btn-archived': issue.archived }"
-                :title="issue.archived ? 'Restore issue to track' : (isCurrentlyTracking(issue) ? 'Stop tracking' : 'Start tracking')"
+                :title="issue.archived ? 'Restore tracked item to track' : (isCurrentlyTracking(issue) ? 'Stop tracking' : 'Start tracking')"
               >
                 <Icon :name="isCurrentlyTracking(issue) ? 'pause' : 'play'" :size="16" />
               </RButton>
             </div>
           </div><!-- end issue-main -->
         </div>
-      </div>
-    </div>
+      </RListItem>
+    </RList>
 
     <!-- Bulk Delete Confirmation Dialog -->
     <RDialog v-model:open="showBulkDeleteConfirm">
-      <template #title>Delete Issues?</template>
+      <template #title>Delete Tracked Items?</template>
       <RText>
         This will permanently delete {{ selectedIds.size }}
-        {{ selectedIds.size === 1 ? 'issue' : 'issues' }} and all their time entries.
+        {{ selectedIds.size === 1 ? 'tracked item' : 'tracked items' }} and all their time entries.
         This cannot be undone.
       </RText>
       <RSpace class="modal-actions">
@@ -515,7 +505,7 @@ async function executeBulkDelete() {
 
     <!-- Single Issue Delete Confirmation Dialog -->
     <RDialog :open="confirmingDeleteId !== null" @update:open="(v: boolean) => !v && cancelDelete()">
-      <template #title>Delete Issue?</template>
+      <template #title>Delete Tracked Item?</template>
       <RText>Are you sure? This is forever.</RText>
       <RSpace class="modal-actions">
         <RButton @click="cancelDelete">Cancel</RButton>
@@ -526,18 +516,9 @@ async function executeBulkDelete() {
 </template>
 
 <style scoped>
-.issues-list {
-  display: flex;
-  flex-direction: column;
-}
-
+/* Issue item styling - RListItem provides the bullet marker */
 .issue-item {
   padding: 0.5rem 0;
-  border-bottom: 1px solid var(--color-border);
-}
-
-.issue-item:last-child {
-  border-bottom: none;
 }
 
 /* Make link icon same size as other icons */
@@ -720,6 +701,33 @@ async function executeBulkDelete() {
   display: flex;
   flex-direction: column;
   gap: 1rem;
+}
+
+.notes-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.close-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  border: none;
+  background: none;
+  color: var(--color-text-secondary);
+  font-size: 1.25rem;
+  line-height: 1;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: background-color 0.1s ease, color 0.1s ease;
+}
+
+.close-btn:hover {
+  background-color: var(--color-bg-secondary, rgba(0, 0, 0, 0.05));
+  color: var(--color-text);
 }
 
 .notes-section {
