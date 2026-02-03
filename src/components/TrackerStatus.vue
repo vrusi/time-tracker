@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch, computed } from 'vue'
+import { ref, watch, computed, nextTick } from 'vue'
 import { useTrackerStore } from '../stores/tracker.store'
 import { useIssuesStore } from '../stores/issues.store'
 import { useSettingsStore } from '../stores/settings.store'
@@ -83,6 +83,37 @@ async function handleFormSubmit() {
 const showNotes = ref(false)
 const currentNotes = ref('')
 const noteSavedMessage = ref('')
+
+// Edit issue name while tracking
+const isEditingName = ref(false)
+const editedName = ref('')
+const nameInput = ref<HTMLInputElement | null>(null)
+
+function startEditingName() {
+  if (trackerStore.currentIssue) {
+    editedName.value = trackerStore.currentIssue.name
+    isEditingName.value = true
+    nextTick(() => {
+      nameInput.value?.focus()
+      nameInput.value?.select()
+    })
+  }
+}
+
+async function saveIssueName() {
+  if (trackerStore.currentIssue && editedName.value.trim()) {
+    await issuesStore.updateIssue(trackerStore.currentIssue.id, {
+      name: editedName.value.trim()
+    })
+    // Refresh the current issue in tracker store
+    await trackerStore.refreshCurrentIssue()
+  }
+  isEditingName.value = false
+}
+
+function cancelEditingName() {
+  isEditingName.value = false
+}
 
 // Save notes on blur
 async function saveNotesOnBlur() {
@@ -211,7 +242,23 @@ async function handleRecoverIdleTime() {
         <div class="tracker-row">
           <div class="issue-info">
             <RText v-if="trackerStore.currentIssue.externalId" class="issue-id">{{ trackerStore.currentIssue.externalId }}</RText>
-            <RText class="issue-name">{{ trackerStore.currentIssue.name }}</RText>
+            <template v-if="isEditingName">
+              <input
+                v-model="editedName"
+                type="text"
+                class="edit-name-input"
+                @blur="saveIssueName"
+                @keyup.enter="saveIssueName"
+                @keyup.escape="cancelEditingName"
+                ref="nameInput"
+              />
+            </template>
+            <template v-else>
+              <RText class="issue-name editable" @click="startEditingName" title="Click to edit name">
+                {{ trackerStore.currentIssue.name }}
+                <Icon name="pencil" :size="12" class="edit-hint" />
+              </RText>
+            </template>
           </div>
           <div class="timer-section">
             <span class="timer-display">{{ trackerStore.formattedTime }}</span>
@@ -296,13 +343,14 @@ async function handleRecoverIdleTime() {
 
 .field-input {
   padding: 0.5rem 0.75rem;
-  border: 1px solid var(--color-border);
-  border-radius: 3px;
-  background: var(--color-bg);
+  border: 2px solid var(--color-border);
+  border-radius: 4px;
+  background: var(--color-bg-secondary);
   color: var(--color-text);
   font-family: inherit;
   font-size: 0.9rem;
   box-sizing: border-box;
+  box-shadow: 1px 1px 0 var(--color-border);
 }
 
 .url-input {
@@ -318,6 +366,11 @@ async function handleRecoverIdleTime() {
 .field-input:focus {
   outline: none;
   border-color: var(--color-accent);
+  box-shadow: 1px 1px 0 var(--color-accent);
+}
+
+.field-input:hover {
+  border-color: var(--color-text-secondary);
 }
 
 .field-input::placeholder {
@@ -358,6 +411,44 @@ async function handleRecoverIdleTime() {
 
 .issue-name {
   display: block;
+}
+
+.issue-name.editable {
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.issue-name.editable:hover {
+  text-decoration: underline;
+  text-decoration-style: dotted;
+}
+
+.edit-hint {
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.issue-name.editable:hover .edit-hint {
+  opacity: 0.5;
+}
+
+.edit-name-input {
+  padding: 0.25rem 0.5rem;
+  border: 1px solid var(--color-accent);
+  border-radius: 3px;
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: inherit;
+  font-size: inherit;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.edit-name-input:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(var(--color-accent-rgb, 100, 100, 200), 0.2);
 }
 
 .timer-display.paused {

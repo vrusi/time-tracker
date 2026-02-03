@@ -29,7 +29,6 @@ type EditMode =
   | { type: 'editTime'; entryId: number }
   | { type: 'editNotes'; entryId: number }
   | { type: 'editIssue'; issueId: number }
-  | { type: 'deleteConfirm'; entryId: number }
 
 const editMode = ref<EditMode>({ type: 'normal' })
 
@@ -178,18 +177,9 @@ async function saveIssueEdit() {
   await loadEntries()
 }
 
-// Delete functions
-function confirmDelete(entryId: number) {
-  editMode.value = { type: 'deleteConfirm', entryId }
-}
-
-function cancelDelete() {
-  editMode.value = { type: 'normal' }
-}
-
-async function executeDelete(entryId: number) {
+// Delete function
+async function deleteEntry(entryId: number) {
   await window.electronAPI.deleteTimeEntry(entryId)
-  editMode.value = { type: 'normal' }
   await loadEntries()
   emit('entries-changed')
 }
@@ -323,6 +313,46 @@ async function executeBulkDelete() {
   emit('entries-changed')
 }
 
+// Merge functionality
+const canMergeSelected = computed(() => {
+  if (selectedIds.value.size < 2) return false
+
+  // Get selected entries
+  const selectedEntries = entries.value.filter(e => selectedIds.value.has(e.id))
+  if (selectedEntries.length < 2) return false
+
+  // Check all entries have the same issue
+  const issueIds = new Set(selectedEntries.map(e => e.issue.id))
+  return issueIds.size === 1
+})
+
+const mergeTooltip = computed(() => {
+  if (selectedIds.value.size < 2) return 'Select at least 2 entries to merge'
+  if (!canMergeSelected.value) return 'Can only merge entries for the same tracked item'
+  return 'Merge selected entries into one'
+})
+
+async function mergeSelected() {
+  if (!canMergeSelected.value) return
+
+  const ids = Array.from(selectedIds.value)
+  try {
+    await window.electronAPI.mergeTimeEntries(ids)
+    selectedIds.value.clear()
+    selectionMode.value = false
+    await loadEntries()
+    emit('entries-changed')
+
+    // Show success message
+    successMessage.value = 'Entries merged successfully'
+    setTimeout(() => {
+      successMessage.value = ''
+    }, 3000)
+  } catch (err) {
+    console.error('Failed to merge entries:', err)
+  }
+}
+
 // State message for "you are here" anchor
 const stateMessage = computed(() => {
   if (isLoading.value) return 'Loading entries...'
@@ -388,6 +418,15 @@ defineExpose({ openAddEntryModal, loadEntries })
               {{ selectionMode ? 'Cancel' : 'Select' }}
             </RButton>
             <template v-if="selectionMode">
+              <RButton
+                size="small"
+                color="success"
+                :disabled="!canMergeSelected"
+                :title="mergeTooltip"
+                @click="mergeSelected"
+              >
+                Merge ({{ selectedIds.size }})
+              </RButton>
               <RButton
                 size="small"
                 color="error"
@@ -605,7 +644,7 @@ defineExpose({ openAddEntryModal, loadEntries })
                       <div class="menu-divider"></div>
 
                       <!-- Delete -->
-                      <button class="menu-item menu-item-danger" @click="confirmDelete(entry.id); openMenuId = null">
+                      <button class="menu-item menu-item-danger" @click="deleteEntry(entry.id); openMenuId = null">
                         <Icon name="delete" :size="16" />
                         <span>Delete</span>
                       </button>
@@ -754,6 +793,12 @@ defineExpose({ openAddEntryModal, loadEntries })
 
 .day-card {
   --r-card-padding: 0.5rem;
+  overflow: visible;
+}
+
+/* Ensure card internals allow popover overflow */
+.day-card :deep(.r-card__body) {
+  overflow: visible;
 }
 
 .date-label {
@@ -767,19 +812,37 @@ defineExpose({ openAddEntryModal, loadEntries })
 
 .date-input,
 .select-input {
-  padding: 0.35rem 0.5rem;
-  border: 1px solid var(--color-border);
-  border-radius: 3px;
-  background: var(--color-bg);
+  padding: 0.4rem 0.6rem;
+  border: 2px solid var(--color-border);
+  border-radius: 4px;
+  background: var(--color-bg-secondary);
   color: var(--color-text);
   font-family: inherit;
   font-size: 0.85rem;
+  /* Match roughness sketchy style */
+  box-shadow: 1px 1px 0 var(--color-border);
 }
 
 .date-input:focus,
 .select-input:focus {
   outline: none;
   border-color: var(--color-accent);
+  box-shadow: 1px 1px 0 var(--color-accent);
+}
+
+.date-input:hover,
+.select-input:hover {
+  border-color: var(--color-text-secondary);
+}
+
+/* Style datetime-local picker to match app theme */
+.date-input::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  filter: opacity(0.6);
+}
+
+.date-input::-webkit-calendar-picker-indicator:hover {
+  filter: opacity(1);
 }
 
 .select-input {
@@ -825,15 +888,21 @@ defineExpose({ openAddEntryModal, loadEntries })
   padding: 0.5rem 0.75rem;
   border: 2px solid var(--color-border);
   border-radius: 4px;
-  background: var(--color-bg);
+  background: var(--color-bg-secondary);
   color: var(--color-text);
   font-family: inherit;
   resize: vertical;
+  box-shadow: 1px 1px 0 var(--color-border);
 }
 
 .notes-input:focus {
   outline: none;
   border-color: var(--color-accent);
+  box-shadow: 1px 1px 0 var(--color-accent);
+}
+
+.notes-input:hover {
+  border-color: var(--color-text-secondary);
 }
 
 .form-actions {
@@ -870,6 +939,12 @@ defineExpose({ openAddEntryModal, loadEntries })
 .entry-actions {
   display: flex;
   gap: 0.25rem;
+  position: relative;
+}
+
+/* Ensure popover content appears above everything */
+.entry-actions :deep(.r-popover__content) {
+  z-index: 9999 !important;
 }
 
 /* Menu trigger button */
@@ -894,6 +969,8 @@ defineExpose({ openAddEntryModal, loadEntries })
   flex-direction: column;
   min-width: 140px;
   padding: 0.25rem 0;
+  position: relative;
+  z-index: 9999;
 }
 
 .menu-item {

@@ -76,6 +76,9 @@ export const useTrackerStore = defineStore('tracker', () => {
     // when the backend pauses the old tracker
     isSwitchingTrackers = true
 
+    // Check if we're resuming the same issue
+    const isResuming = lastTrackedIssue.value?.id === issueId
+
     // Clear idle recovery info since we're starting fresh
     idleRecoveryInfo.value = null
 
@@ -87,10 +90,12 @@ export const useTrackerStore = defineStore('tracker', () => {
     currentIssue.value = issue || null
     lastTrackedIssue.value = null  // Clear last tracked since we're now tracking
 
-    // Reset paused time and flag after a tick to ensure tracking-update
-    // event is processed first (it's queued async from backend)
+    // Reset paused time only if starting a new issue, not resuming
+    // When resuming, keep pausedElapsedSeconds so timer continues from where it left off
     setTimeout(() => {
-      pausedElapsedSeconds.value = 0
+      if (!isResuming) {
+        pausedElapsedSeconds.value = 0
+      }
       isSwitchingTrackers = false
     }, 0)
 
@@ -167,6 +172,16 @@ export const useTrackerStore = defineStore('tracker', () => {
     idleSeconds.value = 0
   }
 
+  async function refreshCurrentIssue() {
+    if (currentIssue.value) {
+      const issues = await window.electronAPI.getIssues()
+      const updated = issues.find(i => i.id === currentIssue.value!.id)
+      if (updated) {
+        currentIssue.value = updated
+      }
+    }
+  }
+
   function setupListeners() {
     window.electronAPI.onIdlePause(async () => {
       // Save last tracked issue and elapsed time before clearing
@@ -238,6 +253,7 @@ export const useTrackerStore = defineStore('tracker', () => {
     resetIdle,
     recoverIdleTime,
     dismissIdleRecovery,
+    refreshCurrentIssue,
     setupListeners
   }
 })
