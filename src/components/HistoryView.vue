@@ -47,7 +47,14 @@ const showAddEntryModal = ref(false)
 // Actions menu state
 const openMenuId = ref<number | null>(null)
 const expandedNotesId = ref<number | null>(null)
-const successMessage = ref('')
+const toastMessage = ref('')
+const toastIsError = ref(false)
+
+function showToast(message: string, isError = false) {
+  toastMessage.value = message
+  toastIsError.value = isError
+  setTimeout(() => { toastMessage.value = '' }, 3000)
+}
 const addEntryForm = ref({
   issueText: '',
   issueLink: '',
@@ -121,24 +128,30 @@ function cancelEditing() {
 async function saveEdit() {
   if (editMode.value.type !== 'edit') return
 
-  // Update time entry
-  const updates: { startedAt?: string; endedAt?: string } = {}
-  if (editForm.value.startedAt) {
-    updates.startedAt = new Date(editForm.value.startedAt).toISOString()
-  }
-  if (editForm.value.endedAt) {
-    updates.endedAt = new Date(editForm.value.endedAt).toISOString()
-  }
-  await window.electronAPI.updateTimeEntry(editMode.value.entryId, updates)
+  try {
+    // Update time entry
+    const updates: { startedAt?: string; endedAt?: string } = {}
+    if (editForm.value.startedAt) {
+      updates.startedAt = new Date(editForm.value.startedAt).toISOString()
+    }
+    if (editForm.value.endedAt) {
+      updates.endedAt = new Date(editForm.value.endedAt).toISOString()
+    }
+    await window.electronAPI.updateTimeEntry(editMode.value.entryId, updates)
 
-  // Update issue
-  await issuesStore.updateIssue(editMode.value.issueId, {
-    name: editForm.value.issueName.trim(),
-    link: editForm.value.issueLink.trim() || null
-  })
+    // Update issue
+    await issuesStore.updateIssue(editMode.value.issueId, {
+      name: editForm.value.issueName.trim(),
+      link: editForm.value.issueLink.trim() || null
+    })
 
-  editMode.value = { type: 'normal' }
-  await loadEntries()
+    editMode.value = { type: 'normal' }
+    await loadEntries()
+    showToast('Entry updated')
+  } catch (err) {
+    console.error('Failed to save edit:', err)
+    showToast('Failed to save changes', true)
+  }
 }
 
 // Notes functions
@@ -154,16 +167,28 @@ function cancelEditingNotes() {
 async function saveNotes() {
   if (editMode.value.type !== 'editNotes') return
 
-  await window.electronAPI.updateTimeEntry(editMode.value.entryId, { notes: notesForm.value || undefined })
-  editMode.value = { type: 'normal' }
-  await loadEntries()
+  try {
+    await window.electronAPI.updateTimeEntry(editMode.value.entryId, { notes: notesForm.value || undefined })
+    editMode.value = { type: 'normal' }
+    await loadEntries()
+    showToast('Notes saved')
+  } catch (err) {
+    console.error('Failed to save notes:', err)
+    showToast('Failed to save notes', true)
+  }
 }
 
 // Delete function
 async function deleteEntry(entryId: number) {
-  await window.electronAPI.deleteTimeEntry(entryId)
-  await loadEntries()
-  emit('entries-changed')
+  try {
+    await window.electronAPI.deleteTimeEntry(entryId)
+    await loadEntries()
+    emit('entries-changed')
+    showToast('Entry deleted')
+  } catch (err) {
+    console.error('Failed to delete entry:', err)
+    showToast('Failed to delete entry', true)
+  }
 }
 
 // Merge up/down functions
@@ -198,11 +223,10 @@ async function mergeWithAdjacent(entry: TimeEntry & { issue: Issue }, direction:
     await window.electronAPI.mergeTimeEntries(ids)
     await loadEntries()
     emit('entries-changed')
-
-    successMessage.value = `Merged into "${targetEntry.issue.name}"`
-    setTimeout(() => { successMessage.value = '' }, 3000)
+    showToast(`Merged into "${targetEntry.issue.name}"`)
   } catch (err) {
     console.error('Failed to merge:', err)
+    showToast('Failed to merge entries', true)
   }
 }
 
@@ -227,43 +251,43 @@ async function submitAddEntry() {
   const issueText = addEntryForm.value.issueText.trim()
   if (!issueText) return
 
-  // Find existing issue or create new one
-  let issueId: number
-  const existingIssue = issuesStore.issues.find(
-    i => `${i.externalId} - ${i.name}` === issueText ||
-         i.externalId === issueText ||
-         i.name === issueText
-  )
+  try {
+    // Find existing issue or create new one
+    let issueId: number
+    const existingIssue = issuesStore.issues.find(
+      i => `${i.externalId} - ${i.name}` === issueText ||
+           i.externalId === issueText ||
+           i.name === issueText
+    )
 
-  if (existingIssue) {
-    issueId = existingIssue.id
-  } else {
-    // Create new issue with the text as name
-    const link = addEntryForm.value.issueLink.trim() || null
-    // Don't duplicate name as ID - leave ID empty for manual entries
-    const newIssue = await issuesStore.createIssue('', issueText, link)
-    issueId = newIssue.id
+    if (existingIssue) {
+      issueId = existingIssue.id
+    } else {
+      // Create new issue with the text as name
+      const link = addEntryForm.value.issueLink.trim() || null
+      // Don't duplicate name as ID - leave ID empty for manual entries
+      const newIssue = await issuesStore.createIssue('', issueText, link)
+      issueId = newIssue.id
+    }
+
+    const startedAt = new Date(`${addEntryForm.value.date}T${addEntryForm.value.startTime}`).toISOString()
+    const endedAt = new Date(`${addEntryForm.value.date}T${addEntryForm.value.endTime}`).toISOString()
+
+    await window.electronAPI.createTimeEntry(
+      issueId,
+      startedAt,
+      endedAt,
+      addEntryForm.value.notes || undefined
+    )
+
+    showAddEntryModal.value = false
+    await loadEntries()
+    emit('entries-changed')
+    showToast('Entry added')
+  } catch (err) {
+    console.error('Failed to add entry:', err)
+    showToast('Failed to add entry', true)
   }
-
-  const startedAt = new Date(`${addEntryForm.value.date}T${addEntryForm.value.startTime}`).toISOString()
-  const endedAt = new Date(`${addEntryForm.value.date}T${addEntryForm.value.endTime}`).toISOString()
-
-  await window.electronAPI.createTimeEntry(
-    issueId,
-    startedAt,
-    endedAt,
-    addEntryForm.value.notes || undefined
-  )
-
-  showAddEntryModal.value = false
-  await loadEntries()
-  emit('entries-changed')
-
-  // Show success message
-  successMessage.value = 'Entry added successfully'
-  setTimeout(() => {
-    successMessage.value = ''
-  }, 3000)
 }
 
 // Computed preview duration for add entry form
@@ -324,15 +348,22 @@ async function executeBulkDelete() {
     idsToDelete = entries.value.map(e => e.id)
   }
 
-  if (idsToDelete.length > 0) {
-    await window.electronAPI.deleteTimeEntries(idsToDelete)
-  }
+  try {
+    if (idsToDelete.length > 0) {
+      await window.electronAPI.deleteTimeEntries(idsToDelete)
+    }
 
-  showBulkDeleteConfirm.value = false
-  selectedIds.value.clear()
-  selectionMode.value = false
-  await loadEntries()
-  emit('entries-changed')
+    showBulkDeleteConfirm.value = false
+    selectedIds.value.clear()
+    selectionMode.value = false
+    await loadEntries()
+    emit('entries-changed')
+    showToast(`Deleted ${idsToDelete.length} ${idsToDelete.length === 1 ? 'entry' : 'entries'}`)
+  } catch (err) {
+    console.error('Failed to delete entries:', err)
+    showToast('Failed to delete entries', true)
+    showBulkDeleteConfirm.value = false
+  }
 }
 
 // Merge functionality
@@ -364,14 +395,10 @@ async function mergeSelected() {
     selectionMode.value = false
     await loadEntries()
     emit('entries-changed')
-
-    // Show success message
-    successMessage.value = 'Entries merged successfully'
-    setTimeout(() => {
-      successMessage.value = ''
-    }, 3000)
+    showToast('Entries merged')
   } catch (err) {
     console.error('Failed to merge entries:', err)
+    showToast('Failed to merge entries', true)
   }
 }
 
@@ -409,8 +436,8 @@ defineExpose({ openAddEntryModal, loadEntries })
 <template>
   <div class="history-list">
     <!-- Success message -->
-    <div v-if="successMessage" class="success-toast">
-      {{ successMessage }}
+    <div v-if="toastMessage" :class="['toast', toastIsError ? 'toast-error' : 'toast-success']">
+      {{ toastMessage }}
     </div>
 
     <!-- Main History card with unified header -->
@@ -976,11 +1003,10 @@ defineExpose({ openAddEntryModal, loadEntries })
   margin-top: 0.5rem;
 }
 
-.success-toast {
+.toast {
   position: fixed;
   top: 1rem;
   right: 1rem;
-  background: var(--color-success);
   color: white;
   padding: 0.75rem 1.25rem;
   border-radius: 4px;
@@ -988,6 +1014,14 @@ defineExpose({ openAddEntryModal, loadEntries })
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   z-index: 9999;
   animation: slideIn 0.2s ease-out;
+}
+
+.toast-success {
+  background: var(--color-success);
+}
+
+.toast-error {
+  background: var(--color-danger);
 }
 
 @keyframes slideIn {

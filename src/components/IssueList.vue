@@ -33,7 +33,16 @@ const openMenuId = ref<number | null>(null)
 const editingNotesId = ref<number | null>(null)
 const notesForm = ref('')
 const workLogEntries = ref<TimeEntry[]>([])
-const noteSavedMessage = ref('')
+
+// Toast state
+const toastMessage = ref('')
+const toastIsError = ref(false)
+
+function showToast(message: string, isError = false) {
+  toastMessage.value = message
+  toastIsError.value = isError
+  setTimeout(() => { toastMessage.value = '' }, 3000)
+}
 
 async function loadIssueTimes() {
   const issueIds = issuesStore.issues.map(i => i.id)
@@ -87,16 +96,22 @@ async function saveEdit() {
   const issueId = url ? settingsStore.extractIssueId(url) : editingIssue.value.externalId
 
   if (url && !issueId) {
-    alert('Could not extract issue ID from URL. Check your issue tracker settings.')
+    showToast('Could not extract issue ID from URL', true)
     return
   }
 
-  await issuesStore.updateIssue(editingIssue.value.id, {
-    externalId: issueId || editingIssue.value.externalId,
-    name: editForm.value.name.trim(),
-    link: url || null
-  })
-  editingIssue.value = null
+  try {
+    await issuesStore.updateIssue(editingIssue.value.id, {
+      externalId: issueId || editingIssue.value.externalId,
+      name: editForm.value.name.trim(),
+      link: url || null
+    })
+    editingIssue.value = null
+    showToast('Changes saved')
+  } catch (err) {
+    console.error('Failed to save changes:', err)
+    showToast('Failed to save changes', true)
+  }
 }
 
 function confirmDelete(issueId: number) {
@@ -107,11 +122,38 @@ function cancelDelete() {
   confirmingDeleteId.value = null
 }
 
+async function archiveIssue(issueId: number) {
+  try {
+    await issuesStore.archiveIssue(issueId)
+    showToast('Item archived')
+  } catch (err) {
+    console.error('Failed to archive item:', err)
+    showToast('Failed to archive item', true)
+  }
+}
+
+async function restoreIssue(issueId: number) {
+  try {
+    await issuesStore.unarchiveIssue(issueId)
+    showToast('Item restored')
+  } catch (err) {
+    console.error('Failed to restore item:', err)
+    showToast('Failed to restore item', true)
+  }
+}
+
 async function executeDelete() {
   if (!confirmingDeleteId.value) return
-  await issuesStore.deleteIssue(confirmingDeleteId.value)
-  confirmingDeleteId.value = null
-  refreshProgress?.()
+  try {
+    await issuesStore.deleteIssue(confirmingDeleteId.value)
+    confirmingDeleteId.value = null
+    refreshProgress?.()
+    showToast('Item deleted')
+  } catch (err) {
+    console.error('Failed to delete item:', err)
+    showToast('Failed to delete item', true)
+    confirmingDeleteId.value = null
+  }
 }
 
 // Merge functions
@@ -125,10 +167,16 @@ function cancelMerging() {
 
 async function executeMerge(targetId: number) {
   if (!mergingIssueId.value) return
-  await window.electronAPI.mergeIssues(mergingIssueId.value, targetId)
-  mergingIssueId.value = null
-  await issuesStore.loadIssues()
-  await loadIssueTimes()
+  try {
+    await window.electronAPI.mergeIssues(mergingIssueId.value, targetId)
+    mergingIssueId.value = null
+    await issuesStore.loadIssues()
+    await loadIssueTimes()
+    showToast('Items merged')
+  } catch (err) {
+    console.error('Failed to merge items:', err)
+    showToast('Failed to merge items', true)
+  }
 }
 
 // Notes functions
@@ -148,12 +196,13 @@ function cancelEditingNotes() {
 async function saveNotesOnBlur() {
   if (!editingNotesId.value) return
 
-  await issuesStore.updateIssue(editingNotesId.value, { notes: notesForm.value || null })
-  // Show brief confirmation
-  noteSavedMessage.value = 'Note saved'
-  setTimeout(() => {
-    noteSavedMessage.value = ''
-  }, 2000)
+  try {
+    await issuesStore.updateIssue(editingNotesId.value, { notes: notesForm.value || null })
+    showToast('Note saved')
+  } catch (err) {
+    console.error('Failed to save note:', err)
+    showToast('Failed to save note', true)
+  }
 }
 
 function formatDateTime(isoString: string): string {
@@ -211,20 +260,27 @@ function isAllSelected(): boolean {
 async function executeBulkDelete() {
   const idsToDelete = Array.from(selectedIds.value)
 
-  // Stop tracking if any selected issue is currently being tracked
-  if (trackerStore.currentIssue && selectedIds.value.has(trackerStore.currentIssue.id)) {
-    await trackerStore.pauseTracking()
-  }
+  try {
+    // Stop tracking if any selected issue is currently being tracked
+    if (trackerStore.currentIssue && selectedIds.value.has(trackerStore.currentIssue.id)) {
+      await trackerStore.pauseTracking()
+    }
 
-  if (idsToDelete.length > 0) {
-    await window.electronAPI.deleteIssues(idsToDelete)
-    await issuesStore.loadIssues()
-  }
+    if (idsToDelete.length > 0) {
+      await window.electronAPI.deleteIssues(idsToDelete)
+      await issuesStore.loadIssues()
+    }
 
-  showBulkDeleteConfirm.value = false
-  selectedIds.value.clear()
-  selectionMode.value = false
-  refreshProgress?.()
+    showBulkDeleteConfirm.value = false
+    selectedIds.value.clear()
+    selectionMode.value = false
+    refreshProgress?.()
+    showToast(`Deleted ${idsToDelete.length} ${idsToDelete.length === 1 ? 'item' : 'items'}`)
+  } catch (err) {
+    console.error('Failed to delete items:', err)
+    showToast('Failed to delete items', true)
+    showBulkDeleteConfirm.value = false
+  }
 }
 </script>
 
@@ -330,10 +386,7 @@ async function executeBulkDelete() {
               placeholder="Add notes about this tracked item..."
               @focusout="saveNotesOnBlur"
             />
-            <div v-if="noteSavedMessage" class="note-saved-toast">
-              {{ noteSavedMessage }}
             </div>
-          </div>
 
           <!-- Work log -->
           <div v-if="workLogEntries.length > 0" class="notes-section">
@@ -451,7 +504,7 @@ async function executeBulkDelete() {
 
                   <!-- Archive/Restore/Delete -->
                   <template v-if="issue.archived">
-                    <button class="menu-item" @click="issuesStore.unarchiveIssue(issue.id); openMenuId = null">
+                    <button class="menu-item" @click="restoreIssue(issue.id); openMenuId = null">
                       <span class="menu-icon-text">↩</span>
                       <span>Restore</span>
                     </button>
@@ -463,7 +516,7 @@ async function executeBulkDelete() {
                   <button
                     v-else
                     class="menu-item"
-                    @click="issuesStore.archiveIssue(issue.id); openMenuId = null"
+                    @click="archiveIssue(issue.id); openMenuId = null"
                   >
                     <Icon name="box" :size="16" />
                     <span>Archive</span>
@@ -512,6 +565,11 @@ async function executeBulkDelete() {
         <RButton color="error" filled @click="executeDelete">Delete</RButton>
       </RSpace>
     </RDialog>
+
+    <!-- Toast notification -->
+    <div v-if="toastMessage" class="toast" :class="toastIsError ? 'toast-error' : 'toast-success'">
+      {{ toastMessage }}
+    </div>
   </RCard>
 </template>
 
@@ -736,18 +794,25 @@ async function executeBulkDelete() {
   gap: 0.25rem;
 }
 
-.note-saved-toast {
+.toast {
   position: fixed;
   top: 1rem;
   right: 1rem;
   padding: 0.75rem 1.25rem;
-  background: var(--color-success);
   color: white;
   border-radius: 4px;
   font-weight: 500;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   z-index: 9999;
   animation: slideIn 0.2s ease-out;
+}
+
+.toast-success {
+  background: var(--color-success);
+}
+
+.toast-error {
+  background: var(--color-danger);
 }
 
 @keyframes slideIn {
