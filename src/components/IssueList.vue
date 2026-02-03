@@ -737,21 +737,28 @@ async function executeBulkDelete() {
 }
 
 .note-saved-toast {
-  margin-top: 0.5rem;
-  padding: 0.375rem 0.75rem;
+  position: fixed;
+  top: 1rem;
+  right: 1rem;
+  padding: 0.75rem 1.25rem;
   background: var(--color-success);
   color: white;
   border-radius: 4px;
-  font-size: 0.875rem;
-  text-align: center;
-  animation: fadeInOut 2s ease-in-out;
+  font-weight: 500;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 9999;
+  animation: slideIn 0.2s ease-out;
 }
 
-@keyframes fadeInOut {
-  0% { opacity: 0; }
-  10% { opacity: 1; }
-  80% { opacity: 1; }
-  100% { opacity: 0; }
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateX(1rem);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
 }
 
 .section-label {
