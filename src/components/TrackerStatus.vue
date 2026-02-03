@@ -82,7 +82,16 @@ async function handleFormSubmit() {
 
 const showNotes = ref(false)
 const currentNotes = ref('')
-const noteSavedMessage = ref('')
+
+// Toast state
+const toastMessage = ref('')
+const toastIsError = ref(false)
+
+function showToast(message: string, isError = false) {
+  toastMessage.value = message
+  toastIsError.value = isError
+  setTimeout(() => { toastMessage.value = '' }, 3000)
+}
 
 // Edit issue name while tracking
 const isEditingName = ref(false)
@@ -102,11 +111,17 @@ function startEditingName() {
 
 async function saveIssueName() {
   if (trackerStore.currentIssue && editedName.value.trim()) {
-    await issuesStore.updateIssue(trackerStore.currentIssue.id, {
-      name: editedName.value.trim()
-    })
-    // Refresh the current issue in tracker store
-    await trackerStore.refreshCurrentIssue()
+    try {
+      await issuesStore.updateIssue(trackerStore.currentIssue.id, {
+        name: editedName.value.trim()
+      })
+      // Refresh the current issue in tracker store
+      await trackerStore.refreshCurrentIssue()
+      showToast('Name updated')
+    } catch (err) {
+      console.error('Failed to update name:', err)
+      showToast('Failed to update name', true)
+    }
   }
   isEditingName.value = false
 }
@@ -118,27 +133,33 @@ function cancelEditingName() {
 // Save notes on blur
 async function saveNotesOnBlur() {
   if (trackerStore.currentEntry && currentNotes.value.trim()) {
-    await window.electronAPI.updateTimeEntry(trackerStore.currentEntry.id, {
-      notes: currentNotes.value.trim()
-    })
-    // Show brief confirmation
-    noteSavedMessage.value = 'Note saved'
-    setTimeout(() => {
-      noteSavedMessage.value = ''
-    }, 2000)
+    try {
+      await window.electronAPI.updateTimeEntry(trackerStore.currentEntry.id, {
+        notes: currentNotes.value.trim()
+      })
+      showToast('Note saved')
+    } catch (err) {
+      console.error('Failed to save note:', err)
+      showToast('Failed to save note', true)
+    }
   }
 }
 
 // Save notes to current entry when pausing
 async function pauseWithNotes() {
-  if (trackerStore.currentEntry && currentNotes.value.trim()) {
-    await window.electronAPI.updateTimeEntry(trackerStore.currentEntry.id, {
-      notes: currentNotes.value.trim()
-    })
+  try {
+    if (trackerStore.currentEntry && currentNotes.value.trim()) {
+      await window.electronAPI.updateTimeEntry(trackerStore.currentEntry.id, {
+        notes: currentNotes.value.trim()
+      })
+    }
+    currentNotes.value = ''
+    showNotes.value = false
+    await trackerStore.pauseTracking()
+  } catch (err) {
+    console.error('Failed to pause tracking:', err)
+    showToast('Failed to pause tracking', true)
   }
-  currentNotes.value = ''
-  showNotes.value = false
-  await trackerStore.pauseTracking()
 }
 
 // Reset notes when tracking changes
@@ -149,7 +170,13 @@ watch(() => trackerStore.currentEntry?.id, () => {
 
 // Handle idle time recovery
 async function handleRecoverIdleTime() {
-  await trackerStore.recoverIdleTime()
+  try {
+    await trackerStore.recoverIdleTime()
+    showToast('Idle time recovered')
+  } catch (err) {
+    console.error('Failed to recover idle time:', err)
+    showToast('Failed to recover idle time', true)
+  }
 }
 </script>
 
@@ -313,12 +340,14 @@ async function handleRecoverIdleTime() {
             placeholder="Notes for this session..."
             @focusout="saveNotesOnBlur"
           />
-          <div v-if="noteSavedMessage" class="note-saved-toast">
-            {{ noteSavedMessage }}
-          </div>
         </div>
       </div>
     </template>
+
+    <!-- Toast notification -->
+    <div v-if="toastMessage" class="toast" :class="toastIsError ? 'toast-error' : 'toast-success'">
+      {{ toastMessage }}
+    </div>
   </RCard>
 </template>
 
@@ -553,18 +582,25 @@ async function handleRecoverIdleTime() {
   border-top: 1px solid var(--color-border);
 }
 
-.note-saved-toast {
+.toast {
   position: fixed;
   top: 1rem;
   right: 1rem;
   padding: 0.75rem 1.25rem;
-  background: var(--color-success);
   color: white;
   border-radius: 4px;
   font-weight: 500;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   z-index: 9999;
   animation: slideIn 0.2s ease-out;
+}
+
+.toast-success {
+  background: var(--color-success);
+}
+
+.toast-error {
+  background: var(--color-danger);
 }
 
 @keyframes slideIn {
