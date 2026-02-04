@@ -205,14 +205,31 @@ export function setupTrackingHandlers(ctx: TrackingContext) {
 
   // Get idle recovery info
   ipcMain.handle('get-idle-recovery-info', () => {
-    return lastIdlePauseInfo
+    if (!lastIdlePauseInfo) return null
+
+    // Get the entry to calculate actual recoverable time (from entry end to now)
+    const entry = db.prepare('SELECT * FROM time_entries WHERE id = ?').get(lastIdlePauseInfo.entryId) as TimeEntryRow | undefined
+    if (!entry || !entry.ended_at) {
+      lastIdlePauseInfo = null
+      return null
+    }
+
+    // Calculate actual recoverable time: from when entry ended to now
+    const entryEndTime = new Date(entry.ended_at)
+    const now = new Date()
+    const actualRecoverableSeconds = Math.floor((now.getTime() - entryEndTime.getTime()) / 1000)
+
+    return {
+      ...lastIdlePauseInfo,
+      idleDurationSeconds: actualRecoverableSeconds
+    }
   })
 
-  // Recover idle time - extend the previous entry's end time to include idle duration
+  // Recover idle time - extend the previous entry's end time to now (as if tracking never stopped)
   ipcMain.handle('recover-idle-time', () => {
     if (!lastIdlePauseInfo) return null
 
-    const { entryId, idleDurationSeconds } = lastIdlePauseInfo
+    const { entryId } = lastIdlePauseInfo
 
     // Get the entry to recover
     const entry = db.prepare('SELECT * FROM time_entries WHERE id = ?').get(entryId) as TimeEntryRow | undefined
@@ -221,9 +238,10 @@ export function setupTrackingHandlers(ctx: TrackingContext) {
       return null
     }
 
-    // Extend the end time by the idle duration
+    // Set end time to now (recover all time since entry ended)
     const oldEndTime = new Date(entry.ended_at)
-    const newEndTime = new Date(oldEndTime.getTime() + idleDurationSeconds * 1000)
+    const newEndTime = new Date()
+    const recoveredSeconds = Math.floor((newEndTime.getTime() - oldEndTime.getTime()) / 1000)
 
     db.prepare('UPDATE time_entries SET ended_at = ? WHERE id = ?').run(newEndTime.toISOString(), entryId)
 
@@ -236,7 +254,7 @@ export function setupTrackingHandlers(ctx: TrackingContext) {
 
     return {
       entryId,
-      recoveredSeconds: idleDurationSeconds,
+      recoveredSeconds,
       newEndTime: newEndTime.toISOString()
     }
   })
