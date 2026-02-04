@@ -47,6 +47,11 @@ const showAddEntryModal = ref(false)
 // Actions menu state
 const openMenuId = ref<number | null>(null)
 const expandedNotesId = ref<number | null>(null)
+
+// Check if a day group contains the entry with open menu (for z-index elevation)
+function groupHasOpenMenu(group: DayGroup): boolean {
+  return openMenuId.value !== null && group.entries.some(e => e.id === openMenuId.value)
+}
 const toastMessage = ref('')
 const toastIsError = ref(false)
 
@@ -526,7 +531,7 @@ defineExpose({ openAddEntryModal, loadEntries })
         <RCard
           v-for="group in groupedEntries"
           :key="group.date"
-          class="day-card"
+          :class="['day-card', { 'day-card-menu-open': groupHasOpenMenu(group) }]"
         >
           <template #title>
             <RSpace justify="space-between" class="w-full">
@@ -858,6 +863,12 @@ defineExpose({ openAddEntryModal, loadEntries })
 .day-card {
   --r-card-padding: 0.5rem;
   overflow: visible;
+  position: relative;
+}
+
+/* Elevate day-card when it contains an open menu so dropdown appears above other cards */
+.day-card-menu-open {
+  z-index: 100;
 }
 
 /* Ensure card internals allow popover overflow */
