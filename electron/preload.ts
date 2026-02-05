@@ -20,6 +20,11 @@ const electronAPI: ElectronAPI = {
   checkTrackingRecovery: () => ipcRenderer.invoke('check-tracking-recovery'),
   resolveTrackingRecovery: (action, customEndTime) => ipcRenderer.invoke('resolve-tracking-recovery', action, customEndTime),
 
+  // Idle recovery
+  getIdleRecoveryInfo: () => ipcRenderer.invoke('get-idle-recovery-info'),
+  recoverIdleTime: () => ipcRenderer.invoke('recover-idle-time'),
+  dismissIdleRecovery: () => ipcRenderer.invoke('dismiss-idle-recovery'),
+
   // Presence mode
   getPresenceMode: () => ipcRenderer.invoke('get-presence-mode'),
   setPresenceMode: (enabled) => ipcRenderer.invoke('set-presence-mode', enabled),
@@ -35,6 +40,7 @@ const electronAPI: ElectronAPI = {
   updateTimeEntry: (id, updates) => ipcRenderer.invoke('update-time-entry', id, updates),
   deleteTimeEntry: (id) => ipcRenderer.invoke('delete-time-entry', id),
   deleteTimeEntries: (ids) => ipcRenderer.invoke('delete-time-entries', ids),
+  mergeTimeEntries: (ids: number[]) => ipcRenderer.invoke('merge-time-entries', ids),
   deleteIssues: (ids) => ipcRenderer.invoke('delete-issues', ids),
   wipeDatabase: () => ipcRenderer.invoke('wipe-database'),
   exportDatabase: () => ipcRenderer.invoke('export-database'),

@@ -3,7 +3,7 @@ import { ref, computed, watch, onMounted } from 'vue'
 import type { TimeEntry, Issue, DayGroup } from '../types'
 import { useIssuesStore } from '../stores/issues.store'
 import { formatTime, formatDuration, formatDate, toLocalDateTimeInput } from '@/utils/format'
-import { RCard, RButton, RInput, RText, RSpace, RList, RListItem, RDialog, RFormItem } from 'roughness'
+import { RCard, RButton, RInput, RText, RSpace, RList, RListItem, RDialog, RPopover } from 'roughness'
 import Icon from './Icon.vue'
 
 defineProps<{
@@ -26,17 +26,14 @@ const endDate = ref(monthEnd.toISOString().split('T')[0])
 // Edit mode - discriminated union for mutually exclusive edit states
 type EditMode =
   | { type: 'normal' }
-  | { type: 'editTime'; entryId: number }
+  | { type: 'edit'; entryId: number; issueId: number }
   | { type: 'editNotes'; entryId: number }
-  | { type: 'editIssue'; issueId: number }
-  | { type: 'deleteConfirm'; entryId: number }
 
 const editMode = ref<EditMode>({ type: 'normal' })
 
-// Form data for each edit type
-const editForm = ref({ startedAt: '', endedAt: '' })
+// Form data for edit mode (combined time + issue)
+const editForm = ref({ startedAt: '', endedAt: '', issueName: '', issueLink: '' })
 const notesForm = ref('')
-const issueEditForm = ref({ name: '', link: '' })
 
 // Bulk delete state
 const selectionMode = ref(false)
@@ -46,7 +43,23 @@ const bulkDeleteType = ref<'selected' | 'range'>('selected')
 
 // Add entry modal state
 const showAddEntryModal = ref(false)
-const successMessage = ref('')
+
+// Actions menu state
+const openMenuId = ref<number | null>(null)
+const expandedNotesId = ref<number | null>(null)
+
+// Check if a day group contains the entry with open menu (for z-index elevation)
+function groupHasOpenMenu(group: DayGroup): boolean {
+  return openMenuId.value !== null && group.entries.some(e => e.id === openMenuId.value)
+}
+const toastMessage = ref('')
+const toastIsError = ref(false)
+
+function showToast(message: string, isError = false) {
+  toastMessage.value = message
+  toastIsError.value = isError
+  setTimeout(() => { toastMessage.value = '' }, 3000)
+}
 const addEntryForm = ref({
   issueText: '',
   issueLink: '',
@@ -102,12 +115,14 @@ function entryDuration(entry: TimeEntry): number {
   return (end - start) / 1000
 }
 
-// Edit functions (time only)
+// Combined edit function (time + issue)
 function startEditing(entry: TimeEntry & { issue: Issue }) {
-  editMode.value = { type: 'editTime', entryId: entry.id }
+  editMode.value = { type: 'edit', entryId: entry.id, issueId: entry.issue.id }
   editForm.value = {
     startedAt: toLocalDateTimeInput(entry.startedAt),
-    endedAt: entry.endedAt ? toLocalDateTimeInput(entry.endedAt) : ''
+    endedAt: entry.endedAt ? toLocalDateTimeInput(entry.endedAt) : '',
+    issueName: entry.issue.name,
+    issueLink: entry.issue.link || ''
   }
 }
 
@@ -116,20 +131,32 @@ function cancelEditing() {
 }
 
 async function saveEdit() {
-  if (editMode.value.type !== 'editTime') return
+  if (editMode.value.type !== 'edit') return
 
-  const updates: { startedAt?: string; endedAt?: string } = {}
+  try {
+    // Update time entry
+    const updates: { startedAt?: string; endedAt?: string } = {}
+    if (editForm.value.startedAt) {
+      updates.startedAt = new Date(editForm.value.startedAt).toISOString()
+    }
+    if (editForm.value.endedAt) {
+      updates.endedAt = new Date(editForm.value.endedAt).toISOString()
+    }
+    await window.electronAPI.updateTimeEntry(editMode.value.entryId, updates)
 
-  if (editForm.value.startedAt) {
-    updates.startedAt = new Date(editForm.value.startedAt).toISOString()
+    // Update issue
+    await issuesStore.updateIssue(editMode.value.issueId, {
+      name: editForm.value.issueName.trim(),
+      link: editForm.value.issueLink.trim() || null
+    })
+
+    editMode.value = { type: 'normal' }
+    await loadEntries()
+    showToast('Entry updated')
+  } catch (err) {
+    console.error('Failed to save edit:', err)
+    showToast('Failed to save changes', true)
   }
-  if (editForm.value.endedAt) {
-    updates.endedAt = new Date(editForm.value.endedAt).toISOString()
-  }
-
-  await window.electronAPI.updateTimeEntry(editMode.value.entryId, updates)
-  editMode.value = { type: 'normal' }
-  await loadEntries()
 }
 
 // Notes functions
@@ -145,49 +172,67 @@ function cancelEditingNotes() {
 async function saveNotes() {
   if (editMode.value.type !== 'editNotes') return
 
-  await window.electronAPI.updateTimeEntry(editMode.value.entryId, { notes: notesForm.value || undefined })
-  editMode.value = { type: 'normal' }
-  await loadEntries()
-}
-
-// Issue edit functions
-function startEditingIssue(entry: TimeEntry & { issue: Issue }) {
-  editMode.value = { type: 'editIssue', issueId: entry.issue.id }
-  issueEditForm.value = {
-    name: entry.issue.name,
-    link: entry.issue.link || ''
+  try {
+    await window.electronAPI.updateTimeEntry(editMode.value.entryId, { notes: notesForm.value || undefined })
+    editMode.value = { type: 'normal' }
+    await loadEntries()
+    showToast('Notes saved')
+  } catch (err) {
+    console.error('Failed to save notes:', err)
+    showToast('Failed to save notes', true)
   }
 }
 
-function cancelEditingIssue() {
-  editMode.value = { type: 'normal' }
+// Delete function
+async function deleteEntry(entryId: number) {
+  try {
+    await window.electronAPI.deleteTimeEntry(entryId)
+    await loadEntries()
+    emit('entries-changed')
+    showToast('Entry deleted')
+  } catch (err) {
+    console.error('Failed to delete entry:', err)
+    showToast('Failed to delete entry', true)
+  }
 }
 
-async function saveIssueEdit() {
-  if (editMode.value.type !== 'editIssue') return
+// Merge up/down functions
+function getAdjacentEntry(entry: TimeEntry & { issue: Issue }, direction: 'up' | 'down'): (TimeEntry & { issue: Issue }) | null {
+  // Flatten all entries in display order (newest first)
+  const allEntries = groupedEntries.value.flatMap(g => g.entries)
+  const currentIndex = allEntries.findIndex(e => e.id === entry.id)
 
-  await issuesStore.updateIssue(editMode.value.issueId, {
-    name: issueEditForm.value.name.trim(),
-    link: issueEditForm.value.link.trim() || null
-  })
-  editMode.value = { type: 'normal' }
-  await loadEntries()
+  if (currentIndex === -1) return null
+
+  // "up" means previous in list (more recent), "down" means next in list (older)
+  const adjacentIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1
+
+  if (adjacentIndex < 0 || adjacentIndex >= allEntries.length) return null
+
+  return allEntries[adjacentIndex]
 }
 
-// Delete functions
-function confirmDelete(entryId: number) {
-  editMode.value = { type: 'deleteConfirm', entryId }
+function canMergeWith(entry: TimeEntry & { issue: Issue }, direction: 'up' | 'down'): boolean {
+  return getAdjacentEntry(entry, direction) !== null
 }
 
-function cancelDelete() {
-  editMode.value = { type: 'normal' }
-}
+async function mergeWithAdjacent(entry: TimeEntry & { issue: Issue }, direction: 'up' | 'down') {
+  const adjacent = getAdjacentEntry(entry, direction)
+  if (!adjacent) return
 
-async function executeDelete(entryId: number) {
-  await window.electronAPI.deleteTimeEntry(entryId)
-  editMode.value = { type: 'normal' }
-  await loadEntries()
-  emit('entries-changed')
+  try {
+    // Target entry (the one we merge INTO) comes first - its issue will be used
+    const targetEntry = adjacent
+    const ids = [targetEntry.id, entry.id]
+
+    await window.electronAPI.mergeTimeEntries(ids)
+    await loadEntries()
+    emit('entries-changed')
+    showToast(`Merged into "${targetEntry.issue.name}"`)
+  } catch (err) {
+    console.error('Failed to merge:', err)
+    showToast('Failed to merge entries', true)
+  }
 }
 
 // Add entry functions
@@ -211,43 +256,43 @@ async function submitAddEntry() {
   const issueText = addEntryForm.value.issueText.trim()
   if (!issueText) return
 
-  // Find existing issue or create new one
-  let issueId: number
-  const existingIssue = issuesStore.issues.find(
-    i => `${i.externalId} - ${i.name}` === issueText ||
-         i.externalId === issueText ||
-         i.name === issueText
-  )
+  try {
+    // Find existing issue or create new one
+    let issueId: number
+    const existingIssue = issuesStore.issues.find(
+      i => `${i.externalId} - ${i.name}` === issueText ||
+           i.externalId === issueText ||
+           i.name === issueText
+    )
 
-  if (existingIssue) {
-    issueId = existingIssue.id
-  } else {
-    // Create new issue with the text as name
-    const link = addEntryForm.value.issueLink.trim() || null
-    // Don't duplicate name as ID - leave ID empty for manual entries
-    const newIssue = await issuesStore.createIssue('', issueText, link)
-    issueId = newIssue.id
+    if (existingIssue) {
+      issueId = existingIssue.id
+    } else {
+      // Create new issue with the text as name
+      const link = addEntryForm.value.issueLink.trim() || null
+      // Don't duplicate name as ID - leave ID empty for manual entries
+      const newIssue = await issuesStore.createIssue('', issueText, link)
+      issueId = newIssue.id
+    }
+
+    const startedAt = new Date(`${addEntryForm.value.date}T${addEntryForm.value.startTime}`).toISOString()
+    const endedAt = new Date(`${addEntryForm.value.date}T${addEntryForm.value.endTime}`).toISOString()
+
+    await window.electronAPI.createTimeEntry(
+      issueId,
+      startedAt,
+      endedAt,
+      addEntryForm.value.notes || undefined
+    )
+
+    showAddEntryModal.value = false
+    await loadEntries()
+    emit('entries-changed')
+    showToast('Entry added')
+  } catch (err) {
+    console.error('Failed to add entry:', err)
+    showToast('Failed to add entry', true)
   }
-
-  const startedAt = new Date(`${addEntryForm.value.date}T${addEntryForm.value.startTime}`).toISOString()
-  const endedAt = new Date(`${addEntryForm.value.date}T${addEntryForm.value.endTime}`).toISOString()
-
-  await window.electronAPI.createTimeEntry(
-    issueId,
-    startedAt,
-    endedAt,
-    addEntryForm.value.notes || undefined
-  )
-
-  showAddEntryModal.value = false
-  await loadEntries()
-  emit('entries-changed')
-
-  // Show success message
-  successMessage.value = 'Entry added successfully'
-  setTimeout(() => {
-    successMessage.value = ''
-  }, 3000)
 }
 
 // Computed preview duration for add entry form
@@ -308,15 +353,58 @@ async function executeBulkDelete() {
     idsToDelete = entries.value.map(e => e.id)
   }
 
-  if (idsToDelete.length > 0) {
-    await window.electronAPI.deleteTimeEntries(idsToDelete)
-  }
+  try {
+    if (idsToDelete.length > 0) {
+      await window.electronAPI.deleteTimeEntries(idsToDelete)
+    }
 
-  showBulkDeleteConfirm.value = false
-  selectedIds.value.clear()
-  selectionMode.value = false
-  await loadEntries()
-  emit('entries-changed')
+    showBulkDeleteConfirm.value = false
+    selectedIds.value.clear()
+    selectionMode.value = false
+    await loadEntries()
+    emit('entries-changed')
+    showToast(`Deleted ${idsToDelete.length} ${idsToDelete.length === 1 ? 'entry' : 'entries'}`)
+  } catch (err) {
+    console.error('Failed to delete entries:', err)
+    showToast('Failed to delete entries', true)
+    showBulkDeleteConfirm.value = false
+  }
+}
+
+// Merge functionality
+const canMergeSelected = computed(() => {
+  if (selectedIds.value.size < 2) return false
+
+  // Get selected entries
+  const selectedEntries = entries.value.filter(e => selectedIds.value.has(e.id))
+  if (selectedEntries.length < 2) return false
+
+  // Check all entries have the same issue
+  const issueIds = new Set(selectedEntries.map(e => e.issue.id))
+  return issueIds.size === 1
+})
+
+const mergeTooltip = computed(() => {
+  if (selectedIds.value.size < 2) return 'Select at least 2 entries to merge'
+  if (!canMergeSelected.value) return 'Can only merge entries for the same tracked item'
+  return 'Merge selected entries into one'
+})
+
+async function mergeSelected() {
+  if (!canMergeSelected.value) return
+
+  const ids = Array.from(selectedIds.value)
+  try {
+    await window.electronAPI.mergeTimeEntries(ids)
+    selectedIds.value.clear()
+    selectionMode.value = false
+    await loadEntries()
+    emit('entries-changed')
+    showToast('Entries merged')
+  } catch (err) {
+    console.error('Failed to merge entries:', err)
+    showToast('Failed to merge entries', true)
+  }
 }
 
 // State message for "you are here" anchor
@@ -353,8 +441,8 @@ defineExpose({ openAddEntryModal, loadEntries })
 <template>
   <div class="history-list">
     <!-- Success message -->
-    <div v-if="successMessage" class="success-toast">
-      {{ successMessage }}
+    <div v-if="toastMessage" :class="['toast', toastIsError ? 'toast-error' : 'toast-success']">
+      {{ toastMessage }}
     </div>
 
     <!-- Main History card with unified header -->
@@ -384,6 +472,15 @@ defineExpose({ openAddEntryModal, loadEntries })
               {{ selectionMode ? 'Cancel' : 'Select' }}
             </RButton>
             <template v-if="selectionMode">
+              <RButton
+                size="small"
+                color="success"
+                :disabled="!canMergeSelected"
+                :title="mergeTooltip"
+                @click="mergeSelected"
+              >
+                Merge ({{ selectedIds.size }})
+              </RButton>
               <RButton
                 size="small"
                 color="error"
@@ -434,7 +531,7 @@ defineExpose({ openAddEntryModal, loadEntries })
         <RCard
           v-for="group in groupedEntries"
           :key="group.date"
-          class="day-card"
+          :class="['day-card', { 'day-card-menu-open': groupHasOpenMenu(group) }]"
         >
           <template #title>
             <RSpace justify="space-between" class="w-full">
@@ -469,35 +566,48 @@ defineExpose({ openAddEntryModal, loadEntries })
               :key="entry.id"
               class="entry-item"
             >
-              <!-- Edit time mode -->
-              <form v-if="editMode.type === 'editTime' && editMode.entryId === entry.id" @submit.prevent="saveEdit" class="space-y-3 w-full">
-                <RSpace>
-                  <RFormItem label="Start">
-                    <input
-                      v-model="editForm.startedAt"
-                      type="datetime-local"
-                      class="date-input"
-                      required
-                    />
-                  </RFormItem>
-                  <RFormItem label="End">
-                    <input
-                      v-model="editForm.endedAt"
-                      type="datetime-local"
-                      class="date-input"
-                    />
-                  </RFormItem>
-                  <RSpace class="self-end">
-                    <RButton type="submit" size="small" filled>Save</RButton>
-                    <RButton type="button" size="small" @click="cancelEditing">Cancel</RButton>
-                  </RSpace>
-                </RSpace>
+              <!-- Edit mode (combined time + issue) -->
+              <form v-if="editMode.type === 'edit' && editMode.entryId === entry.id" @submit.prevent="saveEdit" class="edit-form">
+                <div class="edit-grid">
+                  <label class="edit-label">Item</label>
+                  <input
+                    v-model="editForm.issueName"
+                    type="text"
+                    class="date-input"
+                    placeholder="Description"
+                    required
+                  />
+                  <label class="edit-label">Link</label>
+                  <input
+                    v-model="editForm.issueLink"
+                    type="text"
+                    class="date-input"
+                    placeholder="URL (optional)"
+                  />
+                  <label class="edit-label">Start</label>
+                  <input
+                    v-model="editForm.startedAt"
+                    type="datetime-local"
+                    class="date-input"
+                    required
+                  />
+                  <label class="edit-label">End</label>
+                  <input
+                    v-model="editForm.endedAt"
+                    type="datetime-local"
+                    class="date-input"
+                  />
+                </div>
+                <div class="edit-actions">
+                  <RButton type="submit" size="small" filled>Save</RButton>
+                  <RButton type="button" size="small" @click="cancelEditing">Cancel</RButton>
+                </div>
               </form>
 
               <!-- Edit notes mode -->
               <div v-else-if="editMode.type === 'editNotes' && editMode.entryId === entry.id" class="space-y-2 w-full">
-                <RText class="text-secondary text-sm">
-                  <strong>{{ entry.issue.externalId }}</strong> {{ entry.issue.name }}
+                <RText class="text-sm">
+                  <span class="text-secondary">{{ entry.issue.externalId }}</span> {{ entry.issue.name }}
                 </RText>
                 <RInput
                   v-model="notesForm"
@@ -510,22 +620,6 @@ defineExpose({ openAddEntryModal, loadEntries })
                 </RSpace>
               </div>
 
-              <!-- Edit issue mode -->
-              <form v-else-if="editMode.type === 'editIssue' && editMode.issueId === entry.issue.id" @submit.prevent="saveIssueEdit" class="flex items-center gap-3 w-full">
-                <RInput
-                  v-model="issueEditForm.link"
-                  placeholder="Issue URL"
-                  class="w-48"
-                />
-                <RInput
-                  v-model="issueEditForm.name"
-                  placeholder="Name"
-                  class="flex-1"
-                />
-                <RButton type="submit" size="small" filled>Save</RButton>
-                <RButton type="button" size="small" @click="cancelEditingIssue">Cancel</RButton>
-              </form>
-
               <!-- Normal display mode -->
               <div v-else class="flex items-center gap-4 w-full">
                 <input
@@ -537,14 +631,22 @@ defineExpose({ openAddEntryModal, loadEntries })
                 />
                 <div class="flex-1">
                   <div class="flex items-center gap-2">
-                    <RText class="font-medium">{{ entry.issue.externalId }}</RText>
-                    <RText class="text-secondary">{{ entry.issue.name }}</RText>
+                    <RText class="text-secondary">{{ entry.issue.externalId }}</RText>
+                    <RText>{{ entry.issue.name }}</RText>
                   </div>
                   <RText size="small" class="text-secondary">
                     {{ formatTime(entry.startedAt) }} - {{ entry.endedAt ? formatTime(entry.endedAt) : 'ongoing' }}
                     <span v-if="entry.pausedReason" class="ml-2">({{ entry.pausedReason }})</span>
+                    <button
+                      v-if="entry.notes"
+                      class="notes-toggle"
+                      @click="expandedNotesId = expandedNotesId === entry.id ? null : entry.id"
+                      title="Show notes"
+                    >
+                      <Icon name="note" :size="12" />
+                    </button>
                   </RText>
-                  <RText v-if="entry.notes" size="small" class="text-secondary italic block mt-1">
+                  <RText v-if="entry.notes && expandedNotesId === entry.id" size="small" class="text-secondary italic block mt-1 entry-notes">
                     {{ entry.notes }}
                   </RText>
                 </div>
@@ -552,41 +654,71 @@ defineExpose({ openAddEntryModal, loadEntries })
                   {{ formatDuration(entryDuration(entry)) }}
                 </RText>
 
-                <!-- Action buttons (ghosted, visible on hover) -->
+                <!-- Actions dropdown menu -->
                 <div class="entry-actions" v-if="!selectionMode">
-                  <RButton
-                    size="small"
-                    @click="startEditingNotes(entry)"
-                    title="Notes"
+                  <RPopover
+                    trigger="click"
+                    side="bottom"
+                    align="end"
+                    :open="openMenuId === entry.id"
+                    @update:open="(v: boolean) => openMenuId = v ? entry.id : null"
                   >
-                    <Icon name="note" :size="16" />
-                  </RButton>
-                  <RButton
-                    size="small"
-                    @click="startEditing(entry)"
-                    title="Edit time"
-                  >
-                    <Icon name="clock" :size="16" />
-                  </RButton>
-                  <RButton
-                    size="small"
-                    @click="startEditingIssue(entry)"
-                    title="Edit issue"
-                  >
-                    <Icon name="pencil" :size="16" />
-                  </RButton>
-                  <RButton
-                    v-if="!(editMode.type === 'deleteConfirm' && editMode.entryId === entry.id)"
-                    size="small"
-                    @click="confirmDelete(entry.id)"
-                    title="Delete"
-                  >
-                    <Icon name="delete" :size="16" />
-                  </RButton>
-                  <div v-else class="delete-confirm">
-                    <RButton size="small" color="error" filled @click="executeDelete(entry.id)" title="Confirm delete">Yes</RButton>
-                    <RButton size="small" @click="cancelDelete" title="Cancel delete">No</RButton>
-                  </div>
+                    <template #anchor>
+                      <RButton
+                        size="small"
+                        title="Actions"
+                        class="menu-trigger"
+                      >
+                        <span class="menu-dots">&#8942;</span>
+                      </RButton>
+                    </template>
+
+                    <div class="actions-menu">
+                      <!-- Notes -->
+                      <button class="menu-item" @click="startEditingNotes(entry); openMenuId = null">
+                        <Icon name="note" :size="16" />
+                        <span>Notes</span>
+                      </button>
+
+                      <!-- Edit (combined time + issue) -->
+                      <button class="menu-item" @click="startEditing(entry); openMenuId = null">
+                        <Icon name="pencil" :size="16" />
+                        <span>Edit</span>
+                      </button>
+
+                      <div class="menu-divider"></div>
+
+                      <!-- Merge up -->
+                      <button
+                        class="menu-item"
+                        :class="{ 'menu-item-disabled': !canMergeWith(entry, 'up') }"
+                        :disabled="!canMergeWith(entry, 'up')"
+                        @click="mergeWithAdjacent(entry, 'up'); openMenuId = null"
+                      >
+                        <Icon name="merge" :size="16" />
+                        <span>Merge up</span>
+                      </button>
+
+                      <!-- Merge down -->
+                      <button
+                        class="menu-item"
+                        :class="{ 'menu-item-disabled': !canMergeWith(entry, 'down') }"
+                        :disabled="!canMergeWith(entry, 'down')"
+                        @click="mergeWithAdjacent(entry, 'down'); openMenuId = null"
+                      >
+                        <Icon name="merge" :size="16" />
+                        <span>Merge down</span>
+                      </button>
+
+                      <div class="menu-divider"></div>
+
+                      <!-- Delete -->
+                      <button class="menu-item menu-item-danger" @click="deleteEntry(entry.id); openMenuId = null">
+                        <Icon name="delete" :size="16" />
+                        <span>Delete</span>
+                      </button>
+                    </div>
+                  </RPopover>
                 </div>
               </div>
             </RListItem>
@@ -616,12 +748,12 @@ defineExpose({ openAddEntryModal, loadEntries })
 
       <form @submit.prevent="submitAddEntry" class="dialog-form">
         <div class="form-group">
-          <label class="form-label">Issue (select existing or type new)</label>
+          <label class="form-label">Tracked item (select existing or type new)</label>
           <input
             v-model="addEntryForm.issueText"
             list="issue-suggestions"
             class="select-input"
-            placeholder="Type issue name or select from list"
+            placeholder="Type description or select from list"
             required
           />
           <datalist id="issue-suggestions">
@@ -630,7 +762,7 @@ defineExpose({ openAddEntryModal, loadEntries })
         </div>
 
         <div class="form-group">
-          <label class="form-label">Link (optional, for new issues)</label>
+          <label class="form-label">Link (optional, for new tracked items)</label>
           <input
             v-model="addEntryForm.issueLink"
             type="text"
@@ -730,6 +862,18 @@ defineExpose({ openAddEntryModal, loadEntries })
 
 .day-card {
   --r-card-padding: 0.5rem;
+  overflow: visible;
+  position: relative;
+}
+
+/* Elevate day-card when it contains an open menu so dropdown appears above other cards */
+.day-card-menu-open {
+  z-index: 100;
+}
+
+/* Ensure card internals allow popover overflow */
+.day-card :deep(.r-card__body) {
+  overflow: visible;
 }
 
 .date-label {
@@ -741,21 +885,66 @@ defineExpose({ openAddEntryModal, loadEntries })
   padding: 0.75rem 0;
 }
 
+.edit-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 0.5rem 0;
+  width: 100%;
+}
+
+.edit-grid {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.5rem 0.75rem;
+  align-items: center;
+}
+
+.edit-label {
+  font-size: 0.8rem;
+  color: var(--color-text-secondary);
+  text-align: right;
+}
+
+.edit-actions {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: flex-end;
+}
+
 .date-input,
 .select-input {
-  padding: 0.35rem 0.5rem;
-  border: 1px solid var(--color-border);
-  border-radius: 3px;
-  background: var(--color-bg);
+  padding: 0.4rem 0.6rem;
+  border: 2px solid var(--color-border);
+  border-radius: 4px;
+  background: var(--color-bg-secondary);
   color: var(--color-text);
   font-family: inherit;
   font-size: 0.85rem;
+  /* Match roughness sketchy style */
+  box-shadow: 1px 1px 0 var(--color-border);
 }
 
 .date-input:focus,
 .select-input:focus {
   outline: none;
   border-color: var(--color-accent);
+  box-shadow: 1px 1px 0 var(--color-accent);
+}
+
+.date-input:hover,
+.select-input:hover {
+  border-color: var(--color-text-secondary);
+}
+
+/* Style datetime-local picker to match app theme */
+.date-input::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  filter: opacity(0.6);
+}
+
+.date-input::-webkit-calendar-picker-indicator:hover {
+  filter: opacity(1);
 }
 
 .select-input {
@@ -801,15 +990,21 @@ defineExpose({ openAddEntryModal, loadEntries })
   padding: 0.5rem 0.75rem;
   border: 2px solid var(--color-border);
   border-radius: 4px;
-  background: var(--color-bg);
+  background: var(--color-bg-secondary);
   color: var(--color-text);
   font-family: inherit;
   resize: vertical;
+  box-shadow: 1px 1px 0 var(--color-border);
 }
 
 .notes-input:focus {
   outline: none;
   border-color: var(--color-accent);
+  box-shadow: 1px 1px 0 var(--color-accent);
+}
+
+.notes-input:hover {
+  border-color: var(--color-text-secondary);
 }
 
 .form-actions {
@@ -819,13 +1014,36 @@ defineExpose({ openAddEntryModal, loadEntries })
   margin-top: 0.5rem;
 }
 
-.success-toast {
-  background: var(--color-success);
+.toast {
+  position: fixed;
+  top: 1rem;
+  right: 1rem;
   color: white;
-  padding: 0.75rem 1rem;
+  padding: 0.75rem 1.25rem;
   border-radius: 4px;
-  text-align: center;
   font-weight: 500;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 9999;
+  animation: slideIn 0.2s ease-out;
+}
+
+.toast-success {
+  background: var(--color-success);
+}
+
+.toast-error {
+  background: var(--color-danger);
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateX(1rem);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
 }
 
 .bulk-toolbar {
@@ -846,17 +1064,81 @@ defineExpose({ openAddEntryModal, loadEntries })
 .entry-actions {
   display: flex;
   gap: 0.25rem;
-  opacity: 0.15;
+  position: relative;
+}
+
+/* Ensure popover content appears above everything */
+.entry-actions :deep(.r-popover__content) {
+  z-index: 9999 !important;
+}
+
+/* Menu trigger button */
+.menu-trigger {
+  opacity: 0.4;
   transition: opacity 0.15s ease;
 }
 
-.entry-item:hover .entry-actions {
+.entry-item:hover .menu-trigger {
   opacity: 1;
 }
 
-.delete-confirm {
+.menu-dots {
+  font-size: 1.25rem;
+  line-height: 1;
+  font-weight: bold;
+}
+
+/* Actions dropdown menu */
+.actions-menu {
   display: flex;
-  gap: 0.25rem;
+  flex-direction: column;
+  min-width: 140px;
+  padding: 0.25rem 0;
+  position: relative;
+  z-index: 9999;
+}
+
+.menu-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  border: none;
+  background: none;
+  color: var(--color-text);
+  font-family: inherit;
+  font-size: 0.875rem;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 0.1s ease;
+}
+
+.menu-item:hover {
+  background-color: var(--color-bg-secondary, rgba(0, 0, 0, 0.05));
+}
+
+.menu-item-danger {
+  color: var(--r-color-error, #e53935);
+}
+
+.menu-item-danger:hover {
+  background-color: rgba(229, 57, 53, 0.1);
+}
+
+.menu-item-disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.menu-item-disabled:hover {
+  background-color: transparent;
+}
+
+.menu-divider {
+  height: 1px;
+  margin: 0.25rem 0;
+  background-color: var(--color-border, rgba(0, 0, 0, 0.1));
 }
 
 /* Day-level add button - subtle, appears on hover */
@@ -873,6 +1155,27 @@ defineExpose({ openAddEntryModal, loadEntries })
 
 .day-add-btn:hover {
   opacity: 1 !important;
+}
+
+.notes-toggle {
+  background: none;
+  border: none;
+  cursor: pointer;
+  opacity: 0.6;
+  padding: 0 0.25rem;
+  vertical-align: middle;
+}
+
+.notes-toggle:hover {
+  opacity: 1;
+}
+
+.entry-notes {
+  word-break: break-word;
+  overflow-wrap: break-word;
+  white-space: pre-wrap;
+  max-height: 4rem;
+  overflow-y: auto;
 }
 
 </style>

@@ -9,6 +9,7 @@ import ClockIcon from '../assets/icons/clock.svg?raw'
 import NoteIcon from '../assets/icons/note.svg?raw'
 import BoxIcon from '../assets/icons/box.svg?raw'
 import PresenceIcon from '../assets/icons/presence.svg?raw'
+import MergeIcon from '../assets/icons/merge.svg?raw'
 
 const icons: Record<string, string> = {
   play: PlayIcon,
@@ -19,6 +20,7 @@ const icons: Record<string, string> = {
   note: NoteIcon,
   box: BoxIcon,
   presence: PresenceIcon,
+  merge: MergeIcon,
 }
 
 const props = defineProps<{

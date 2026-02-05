@@ -55,6 +55,18 @@ export interface TrackingRecoveryInfo {
   elapsedSinceLastSeenSeconds: number
 }
 
+export interface IdleRecoveryInfo {
+  entryId: number
+  idleDurationSeconds: number
+  pausedAt: string
+}
+
+export interface IdleRecoveryResult {
+  entryId: number
+  recoveredSeconds: number
+  newEndTime: string
+}
+
 export interface AppSettings {
   dailyTargetHours: number
   weeklyTargetHours: number
@@ -91,6 +103,11 @@ export interface ElectronAPI {
   checkTrackingRecovery: () => Promise<TrackingRecoveryInfo | null>
   resolveTrackingRecovery: (action: 'keep-all' | 'end-at-close' | 'discard', customEndTime?: string) => Promise<{ entry: TimeEntry; issue: Issue } | null>
 
+  // Idle recovery
+  getIdleRecoveryInfo: () => Promise<IdleRecoveryInfo | null>
+  recoverIdleTime: () => Promise<IdleRecoveryResult | null>
+  dismissIdleRecovery: () => Promise<void>
+
   // Presence mode
   getPresenceMode: () => Promise<boolean>
   setPresenceMode: (enabled: boolean) => Promise<void>
@@ -106,6 +123,7 @@ export interface ElectronAPI {
   updateTimeEntry: (id: number, updates: { startedAt?: string; endedAt?: string; notes?: string }) => Promise<TimeEntry>
   deleteTimeEntry: (id: number) => Promise<void>
   deleteTimeEntries: (ids: number[]) => Promise<void>
+  mergeTimeEntries: (ids: number[]) => Promise<TimeEntry>
   deleteIssues: (ids: number[]) => Promise<void>
   wipeDatabase: () => Promise<void>
   exportDatabase: () => Promise<boolean>

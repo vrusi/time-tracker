@@ -1,24 +1,165 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { ref, watch, computed, nextTick } from 'vue'
 import { useTrackerStore } from '../stores/tracker.store'
+import { useIssuesStore } from '../stores/issues.store'
+import { useSettingsStore } from '../stores/settings.store'
+import type { Issue } from '../types'
 import { RCard, RButton, RInput, RProgress, RText } from 'roughness'
 import Icon from './Icon.vue'
 
 const trackerStore = useTrackerStore()
+const issuesStore = useIssuesStore()
+const settingsStore = useSettingsStore()
+
+// Issue form state
+const link = ref('')
+const name = ref('')
+const isSubmitting = ref(false)
+const matchedIssue = ref<Issue | null>(null)
+
+// Watch link changes to find existing issues
+watch(link, (url) => {
+  const trimmedUrl = url.trim()
+  if (!trimmedUrl) {
+    matchedIssue.value = null
+    return
+  }
+
+  // Check by exact link match first
+  let existing = issuesStore.issues.find(i => i.link === trimmedUrl)
+
+  // If no link match, try matching by extracted ID
+  if (!existing) {
+    const extractedId = settingsStore.extractIssueId(trimmedUrl)
+    if (extractedId) {
+      existing = issuesStore.issues.find(i => i.externalId === extractedId)
+    }
+  }
+
+  if (existing) {
+    matchedIssue.value = existing
+    name.value = existing.name
+  } else {
+    matchedIssue.value = null
+  }
+})
+
+const submitTooltip = computed(() => {
+  return matchedIssue.value
+    ? 'Resume tracking existing tracked item'
+    : 'Start tracking this tracked item'
+})
+
+async function handleFormSubmit() {
+  const url = link.value.trim() || null
+  const issueName = name.value.trim() || 'Untitled'
+
+  isSubmitting.value = true
+  try {
+    let issue: Issue
+
+    if (matchedIssue.value) {
+      // Use existing issue
+      issue = matchedIssue.value
+    } else {
+      // Create new issue
+      let externalId = ''
+      if (url) {
+        externalId = settingsStore.extractIssueId(url) || ''
+      }
+      issue = await issuesStore.createIssue(externalId, issueName, url)
+    }
+
+    // Start tracking
+    await trackerStore.startTracking(issue.id)
+    link.value = ''
+    name.value = ''
+    matchedIssue.value = null
+  } finally {
+    isSubmitting.value = false
+  }
+}
 
 const showNotes = ref(false)
 const currentNotes = ref('')
 
-// Save notes to current entry when pausing
-async function pauseWithNotes() {
-  if (trackerStore.currentEntry && currentNotes.value.trim()) {
-    await window.electronAPI.updateTimeEntry(trackerStore.currentEntry.id, {
-      notes: currentNotes.value.trim()
+// Toast state
+const toastMessage = ref('')
+const toastIsError = ref(false)
+
+function showToast(message: string, isError = false) {
+  toastMessage.value = message
+  toastIsError.value = isError
+  setTimeout(() => { toastMessage.value = '' }, 3000)
+}
+
+// Edit issue name while tracking
+const isEditingName = ref(false)
+const editedName = ref('')
+const nameInput = ref<HTMLInputElement | null>(null)
+
+function startEditingName() {
+  if (trackerStore.currentIssue) {
+    editedName.value = trackerStore.currentIssue.name
+    isEditingName.value = true
+    nextTick(() => {
+      nameInput.value?.focus()
+      nameInput.value?.select()
     })
   }
-  currentNotes.value = ''
-  showNotes.value = false
-  await trackerStore.pauseTracking()
+}
+
+async function saveIssueName() {
+  if (trackerStore.currentIssue && editedName.value.trim()) {
+    try {
+      await issuesStore.updateIssue(trackerStore.currentIssue.id, {
+        name: editedName.value.trim()
+      })
+      // Refresh the current issue in tracker store
+      await trackerStore.refreshCurrentIssue()
+      showToast('Name updated')
+    } catch (err) {
+      console.error('Failed to update name:', err)
+      showToast('Failed to update name', true)
+    }
+  }
+  isEditingName.value = false
+}
+
+function cancelEditingName() {
+  isEditingName.value = false
+}
+
+// Save notes on blur
+async function saveNotesOnBlur() {
+  if (trackerStore.currentEntry && currentNotes.value.trim()) {
+    try {
+      await window.electronAPI.updateTimeEntry(trackerStore.currentEntry.id, {
+        notes: currentNotes.value.trim()
+      })
+      showToast('Note saved')
+    } catch (err) {
+      console.error('Failed to save note:', err)
+      showToast('Failed to save note', true)
+    }
+  }
+}
+
+// Save notes to current entry when pausing
+async function pauseWithNotes() {
+  try {
+    if (trackerStore.currentEntry && currentNotes.value.trim()) {
+      await window.electronAPI.updateTimeEntry(trackerStore.currentEntry.id, {
+        notes: currentNotes.value.trim()
+      })
+    }
+    currentNotes.value = ''
+    showNotes.value = false
+    await trackerStore.pauseTracking()
+  } catch (err) {
+    console.error('Failed to pause tracking:', err)
+    showToast('Failed to pause tracking', true)
+  }
 }
 
 // Reset notes when tracking changes
@@ -26,46 +167,99 @@ watch(() => trackerStore.currentEntry?.id, () => {
   currentNotes.value = ''
   showNotes.value = false
 })
+
+// Handle idle time recovery
+async function handleRecoverIdleTime() {
+  try {
+    await trackerStore.recoverIdleTime()
+    showToast('Idle time recovered')
+  } catch (err) {
+    console.error('Failed to recover idle time:', err)
+    showToast('Failed to recover idle time', true)
+  }
+}
 </script>
 
 <template>
   <RCard class="tracker-hero">
     <!-- Paused state - show last tracked issue -->
     <template v-if="(!trackerStore.isTracking || !trackerStore.currentIssue) && trackerStore.lastTrackedIssue">
-      <div class="tracker-row">
-        <div class="issue-info">
-          <RText class="issue-id">{{ trackerStore.lastTrackedIssue.externalId || '\u00A0' }}</RText>
-          <RText class="issue-name">{{ trackerStore.lastTrackedIssue.name }}</RText>
+      <div class="paused-content">
+        <div class="tracker-row">
+          <div class="issue-info">
+            <RText v-if="trackerStore.lastTrackedIssue.externalId" class="issue-id">{{ trackerStore.lastTrackedIssue.externalId }}</RText>
+            <RText class="issue-name">{{ trackerStore.lastTrackedIssue.name }}</RText>
+          </div>
+          <div class="timer-section">
+            <span class="timer-display paused">{{ trackerStore.formattedPausedTime }}</span>
+            <span class="status-badge">{{ trackerStore.pauseReason === 'idle' ? 'Idle' : 'Paused' }}</span>
+          </div>
+          <div class="action-buttons">
+            <RButton
+              size="small"
+              color="success"
+              @click="trackerStore.startTracking(trackerStore.lastTrackedIssue!.id)"
+              title="Resume tracking"
+            >
+              <Icon name="play" :size="16" />
+            </RButton>
+            <RButton
+              size="small"
+              @click="trackerStore.clearLastTracked()"
+              title="Dismiss"
+            >
+              X
+            </RButton>
+          </div>
         </div>
-        <div class="timer-section">
-          <span class="timer-display paused">{{ trackerStore.formattedPausedTime }}</span>
-          <span class="status-badge">{{ trackerStore.pauseReason === 'idle' ? 'Idle' : 'Paused' }}</span>
-        </div>
-        <div class="action-buttons">
-          <RButton
-            size="small"
-            color="success"
-            @click="trackerStore.startTracking(trackerStore.lastTrackedIssue!.id)"
-            title="Resume tracking"
-          >
-            <Icon name="play" :size="16" />
-          </RButton>
-          <RButton
-            size="small"
-            @click="trackerStore.clearLastTracked()"
-            title="Dismiss"
-          >
-            Clear
-          </RButton>
+
+        <!-- Idle recovery option -->
+        <div v-if="trackerStore.canRecoverIdleTime" class="idle-recovery-section">
+          <div class="idle-recovery-prompt">
+            <RText size="small">
+              Were you actually working? Recover {{ trackerStore.formattedRecoverableIdleTime }} of idle time?
+            </RText>
+            <div class="idle-recovery-buttons">
+              <RButton size="small" color="success" @click="handleRecoverIdleTime">
+                Yes, recover
+              </RButton>
+              <RButton size="small" @click="trackerStore.dismissIdleRecovery()">
+                No, discard
+              </RButton>
+            </div>
+          </div>
         </div>
       </div>
     </template>
 
-    <!-- Not tracking state (no last issue) -->
+    <!-- Not tracking state (no last issue) - show issue form -->
     <template v-else-if="!trackerStore.isTracking || !trackerStore.currentIssue">
-      <div class="not-tracking">
-        <RText class="text-secondary">Not tracking</RText>
-        <RText size="small" class="text-secondary">Select an issue below to start</RText>
+      <div class="not-tracking-form">
+        <form @submit.prevent="handleFormSubmit" class="hero-form">
+          <input
+            v-model="link"
+            type="text"
+            placeholder="Link to tracked item"
+            class="field-input url-input"
+          />
+          <input
+            v-model="name"
+            type="text"
+            placeholder="Item description"
+            class="field-input name-input"
+          />
+          <span class="submit-wrapper" :title="submitTooltip">
+            <RButton
+              type="submit"
+              size="small"
+              color="success"
+              :loading="isSubmitting"
+            >
+              <Icon name="play" :size="16" />
+              {{ isSubmitting ? '...' : (matchedIssue ? 'Resume' : 'Start') }}
+            </RButton>
+          </span>
+        </form>
       </div>
     </template>
 
@@ -74,8 +268,24 @@ watch(() => trackerStore.currentEntry?.id, () => {
       <div class="tracking-content">
         <div class="tracker-row">
           <div class="issue-info">
-            <RText class="issue-id">{{ trackerStore.currentIssue.externalId || '\u00A0' }}</RText>
-            <RText class="issue-name">{{ trackerStore.currentIssue.name }}</RText>
+            <RText v-if="trackerStore.currentIssue.externalId" class="issue-id">{{ trackerStore.currentIssue.externalId }}</RText>
+            <template v-if="isEditingName">
+              <input
+                v-model="editedName"
+                type="text"
+                class="edit-name-input"
+                @blur="saveIssueName"
+                @keyup.enter="saveIssueName"
+                @keyup.escape="cancelEditingName"
+                ref="nameInput"
+              />
+            </template>
+            <template v-else>
+              <RText class="issue-name editable" @click="startEditingName" title="Click to edit name">
+                {{ trackerStore.currentIssue.name }}
+                <Icon name="pencil" :size="12" class="edit-hint" />
+              </RText>
+            </template>
           </div>
           <div class="timer-section">
             <span class="timer-display">{{ trackerStore.formattedTime }}</span>
@@ -127,11 +337,17 @@ watch(() => trackerStore.currentEntry?.id, () => {
           <RInput
             v-model="currentNotes"
             :lines="2"
-            placeholder="Notes (saved when you pause)"
+            placeholder="Notes for this session..."
+            @focusout="saveNotesOnBlur"
           />
         </div>
       </div>
     </template>
+
+    <!-- Toast notification -->
+    <div v-if="toastMessage" class="toast" :class="toastIsError ? 'toast-error' : 'toast-success'">
+      {{ toastMessage }}
+    </div>
   </RCard>
 </template>
 
@@ -141,12 +357,58 @@ watch(() => trackerStore.currentEntry?.id, () => {
   min-height: 6rem;
 }
 
-.not-tracking {
+.not-tracking-form {
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
   min-height: 4.5rem;
+}
+
+.hero-form {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+}
+
+.field-input {
+  padding: 0.5rem 0.75rem;
+  border: 2px solid var(--color-border);
+  border-radius: 4px;
+  background: var(--color-bg-secondary);
+  color: var(--color-text);
+  font-family: inherit;
+  font-size: 0.9rem;
+  box-sizing: border-box;
+  box-shadow: 1px 1px 0 var(--color-border);
+}
+
+.url-input {
+  flex: 1;
+  min-width: 0;
+}
+
+.name-input {
+  flex: 2;
+  min-width: 0;
+}
+
+.field-input:focus {
+  outline: none;
+  border-color: var(--color-accent);
+  box-shadow: 1px 1px 0 var(--color-accent);
+}
+
+.field-input:hover {
+  border-color: var(--color-text-secondary);
+}
+
+.field-input::placeholder {
+  color: var(--color-text-secondary);
+  opacity: 0.5;
+}
+
+.submit-wrapper {
+  flex-shrink: 0;
 }
 
 .tracker-row {
@@ -174,11 +436,48 @@ watch(() => trackerStore.currentEntry?.id, () => {
   display: block;
   font-size: 0.875rem;
   color: var(--color-text-secondary);
-  min-height: 1.25rem;
 }
 
 .issue-name {
   display: block;
+}
+
+.issue-name.editable {
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.issue-name.editable:hover {
+  text-decoration: underline;
+  text-decoration-style: dotted;
+}
+
+.edit-hint {
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.issue-name.editable:hover .edit-hint {
+  opacity: 0.5;
+}
+
+.edit-name-input {
+  padding: 0.25rem 0.5rem;
+  border: 1px solid var(--color-accent);
+  border-radius: 3px;
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: inherit;
+  font-size: inherit;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.edit-name-input:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(var(--color-accent-rgb, 100, 100, 200), 0.2);
 }
 
 .timer-display.paused {
@@ -283,11 +582,66 @@ watch(() => trackerStore.currentEntry?.id, () => {
   border-top: 1px solid var(--color-border);
 }
 
+.toast {
+  position: fixed;
+  top: 1rem;
+  right: 1rem;
+  padding: 0.75rem 1.25rem;
+  color: white;
+  border-radius: 4px;
+  font-weight: 500;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 9999;
+  animation: slideIn 0.2s ease-out;
+}
+
+.toast-success {
+  background: var(--color-success);
+}
+
+.toast-error {
+  background: var(--color-danger);
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateX(1rem);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
 .text-success {
   color: var(--color-success);
 }
 
 .text-warning {
   color: var(--color-warning);
+}
+
+.paused-content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.idle-recovery-section {
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--color-border);
+}
+
+.idle-recovery-prompt {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.idle-recovery-buttons {
+  display: flex;
+  gap: 0.5rem;
 }
 </style>

@@ -4,9 +4,8 @@ import { useIssuesStore } from '../stores/issues.store'
 import { useTrackerStore } from '../stores/tracker.store'
 import { useSettingsStore } from '../stores/settings.store'
 import type { Issue, TimeEntry } from '../types'
-import { RCard, RButton, RInput, RText, RSpace, RDialog } from 'roughness'
+import { RCard, RButton, RInput, RText, RSpace, RDialog, RPopover, RList, RListItem } from 'roughness'
 import Icon from './Icon.vue'
-import IssueForm from './IssueForm.vue'
 import { formatDuration } from '@/utils/format'
 
 const issuesStore = useIssuesStore()
@@ -27,10 +26,23 @@ const showBulkDeleteConfirm = ref(false)
 // Merge state
 const mergingIssueId = ref<number | null>(null)
 
+// Actions menu state
+const openMenuId = ref<number | null>(null)
+
 // Notes state
 const editingNotesId = ref<number | null>(null)
 const notesForm = ref('')
 const workLogEntries = ref<TimeEntry[]>([])
+
+// Toast state
+const toastMessage = ref('')
+const toastIsError = ref(false)
+
+function showToast(message: string, isError = false) {
+  toastMessage.value = message
+  toastIsError.value = isError
+  setTimeout(() => { toastMessage.value = '' }, 3000)
+}
 
 async function loadIssueTimes() {
   const issueIds = issuesStore.issues.map(i => i.id)
@@ -84,16 +96,22 @@ async function saveEdit() {
   const issueId = url ? settingsStore.extractIssueId(url) : editingIssue.value.externalId
 
   if (url && !issueId) {
-    alert('Could not extract issue ID from URL. Check your issue tracker settings.')
+    showToast('Could not extract issue ID from URL', true)
     return
   }
 
-  await issuesStore.updateIssue(editingIssue.value.id, {
-    externalId: issueId || editingIssue.value.externalId,
-    name: editForm.value.name.trim(),
-    link: url || null
-  })
-  editingIssue.value = null
+  try {
+    await issuesStore.updateIssue(editingIssue.value.id, {
+      externalId: issueId || editingIssue.value.externalId,
+      name: editForm.value.name.trim(),
+      link: url || null
+    })
+    editingIssue.value = null
+    showToast('Changes saved')
+  } catch (err) {
+    console.error('Failed to save changes:', err)
+    showToast('Failed to save changes', true)
+  }
 }
 
 function confirmDelete(issueId: number) {
@@ -104,10 +122,38 @@ function cancelDelete() {
   confirmingDeleteId.value = null
 }
 
-async function executeDelete(issueId: number) {
-  await issuesStore.deleteIssue(issueId)
-  confirmingDeleteId.value = null
-  refreshProgress?.()
+async function archiveIssue(issueId: number) {
+  try {
+    await issuesStore.archiveIssue(issueId)
+    showToast('Item archived')
+  } catch (err) {
+    console.error('Failed to archive item:', err)
+    showToast('Failed to archive item', true)
+  }
+}
+
+async function restoreIssue(issueId: number) {
+  try {
+    await issuesStore.unarchiveIssue(issueId)
+    showToast('Item restored')
+  } catch (err) {
+    console.error('Failed to restore item:', err)
+    showToast('Failed to restore item', true)
+  }
+}
+
+async function executeDelete() {
+  if (!confirmingDeleteId.value) return
+  try {
+    await issuesStore.deleteIssue(confirmingDeleteId.value)
+    confirmingDeleteId.value = null
+    refreshProgress?.()
+    showToast('Item deleted')
+  } catch (err) {
+    console.error('Failed to delete item:', err)
+    showToast('Failed to delete item', true)
+    confirmingDeleteId.value = null
+  }
 }
 
 // Merge functions
@@ -121,10 +167,16 @@ function cancelMerging() {
 
 async function executeMerge(targetId: number) {
   if (!mergingIssueId.value) return
-  await window.electronAPI.mergeIssues(mergingIssueId.value, targetId)
-  mergingIssueId.value = null
-  await issuesStore.loadIssues()
-  await loadIssueTimes()
+  try {
+    await window.electronAPI.mergeIssues(mergingIssueId.value, targetId)
+    mergingIssueId.value = null
+    await issuesStore.loadIssues()
+    await loadIssueTimes()
+    showToast('Items merged')
+  } catch (err) {
+    console.error('Failed to merge items:', err)
+    showToast('Failed to merge items', true)
+  }
 }
 
 // Notes functions
@@ -140,12 +192,17 @@ function cancelEditingNotes() {
   workLogEntries.value = []
 }
 
-async function saveNotes() {
+// Save notes on blur (without closing the panel)
+async function saveNotesOnBlur() {
   if (!editingNotesId.value) return
 
-  await issuesStore.updateIssue(editingNotesId.value, { notes: notesForm.value || null })
-  editingNotesId.value = null
-  workLogEntries.value = []
+  try {
+    await issuesStore.updateIssue(editingNotesId.value, { notes: notesForm.value || null })
+    showToast('Note saved')
+  } catch (err) {
+    console.error('Failed to save note:', err)
+    showToast('Failed to save note', true)
+  }
 }
 
 function formatDateTime(isoString: string): string {
@@ -156,6 +213,14 @@ function formatDateTime(isoString: string): string {
     minute: '2-digit',
     hour12: false
   })
+}
+
+function formatEntryDuration(entry: TimeEntry): string {
+  if (!entry.endedAt) return 'In progress'
+  const start = new Date(entry.startedAt).getTime()
+  const end = new Date(entry.endedAt).getTime()
+  const seconds = Math.floor((end - start) / 1000)
+  return formatDuration(seconds)
 }
 
 // Bulk delete functions
@@ -195,20 +260,27 @@ function isAllSelected(): boolean {
 async function executeBulkDelete() {
   const idsToDelete = Array.from(selectedIds.value)
 
-  // Stop tracking if any selected issue is currently being tracked
-  if (trackerStore.currentIssue && selectedIds.value.has(trackerStore.currentIssue.id)) {
-    await trackerStore.pauseTracking()
-  }
+  try {
+    // Stop tracking if any selected issue is currently being tracked
+    if (trackerStore.currentIssue && selectedIds.value.has(trackerStore.currentIssue.id)) {
+      await trackerStore.pauseTracking()
+    }
 
-  if (idsToDelete.length > 0) {
-    await window.electronAPI.deleteIssues(idsToDelete)
-    await issuesStore.loadIssues()
-  }
+    if (idsToDelete.length > 0) {
+      await window.electronAPI.deleteIssues(idsToDelete)
+      await issuesStore.loadIssues()
+    }
 
-  showBulkDeleteConfirm.value = false
-  selectedIds.value.clear()
-  selectionMode.value = false
-  refreshProgress?.()
+    showBulkDeleteConfirm.value = false
+    selectedIds.value.clear()
+    selectionMode.value = false
+    refreshProgress?.()
+    showToast(`Deleted ${idsToDelete.length} ${idsToDelete.length === 1 ? 'item' : 'items'}`)
+  } catch (err) {
+    console.error('Failed to delete items:', err)
+    showToast('Failed to delete items', true)
+    showBulkDeleteConfirm.value = false
+  }
 }
 </script>
 
@@ -217,7 +289,7 @@ async function executeBulkDelete() {
     <template #title>
       <div class="card-header">
         <div class="header-left">
-          <span class="card-title">Issues</span>
+          <span class="card-title">Tracked Items</span>
           <div class="view-toggle">
             <RButton
               size="small"
@@ -264,21 +336,18 @@ async function executeBulkDelete() {
       </div>
     </template>
 
-    <!-- Quick track inline form -->
-    <IssueForm />
-
     <div v-if="issuesStore.isLoading" class="p-8 text-center">
       <RText class="text-secondary">Loading...</RText>
     </div>
 
     <div v-else-if="issuesStore.displayedIssues.length === 0" class="p-8 text-center">
       <RText class="text-secondary">
-        {{ issuesStore.showArchived ? 'Archived issues will appear here.' : 'No issues yet. Add one above!' }}
+        {{ issuesStore.showArchived ? 'Archived tracked items will appear here.' : 'No tracked items yet. Start tracking from the hero area above!' }}
       </RText>
     </div>
 
-    <div v-else class="issues-list">
-      <div
+    <RList v-else class="issues-list">
+      <RListItem
         v-for="issue in issuesStore.displayedIssues"
         :key="issue.id"
         class="issue-item"
@@ -287,12 +356,12 @@ async function executeBulkDelete() {
         <form v-if="editingIssue?.id === issue.id" @submit.prevent="saveEdit" class="flex items-center gap-3 w-full">
           <RInput
             v-model="editForm.link"
-            placeholder="Issue URL"
+            placeholder="Link to tracked item"
             class="w-48"
           />
           <RInput
             v-model="editForm.name"
-            placeholder="Name"
+            placeholder="Item description"
             class="flex-1"
           />
           <RButton type="submit" size="small" filled>Save</RButton>
@@ -301,9 +370,12 @@ async function executeBulkDelete() {
 
         <!-- Notes edit mode -->
         <div v-else-if="editingNotesId === issue.id" class="notes-panel w-full">
-          <RText class="text-secondary text-sm">
-            <strong>{{ issue.externalId }}</strong> {{ issue.name }}
-          </RText>
+          <div class="notes-header">
+            <RText class="text-sm">
+              <span class="text-secondary">{{ issue.externalId }}</span> {{ issue.name }}
+            </RText>
+            <button class="close-btn" @click="cancelEditingNotes" title="Close">×</button>
+          </div>
 
           <!-- Issue notes -->
           <div class="notes-section">
@@ -311,54 +383,42 @@ async function executeBulkDelete() {
             <RInput
               v-model="notesForm"
               :lines="3"
-              placeholder="Add notes about this issue..."
+              placeholder="Add notes about this tracked item..."
+              @focusout="saveNotesOnBlur"
             />
-          </div>
+            </div>
 
           <!-- Work log -->
-          <div v-if="workLogEntries.some(e => e.notes)" class="notes-section">
-            <RText size="small" class="section-label">Work Log</RText>
+          <div v-if="workLogEntries.length > 0" class="notes-section">
+            <RText size="small" class="section-label">Work Log ({{ workLogEntries.length }} {{ workLogEntries.length === 1 ? 'entry' : 'entries' }})</RText>
             <div class="work-log">
               <div
-                v-for="entry in workLogEntries.filter(e => e.notes)"
+                v-for="entry in workLogEntries"
                 :key="entry.id"
                 class="work-log-entry"
               >
-                <RText size="small" class="text-secondary">{{ formatDateTime(entry.startedAt) }}</RText>
-                <RText size="small">{{ entry.notes }}</RText>
+                <div class="work-log-header">
+                  <RText size="small" class="text-secondary">{{ formatDateTime(entry.startedAt) }}</RText>
+                  <RText size="small" class="text-secondary">{{ formatEntryDuration(entry) }}</RText>
+                </div>
+                <RText v-if="entry.notes" size="small">{{ entry.notes }}</RText>
               </div>
             </div>
           </div>
-
-          <RSpace>
-            <RButton size="small" filled @click="saveNotes">Save</RButton>
-            <RButton size="small" @click="cancelEditingNotes">Cancel</RButton>
-          </RSpace>
         </div>
 
         <!-- Normal display mode -->
         <div v-else class="issue-row">
-          <!-- Top row: play button + title + actions (aligned) -->
+          <!-- Top row: checkbox (selection mode) + title + actions + play button -->
           <div class="issue-main">
-            <!-- Play/Pause button OR Checkbox (same slot) -->
-            <div class="play-slot">
+            <!-- Checkbox for selection mode (left side) -->
+            <div v-if="selectionMode" class="checkbox-slot">
               <input
-                v-if="selectionMode"
                 type="checkbox"
                 :checked="selectedIds.has(issue.id)"
                 @change="toggleIssue(issue.id)"
                 class="bulk-checkbox"
               />
-              <RButton
-                v-else
-                @click="toggleTracking(issue)"
-                :disabled="issue.archived"
-                :color="isCurrentlyTracking(issue) ? 'error' : 'success'"
-                :class="{ 'btn-archived': issue.archived }"
-                :title="issue.archived ? 'Restore issue to track' : (isCurrentlyTracking(issue) ? 'Stop tracking' : 'Start tracking')"
-              >
-                <Icon :name="isCurrentlyTracking(issue) ? 'pause' : 'play'" :size="16" />
-              </RButton>
             </div>
 
             <!-- Issue title and metadata -->
@@ -366,6 +426,9 @@ async function executeBulkDelete() {
               <div class="issue-title">
                 <span v-if="issue.externalId" class="issue-id">{{ issue.externalId }}</span>
                 <span class="issue-name">{{ issue.name }}</span>
+                <span v-if="issue.notes" class="notes-indicator" title="Has notes">
+                  <Icon name="note" :size="12" />
+                </span>
               </div>
               <div class="issue-meta">
                 Total: {{ formatDuration(issueTimes.get(issue.id) || 0) }}
@@ -388,97 +451,103 @@ async function executeBulkDelete() {
                 <span class="link-icon">↗</span>
               </RButton>
 
-              <!-- Secondary actions (visible on hover, disabled in selection mode) -->
-              <div class="secondary-actions">
-                <!-- Notes -->
-                <RButton
-                  size="small"
-                  @click="startEditingNotes(issue)"
-                  title="Notes"
-                  :disabled="selectionMode"
-                >
-                  <Icon name="note" :size="16" />
-                </RButton>
-
-                <!-- Edit -->
-                <RButton
-                  size="small"
-                  @click="startEditing(issue)"
-                  title="Edit"
-                  :disabled="selectionMode"
-                >
-                  <Icon name="pencil" :size="16" />
-                </RButton>
-
-                <!-- Merge -->
-                <div class="merge-wrapper">
+              <!-- Actions dropdown menu -->
+              <RPopover
+                trigger="click"
+                side="bottom"
+                align="end"
+                :open="openMenuId === issue.id"
+                @update:open="(v: boolean) => openMenuId = v ? issue.id : null"
+              >
+                <template #anchor>
                   <RButton
-                    v-if="mergingIssueId !== issue.id"
                     size="small"
-                    @click="startMerging(issue.id)"
-                    title="Merge into another issue"
+                    title="Actions"
                     :disabled="selectionMode"
+                    class="menu-trigger"
                   >
-                    ⤵
+                    <span class="menu-dots">⋮</span>
                   </RButton>
-                  <div v-else class="merge-select">
-                    <select @change="(e) => { if ((e.target as HTMLSelectElement).value) executeMerge(Number((e.target as HTMLSelectElement).value)) }" class="merge-dropdown">
+                </template>
+
+                <div class="actions-menu">
+                  <!-- Notes -->
+                  <button class="menu-item" @click="startEditingNotes(issue); openMenuId = null">
+                    <Icon name="note" :size="16" />
+                    <span>Notes</span>
+                  </button>
+
+                  <!-- Edit -->
+                  <button class="menu-item" @click="startEditing(issue); openMenuId = null">
+                    <Icon name="pencil" :size="16" />
+                    <span>Edit</span>
+                  </button>
+
+                  <!-- Merge -->
+                  <template v-if="mergingIssueId !== issue.id">
+                    <button class="menu-item" @click.stop="startMerging(issue.id)">
+                      <span class="menu-icon-text">⤵</span>
+                      <span>Merge</span>
+                    </button>
+                  </template>
+                  <div v-else class="merge-select-inline">
+                    <select @change="(e) => { if ((e.target as HTMLSelectElement).value) { executeMerge(Number((e.target as HTMLSelectElement).value)); openMenuId = null } }" class="merge-dropdown">
                       <option value="">Merge into...</option>
                       <option v-for="target in issuesStore.issues.filter(i => i.id !== issue.id)" :key="target.id" :value="target.id">
                         {{ target.externalId || target.name }}
                       </option>
                     </select>
-                    <RButton size="small" @click="cancelMerging">✕</RButton>
+                    <button class="menu-item-small" @click="cancelMerging">✕</button>
                   </div>
-                </div>
 
-                <!-- Archive/Restore/Delete -->
-                <template v-if="issue.archived">
-                  <RButton
-                    size="small"
-                    @click="issuesStore.unarchiveIssue(issue.id)"
-                    title="Restore"
-                    :disabled="selectionMode"
+                  <div class="menu-divider"></div>
+
+                  <!-- Archive/Restore/Delete -->
+                  <template v-if="issue.archived">
+                    <button class="menu-item" @click="restoreIssue(issue.id); openMenuId = null">
+                      <span class="menu-icon-text">↩</span>
+                      <span>Restore</span>
+                    </button>
+                    <button class="menu-item menu-item-danger" @click="confirmDelete(issue.id); openMenuId = null">
+                      <Icon name="delete" :size="16" />
+                      <span>Delete</span>
+                    </button>
+                  </template>
+                  <button
+                    v-else
+                    class="menu-item"
+                    @click="archiveIssue(issue.id); openMenuId = null"
                   >
-                    ↩
-                  </RButton>
-                  <RButton
-                    v-if="confirmingDeleteId !== issue.id"
-                    size="small"
-                    color="error"
-                    @click="confirmDelete(issue.id)"
-                    title="Delete"
-                    :disabled="selectionMode"
-                  >
-                    <Icon name="delete" :size="16" />
-                  </RButton>
-                  <RSpace v-else>
-                    <RButton size="small" color="error" filled @click="executeDelete(issue.id)" title="Confirm delete">Yes</RButton>
-                    <RButton size="small" @click="cancelDelete" title="Cancel delete">No</RButton>
-                  </RSpace>
-                </template>
-                <RButton
-                  v-else
-                  size="small"
-                  @click="issuesStore.archiveIssue(issue.id)"
-                  title="Archive"
-                  :disabled="selectionMode"
-                >
-                  <Icon name="box" :size="16" />
-                </RButton>
-              </div><!-- end secondary-actions -->
+                    <Icon name="box" :size="16" />
+                    <span>Archive</span>
+                  </button>
+                </div>
+              </RPopover>
+            </div>
+
+            <!-- Play/Pause button (right side, hidden in selection mode) -->
+            <div v-if="!selectionMode" class="play-slot">
+              <RButton
+                @click="toggleTracking(issue)"
+                :disabled="issue.archived"
+                :color="isCurrentlyTracking(issue) ? 'error' : 'success'"
+                :class="{ 'btn-archived': issue.archived }"
+                :title="issue.archived ? 'Restore tracked item to track' : (isCurrentlyTracking(issue) ? 'Stop tracking' : 'Start tracking')"
+              >
+                <Icon :name="isCurrentlyTracking(issue) ? 'pause' : 'play'" :size="16" />
+              </RButton>
             </div>
           </div><!-- end issue-main -->
         </div>
-      </div>
-    </div>
+      </RListItem>
+    </RList>
 
     <!-- Bulk Delete Confirmation Dialog -->
     <RDialog v-model:open="showBulkDeleteConfirm">
-      <template #title>Delete Issues?</template>
+      <template #title>Delete Tracked Items?</template>
       <RText>
         This will permanently delete {{ selectedIds.size }}
-        {{ selectedIds.size === 1 ? 'issue' : 'issues' }} and all their time entries.
+        {{ selectedIds.size === 1 ? 'tracked item' : 'tracked items' }} and all their time entries.
         This cannot be undone.
       </RText>
       <RSpace class="modal-actions">
@@ -486,22 +555,28 @@ async function executeBulkDelete() {
         <RButton color="error" filled @click="executeBulkDelete">Delete</RButton>
       </RSpace>
     </RDialog>
+
+    <!-- Single Issue Delete Confirmation Dialog -->
+    <RDialog :open="confirmingDeleteId !== null" @update:open="(v: boolean) => !v && cancelDelete()">
+      <template #title>Delete Tracked Item?</template>
+      <RText>Are you sure? This is forever.</RText>
+      <RSpace class="modal-actions">
+        <RButton @click="cancelDelete">Cancel</RButton>
+        <RButton color="error" filled @click="executeDelete">Delete</RButton>
+      </RSpace>
+    </RDialog>
+
+    <!-- Toast notification -->
+    <div v-if="toastMessage" class="toast" :class="toastIsError ? 'toast-error' : 'toast-success'">
+      {{ toastMessage }}
+    </div>
   </RCard>
 </template>
 
 <style scoped>
-.issues-list {
-  display: flex;
-  flex-direction: column;
-}
-
+/* Issue item styling - RListItem provides the bullet marker */
 .issue-item {
   padding: 0.5rem 0;
-  border-bottom: 1px solid var(--color-border);
-}
-
-.issue-item:last-child {
-  border-bottom: none;
 }
 
 /* Make link icon same size as other icons */
@@ -524,14 +599,23 @@ async function executeBulkDelete() {
   width: 100%;
 }
 
-/* Fixed-width slot for play button / checkbox */
+/* Fixed-width slot for checkbox in selection mode (left side) */
+.checkbox-slot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  flex-shrink: 0;
+}
+
+/* Fixed-width slot for play button (right side) */
 .play-slot {
   display: flex;
   align-items: center;
   justify-content: center;
   width: 2.5rem;
   flex-shrink: 0;
-  margin: 0 0.5rem;
+  margin-left: 0.5rem;
 }
 
 /* Archived issues - grayed out play button */
@@ -542,7 +626,7 @@ async function executeBulkDelete() {
 
 .action-buttons {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 0.25rem;
   flex-shrink: 0;
 }
@@ -553,20 +637,86 @@ async function executeBulkDelete() {
   pointer-events: none;
 }
 
-.secondary-actions {
-  display: flex;
-  gap: 0.25rem;
-  opacity: 0.25;
+/* Menu trigger button */
+.menu-trigger {
+  opacity: 0.4;
   transition: opacity 0.15s ease;
 }
 
-.issue-item:hover .secondary-actions {
+.issue-item:hover .menu-trigger {
   opacity: 1;
 }
 
-/* Keep secondary actions faded in selection mode even on hover */
-.action-buttons.selection-mode .secondary-actions {
-  opacity: 1;
+.menu-dots {
+  font-size: 1.25rem;
+  line-height: 1;
+  font-weight: bold;
+}
+
+/* Actions dropdown menu */
+.actions-menu {
+  display: flex;
+  flex-direction: column;
+  min-width: 140px;
+  padding: 0.25rem 0;
+}
+
+.menu-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  border: none;
+  background: none;
+  color: var(--color-text);
+  font-family: inherit;
+  font-size: 0.875rem;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 0.1s ease;
+}
+
+.menu-item:hover {
+  background-color: var(--color-bg-secondary, rgba(0, 0, 0, 0.05));
+}
+
+.menu-item-danger {
+  color: var(--r-color-error, #e53935);
+}
+
+.menu-item-danger:hover {
+  background-color: rgba(229, 57, 53, 0.1);
+}
+
+.menu-icon-text {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  font-size: 1rem;
+}
+
+.menu-divider {
+  height: 1px;
+  margin: 0.25rem 0;
+  background-color: var(--color-border, rgba(0, 0, 0, 0.1));
+}
+
+.merge-select-inline {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.25rem 0.5rem;
+}
+
+.menu-item-small {
+  padding: 0.25rem 0.5rem;
+  border: none;
+  background: none;
+  color: var(--color-text);
+  font-family: inherit;
+  cursor: pointer;
 }
 
 
@@ -592,6 +742,14 @@ async function executeBulkDelete() {
   color: var(--color-text);
 }
 
+.notes-indicator {
+  display: inline-flex;
+  align-items: center;
+  color: var(--color-text-secondary);
+  opacity: 0.6;
+  margin-left: 0.25rem;
+}
+
 .issue-meta {
   font-size: 0.75rem;
   color: var(--color-text-secondary);
@@ -603,10 +761,69 @@ async function executeBulkDelete() {
   gap: 1rem;
 }
 
+.notes-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.close-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  border: none;
+  background: none;
+  color: var(--color-text-secondary);
+  font-size: 1.25rem;
+  line-height: 1;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: background-color 0.1s ease, color 0.1s ease;
+}
+
+.close-btn:hover {
+  background-color: var(--color-bg-secondary, rgba(0, 0, 0, 0.05));
+  color: var(--color-text);
+}
+
 .notes-section {
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
+}
+
+.toast {
+  position: fixed;
+  top: 1rem;
+  right: 1rem;
+  padding: 0.75rem 1.25rem;
+  color: white;
+  border-radius: 4px;
+  font-weight: 500;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 9999;
+  animation: slideIn 0.2s ease-out;
+}
+
+.toast-success {
+  background: var(--color-success);
+}
+
+.toast-error {
+  background: var(--color-danger);
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateX(1rem);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
 }
 
 .section-label {
@@ -637,34 +854,21 @@ async function executeBulkDelete() {
   padding-bottom: 0;
 }
 
-.merge-wrapper {
-  position: relative;
-}
-
-.merge-select {
-  position: absolute;
-  right: 0;
-  top: 100%;
+.work-log-header {
   display: flex;
+  justify-content: space-between;
   align-items: center;
-  gap: 0.25rem;
-  background: var(--color-bg);
-  padding: 0.5rem;
-  border: 2px solid var(--color-border);
-  border-radius: 4px;
-  z-index: 10;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.2);
 }
 
 .merge-dropdown {
   padding: 0.25rem 0.5rem;
-  border: 2px solid var(--color-border);
+  border: 1px solid var(--color-border);
   border-radius: 4px;
   background: var(--color-bg);
   color: var(--color-text);
   font-family: inherit;
-  font-size: 0.875rem;
-  min-width: 150px;
+  font-size: 0.8rem;
+  min-width: 120px;
 }
 
 .card-title {

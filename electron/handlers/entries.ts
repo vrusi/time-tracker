@@ -116,6 +116,56 @@ export function setupEntryHandlers() {
     db.prepare(`DELETE FROM time_entries WHERE id IN (${placeholders})`).run(...ids)
   })
 
+  // Merge multiple time entries into one
+  // First entry's issue is used for the merged entry (target entry)
+  ipcMain.handle('merge-time-entries', (_, ids: number[]) => {
+    if (ids.length < 2) {
+      throw new Error('Need at least 2 entries to merge')
+    }
+
+    const placeholders = ids.map(() => '?').join(',')
+    const entries = db.prepare(`
+      SELECT * FROM time_entries WHERE id IN (${placeholders})
+    `).all(...ids) as TimeEntryRow[]
+
+    if (entries.length < 2) {
+      throw new Error('Could not find all entries to merge')
+    }
+
+    // Sort entries to match the order of input IDs (first ID = target issue)
+    const sortedEntries = ids.map(id => entries.find(e => e.id === id)!)
+
+    // Find min start and max end
+    const startTimes = entries.map(e => new Date(e.started_at).getTime())
+    const endTimes = entries
+      .filter(e => e.ended_at)
+      .map(e => new Date(e.ended_at!).getTime())
+
+    const minStart = new Date(Math.min(...startTimes)).toISOString()
+    const maxEnd = endTimes.length > 0
+      ? new Date(Math.max(...endTimes)).toISOString()
+      : null
+
+    // Combine notes from all entries
+    const allNotes = entries
+      .map(e => e.notes)
+      .filter(n => n && n.trim())
+      .join('\n---\n')
+
+    // Create merged entry using first entry's issue (the target)
+    const targetIssueId = sortedEntries[0].issue_id
+    const result = db.prepare(`
+      INSERT INTO time_entries (issue_id, started_at, ended_at, paused_reason, notes)
+      VALUES (?, ?, ?, 'merged', ?)
+    `).run(targetIssueId, minStart, maxEnd, allNotes || null)
+
+    // Delete original entries
+    db.prepare(`DELETE FROM time_entries WHERE id IN (${placeholders})`).run(...ids)
+
+    const newEntry = db.prepare('SELECT * FROM time_entries WHERE id = ?').get(result.lastInsertRowid) as TimeEntryRow
+    return mapTimeEntry(newEntry)
+  })
+
   // Wipe all data from the database
   ipcMain.handle('wipe-database', () => {
     db.exec('DELETE FROM time_entries; DELETE FROM issues;')
