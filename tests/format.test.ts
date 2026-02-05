@@ -1,11 +1,14 @@
 import { describe, it, expect } from 'vitest'
 import {
   formatDuration,
+  formatTime,
   formatHours,
   formatMoney,
   formatTimer,
   formatIdleTime,
-  calculateIdleProgress
+  calculateIdleProgress,
+  formatDate,
+  toLocalDateTimeInput
 } from '../src/utils/format'
 
 describe('Format Utilities', () => {
@@ -131,6 +134,62 @@ describe('Format Utilities', () => {
       // -100/600 * 100 = -16.67, Math.min(100, -16.67) = -16.67
       const result = calculateIdleProgress(-100, 600)
       expect(result).toBeLessThan(0)
+    })
+  })
+
+  describe('formatTime', () => {
+    it('formats ISO string to HH:MM time', () => {
+      // The result depends on locale, so we check the format
+      const result = formatTime('2024-01-15T14:30:00.000Z')
+      // Should be in 24-hour format like "14:30" or adjusted for timezone
+      expect(result).toMatch(/^\d{2}:\d{2}$/)
+    })
+
+    it('handles midnight', () => {
+      const result = formatTime('2024-01-15T00:00:00.000Z')
+      expect(result).toMatch(/^\d{2}:\d{2}$/)
+    })
+  })
+
+  describe('formatDate', () => {
+    it('formats date string to readable format', () => {
+      const result = formatDate('2024-01-15')
+      // Should include weekday, month abbreviation, and day number
+      expect(result).toContain('Jan')
+      expect(result).toContain('15')
+    })
+
+    it('formats first of month', () => {
+      const result = formatDate('2024-03-01')
+      expect(result).toContain('Mar')
+      expect(result).toContain('1')
+    })
+
+    it('formats last day of month', () => {
+      const result = formatDate('2024-12-31')
+      expect(result).toContain('Dec')
+      expect(result).toContain('31')
+    })
+  })
+
+  describe('toLocalDateTimeInput', () => {
+    it('converts ISO string to datetime-local input format', () => {
+      // Create a date in local timezone to test
+      const localDate = new Date(2024, 0, 15, 14, 30) // Jan 15, 2024 14:30
+      const result = toLocalDateTimeInput(localDate.toISOString())
+      expect(result).toBe('2024-01-15T14:30')
+    })
+
+    it('pads single digit months and days', () => {
+      const localDate = new Date(2024, 0, 5, 9, 5) // Jan 5, 2024 09:05
+      const result = toLocalDateTimeInput(localDate.toISOString())
+      expect(result).toBe('2024-01-05T09:05')
+    })
+
+    it('handles end of year', () => {
+      const localDate = new Date(2024, 11, 31, 23, 59) // Dec 31, 2024 23:59
+      const result = toLocalDateTimeInput(localDate.toISOString())
+      expect(result).toBe('2024-12-31T23:59')
     })
   })
 })
