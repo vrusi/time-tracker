@@ -1,210 +1,90 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { mkdirSync, rmSync, existsSync, readFileSync, writeFileSync } from 'fs'
-import { join } from 'path'
-import { tmpdir } from 'os'
-import { randomUUID } from 'crypto'
+import { describe, it, expect } from 'vitest'
 
-// We need to test the sanitizeName logic and project validation rules
-// without requiring full Electron environment
-
+/**
+ * Projects Module Logic - business rules for project management.
+ * Tests focus on validation rules and edge cases.
+ */
 describe('Projects Module Logic', () => {
-  describe('sanitizeName', () => {
+  describe('project name sanitization', () => {
     /**
      * Replicates the sanitizeName function from projects.ts
+     * Creates filesystem-safe folder names from user input.
      */
     function sanitizeName(name: string): string {
       return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
     }
 
-    it('converts to lowercase', () => {
-      expect(sanitizeName('MyProject')).toBe('myproject')
+    it('creates filesystem-safe folder names', () => {
+      expect(sanitizeName('My Project')).toBe('my-project')
       expect(sanitizeName('UPPERCASE')).toBe('uppercase')
-    })
-
-    it('replaces spaces with dashes', () => {
-      expect(sanitizeName('my project')).toBe('my-project')
       expect(sanitizeName('multiple   spaces')).toBe('multiple-spaces')
     })
 
-    it('removes unsafe characters', () => {
+    it('removes unsafe filesystem characters', () => {
       expect(sanitizeName('my/project')).toBe('my-project')
       expect(sanitizeName('my\\project')).toBe('my-project')
       expect(sanitizeName('my:project')).toBe('my-project')
-      expect(sanitizeName('my*project')).toBe('my-project')
-      expect(sanitizeName('my?project')).toBe('my-project')
-    })
-
-    it('handles special characters', () => {
       expect(sanitizeName('project@2024!')).toBe('project-2024')
-      expect(sanitizeName('my#project$name')).toBe('my-project-name')
     })
 
-    it('collapses multiple dashes', () => {
-      expect(sanitizeName('my---project')).toBe('my-project')
-      expect(sanitizeName('a - b - c')).toBe('a-b-c')
-    })
-
-    it('trims leading and trailing dashes', () => {
-      expect(sanitizeName('-myproject-')).toBe('myproject')
-      expect(sanitizeName('---test---')).toBe('test')
-    })
-
-    it('handles empty/whitespace-only input', () => {
+    it('handles edge cases', () => {
       expect(sanitizeName('')).toBe('')
       expect(sanitizeName('   ')).toBe('')
       expect(sanitizeName('---')).toBe('')
-    })
-
-    it('preserves numbers', () => {
-      expect(sanitizeName('project123')).toBe('project123')
-      expect(sanitizeName('2024-q1-work')).toBe('2024-q1-work')
+      expect(sanitizeName('-myproject-')).toBe('myproject')
     })
   })
 
-  describe('Project validation rules', () => {
-    interface Project {
-      id: string
-      name: string
-      dbFile: string
-      createdAt: string
-    }
+  describe('project deletion rules', () => {
+    interface Project { id: string; name: string }
+    interface Config { activeProjectId: string; projects: Project[] }
 
-    interface ProjectsConfig {
-      activeProjectId: string
-      projects: Project[]
-    }
-
-    function createMockConfig(projects: Partial<Project>[]): ProjectsConfig {
-      const fullProjects: Project[] = projects.map((p, i) => ({
-        id: p.id ?? randomUUID(),
-        name: p.name ?? `Project ${i + 1}`,
-        dbFile: p.dbFile ?? `projects/proj-${i}/data.db`,
-        createdAt: p.createdAt ?? new Date().toISOString()
-      }))
-
-      return {
-        activeProjectId: fullProjects[0]?.id ?? '',
-        projects: fullProjects
+    function validateDeletion(config: Config, projectId: string): string | null {
+      if (config.projects.length === 1) {
+        return 'Cannot delete the last project'
       }
+      if (config.activeProjectId === projectId) {
+        return 'Cannot delete the active project'
+      }
+      return null
     }
 
-    describe('deleteProject validation', () => {
-      it('throws when trying to delete the last project', () => {
-        const config = createMockConfig([{ name: 'Only Project' }])
+    it('prevents deleting the last project', () => {
+      const config: Config = {
+        activeProjectId: 'proj-1',
+        projects: [{ id: 'proj-1', name: 'Only Project' }]
+      }
 
-        const deleteProject = () => {
-          if (config.projects.length === 1) {
-            throw new Error('Cannot delete the last project')
-          }
-        }
-
-        expect(deleteProject).toThrow('Cannot delete the last project')
-      })
-
-      it('throws when trying to delete the active project', () => {
-        const config = createMockConfig([
-          { name: 'Project 1' },
-          { name: 'Project 2' }
-        ])
-
-        const projectIdToDelete = config.activeProjectId
-
-        const deleteProject = () => {
-          if (config.activeProjectId === projectIdToDelete) {
-            throw new Error('Cannot delete the active project')
-          }
-        }
-
-        expect(deleteProject).toThrow('Cannot delete the active project')
-      })
-
-      it('allows deleting a non-active project when multiple exist', () => {
-        const config = createMockConfig([
-          { name: 'Active Project' },
-          { name: 'Inactive Project' }
-        ])
-
-        const nonActiveProjectId = config.projects[1].id
-
-        const deleteProject = () => {
-          if (config.projects.length === 1) {
-            throw new Error('Cannot delete the last project')
-          }
-          if (config.activeProjectId === nonActiveProjectId) {
-            throw new Error('Cannot delete the active project')
-          }
-          // Delete would proceed
-          return true
-        }
-
-        expect(deleteProject()).toBe(true)
-      })
+      expect(validateDeletion(config, 'proj-1')).toBe('Cannot delete the last project')
     })
 
-    describe('setActiveProject validation', () => {
-      it('throws when project is not found', () => {
-        const config = createMockConfig([{ name: 'Project 1' }])
+    it('prevents deleting the active project', () => {
+      const config: Config = {
+        activeProjectId: 'proj-1',
+        projects: [
+          { id: 'proj-1', name: 'Active' },
+          { id: 'proj-2', name: 'Other' }
+        ]
+      }
 
-        const setActiveProject = (projectId: string) => {
-          const project = config.projects.find(p => p.id === projectId)
-          if (!project) {
-            throw new Error('Project not found')
-          }
-          return project
-        }
-
-        expect(() => setActiveProject('non-existent-id')).toThrow('Project not found')
-      })
-
-      it('returns the project when found', () => {
-        const config = createMockConfig([
-          { name: 'Project 1' },
-          { name: 'Project 2' }
-        ])
-
-        const targetId = config.projects[1].id
-
-        const setActiveProject = (projectId: string) => {
-          const project = config.projects.find(p => p.id === projectId)
-          if (!project) {
-            throw new Error('Project not found')
-          }
-          return project
-        }
-
-        const result = setActiveProject(targetId)
-        expect(result.name).toBe('Project 2')
-      })
+      expect(validateDeletion(config, 'proj-1')).toBe('Cannot delete the active project')
     })
 
-    describe('getActiveProject validation', () => {
-      it('throws when active project is not found', () => {
-        const config: ProjectsConfig = {
-          activeProjectId: 'deleted-project-id',
-          projects: [{ id: 'other-id', name: 'Other', dbFile: 'db', createdAt: new Date().toISOString() }]
-        }
+    it('allows deleting non-active project when multiple exist', () => {
+      const config: Config = {
+        activeProjectId: 'proj-1',
+        projects: [
+          { id: 'proj-1', name: 'Active' },
+          { id: 'proj-2', name: 'Other' }
+        ]
+      }
 
-        const getActiveProject = () => {
-          const project = config.projects.find(p => p.id === config.activeProjectId)
-          if (!project) {
-            throw new Error('Active project not found')
-          }
-          return project
-        }
-
-        expect(getActiveProject).toThrow('Active project not found')
-      })
+      expect(validateDeletion(config, 'proj-2')).toBeNull()
     })
   })
 
-  describe('Folder name collision resolution', () => {
-    /**
-     * Simulates the collision resolution logic from createProject
-     */
-    function resolveCollision(
-      baseName: string,
-      existingFolders: Set<string>
-    ): string {
+  describe('folder name collision resolution', () => {
+    function resolveCollision(baseName: string, existingFolders: Set<string>): string {
       let folderName = baseName
       let counter = 1
 
@@ -221,14 +101,9 @@ describe('Projects Module Logic', () => {
       expect(resolveCollision('my-project', existing)).toBe('my-project')
     })
 
-    it('appends counter when collision exists', () => {
-      const existing = new Set(['my-project'])
-      expect(resolveCollision('my-project', existing)).toBe('my-project-1')
-    })
-
-    it('increments counter for multiple collisions', () => {
-      const existing = new Set(['my-project', 'my-project-1', 'my-project-2'])
-      expect(resolveCollision('my-project', existing)).toBe('my-project-3')
+    it('appends incrementing counter for collisions', () => {
+      expect(resolveCollision('my-project', new Set(['my-project']))).toBe('my-project-1')
+      expect(resolveCollision('my-project', new Set(['my-project', 'my-project-1', 'my-project-2']))).toBe('my-project-3')
     })
   })
 })

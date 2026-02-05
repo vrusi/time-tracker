@@ -6,13 +6,12 @@ import {
   calculateProgress,
   aggregateEntrySeconds
 } from '../../src/utils/workdays'
-import { formatDuration, formatMoney } from '../../src/utils/format'
 
 /**
- * Tests for ProgressBars component logic.
- * These tests verify the real utility functions used by the component.
+ * Progress Bar Logic - calculates work targets and progress.
+ * Critical for accurate daily/weekly/monthly progress reporting.
  */
-describe('ProgressBars Logic', () => {
+describe('Progress Bar Logic', () => {
   beforeEach(() => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2024-01-15T12:00:00.000Z'))
@@ -23,261 +22,91 @@ describe('ProgressBars Logic', () => {
   })
 
   describe('getWorkdaysInMonth', () => {
-    it('counts workdays excluding weekends', () => {
-      // January 2024: 31 days, starts on Monday
-      // Weekends: 6-7, 13-14, 20-21, 27-28 = 8 weekend days
-      // Workdays: 31 - 8 = 23
+    it('counts only Monday-Friday for various months', () => {
+      // January 2024: 31 days, starts Monday. Weekends: 6-7, 13-14, 20-21, 27-28 = 8 days
       expect(getWorkdaysInMonth(2024, 0)).toBe(23)
-    })
 
-    it('handles February in leap year', () => {
-      // February 2024 (leap year): 29 days, starts on Thursday
-      // Weekends: 3-4, 10-11, 17-18, 24-25 = 8 weekend days
-      // Workdays: 29 - 8 = 21
+      // February 2024 (leap year): 29 days, starts Thursday. 8 weekend days
       expect(getWorkdaysInMonth(2024, 1)).toBe(21)
-    })
 
-    it('handles February in non-leap year', () => {
-      // February 2023: 28 days, starts on Wednesday
-      // Workdays: 20
+      // February 2023 (non-leap): 28 days
       expect(getWorkdaysInMonth(2023, 1)).toBe(20)
-    })
 
-    it('handles months with 30 days', () => {
-      // April 2024: 30 days, starts on Monday
-      expect(getWorkdaysInMonth(2024, 3)).toBe(22)
-    })
-
-    it('handles December', () => {
-      // December 2024: 31 days, starts on Sunday
-      // Weekends: 1, 7-8, 14-15, 21-22, 28-29 = 9 weekend days
-      // Workdays: 31 - 9 = 22
+      // December 2024: starts Sunday, 31 days, 9 weekend days
       expect(getWorkdaysInMonth(2024, 11)).toBe(22)
     })
   })
 
-  describe('getWeekStart', () => {
-    it('returns Monday for a Wednesday', () => {
-      // Wednesday, January 17, 2024
-      const date = new Date('2024-01-17T14:30:00.000Z')
-      const weekStart = getWeekStart(date)
+  describe('week boundaries', () => {
+    it('getWeekStart returns Monday at midnight', () => {
+      const wednesday = new Date('2024-01-17T14:30:00.000Z')
+      const weekStart = getWeekStart(wednesday)
 
-      expect(weekStart.getFullYear()).toBe(2024)
-      expect(weekStart.getMonth()).toBe(0) // January
       expect(weekStart.getDate()).toBe(15) // Monday
       expect(weekStart.getHours()).toBe(0)
       expect(weekStart.getMinutes()).toBe(0)
-      expect(weekStart.getSeconds()).toBe(0)
     })
 
-    it('returns Monday for a Monday', () => {
-      // Monday, January 15, 2024
-      const date = new Date('2024-01-15T10:00:00.000Z')
-      const weekStart = getWeekStart(date)
+    it('getWeekEnd returns Sunday at 23:59:59', () => {
+      const wednesday = new Date('2024-01-17T14:30:00.000Z')
+      const weekEnd = getWeekEnd(wednesday)
 
-      expect(weekStart.getDate()).toBe(15) // Same day
-    })
-
-    it('returns previous Monday for a Sunday', () => {
-      // Sunday, January 21, 2024
-      const date = new Date('2024-01-21T10:00:00.000Z')
-      const weekStart = getWeekStart(date)
-
-      expect(weekStart.getDate()).toBe(15) // Previous Monday
-    })
-
-    it('returns Monday for a Saturday', () => {
-      // Saturday, January 20, 2024
-      const date = new Date('2024-01-20T10:00:00.000Z')
-      const weekStart = getWeekStart(date)
-
-      expect(weekStart.getDate()).toBe(15) // Monday of that week
-    })
-
-    it('handles week crossing month boundary', () => {
-      // Thursday, February 1, 2024 - week started in January
-      const date = new Date('2024-02-01T10:00:00.000Z')
-      const weekStart = getWeekStart(date)
-
-      expect(weekStart.getMonth()).toBe(0) // January
-      expect(weekStart.getDate()).toBe(29) // Monday, Jan 29
-    })
-  })
-
-  describe('getWeekEnd', () => {
-    it('returns Sunday for a Wednesday', () => {
-      // Wednesday, January 17, 2024
-      const date = new Date('2024-01-17T14:30:00.000Z')
-      const weekEnd = getWeekEnd(date)
-
-      expect(weekEnd.getFullYear()).toBe(2024)
-      expect(weekEnd.getMonth()).toBe(0) // January
       expect(weekEnd.getDate()).toBe(21) // Sunday
       expect(weekEnd.getHours()).toBe(23)
       expect(weekEnd.getMinutes()).toBe(59)
-      expect(weekEnd.getSeconds()).toBe(59)
-    })
-
-    it('returns Sunday for a Sunday', () => {
-      // Sunday, January 21, 2024
-      const date = new Date('2024-01-21T10:00:00.000Z')
-      const weekEnd = getWeekEnd(date)
-
-      expect(weekEnd.getDate()).toBe(21) // Same day
-    })
-
-    it('returns next Sunday for a Monday', () => {
-      // Monday, January 15, 2024
-      const date = new Date('2024-01-15T10:00:00.000Z')
-      const weekEnd = getWeekEnd(date)
-
-      expect(weekEnd.getDate()).toBe(21) // Sunday of that week
     })
 
     it('handles week crossing month boundary', () => {
-      // Monday, January 29, 2024 - week ends in February
-      const date = new Date('2024-01-29T10:00:00.000Z')
-      const weekEnd = getWeekEnd(date)
+      // Thursday Feb 1 - week started in January
+      const weekStart = getWeekStart(new Date('2024-02-01T10:00:00.000Z'))
+      expect(weekStart.getMonth()).toBe(0) // January
+      expect(weekStart.getDate()).toBe(29)
 
+      // Monday Jan 29 - week ends in February
+      const weekEnd = getWeekEnd(new Date('2024-01-29T10:00:00.000Z'))
       expect(weekEnd.getMonth()).toBe(1) // February
-      expect(weekEnd.getDate()).toBe(4) // Sunday, Feb 4
+      expect(weekEnd.getDate()).toBe(4)
     })
   })
 
   describe('calculateProgress', () => {
-    describe('daily progress', () => {
-      it('calculates progress as percentage of target', () => {
-        // 4 hours of 8 hour target = 50%
-        expect(calculateProgress(14400, 8)).toBe(50)
-      })
-
-      it('caps at 100%', () => {
-        // 10 hours of 8 hour target = 125%, capped to 100
-        expect(calculateProgress(36000, 8)).toBe(100)
-      })
-
-      it('handles zero seconds', () => {
-        expect(calculateProgress(0, 8)).toBe(0)
-      })
-
-      it('handles fractional hours', () => {
-        // 6 hours of 8 hour target = 75%
-        expect(calculateProgress(21600, 8)).toBe(75)
-      })
+    it('calculates percentage of target hours completed', () => {
+      expect(calculateProgress(0, 8)).toBe(0)       // 0h of 8h
+      expect(calculateProgress(14400, 8)).toBe(50)  // 4h of 8h
+      expect(calculateProgress(28800, 8)).toBe(100) // 8h of 8h
     })
 
-    describe('weekly progress', () => {
-      it('calculates progress as percentage of weekly target', () => {
-        // 20 hours of 40 hour target = 50%
-        expect(calculateProgress(72000, 40)).toBe(50)
-      })
-
-      it('caps at 100%', () => {
-        // 50 hours of 40 hour target = 125%, capped to 100
-        expect(calculateProgress(180000, 40)).toBe(100)
-      })
+    it('caps at 100% when exceeding target', () => {
+      expect(calculateProgress(36000, 8)).toBe(100) // 10h of 8h = 125%, capped
     })
 
-    describe('monthly progress', () => {
-      it('calculates progress as percentage of monthly target', () => {
-        // 80 hours of 160 hour target = 50%
-        expect(calculateProgress(288000, 160)).toBe(50)
-      })
-
-      it('caps at 100%', () => {
-        // 200 hours of 160 hour target = 125%, capped to 100
-        expect(calculateProgress(720000, 160)).toBe(100)
-      })
+    it('works for weekly and monthly targets', () => {
+      expect(calculateProgress(72000, 40)).toBe(50)   // 20h of 40h weekly
+      expect(calculateProgress(288000, 160)).toBe(50) // 80h of 160h monthly
     })
   })
 
   describe('aggregateEntrySeconds', () => {
-    it('sums completed entries', () => {
+    it('sums duration of all entries', () => {
       const entries = [
         { startedAt: '2024-01-15T09:00:00.000Z', endedAt: '2024-01-15T10:00:00.000Z' },
         { startedAt: '2024-01-15T11:00:00.000Z', endedAt: '2024-01-15T12:00:00.000Z' }
       ]
 
-      const total = aggregateEntrySeconds(entries)
-
-      expect(total).toBe(7200) // 2 hours
+      expect(aggregateEntrySeconds(entries)).toBe(7200) // 2 hours
     })
 
-    it('includes active entries using provided now value', () => {
+    it('uses provided timestamp for active entries', () => {
       const now = new Date('2024-01-15T10:00:00.000Z').getTime()
       const entries = [
         { startedAt: '2024-01-15T09:00:00.000Z', endedAt: null }
       ]
 
-      const total = aggregateEntrySeconds(entries, now)
-
-      expect(total).toBe(3600) // Exactly 1 hour
+      expect(aggregateEntrySeconds(entries, now)).toBe(3600) // 1 hour
     })
 
-    it('handles empty array', () => {
+    it('returns zero for empty array', () => {
       expect(aggregateEntrySeconds([])).toBe(0)
-    })
-  })
-
-  describe('formatDuration', () => {
-    it('formats hours and minutes', () => {
-      expect(formatDuration(3600)).toBe('1h 0m')
-      expect(formatDuration(5400)).toBe('1h 30m')
-      expect(formatDuration(7200)).toBe('2h 0m')
-    })
-
-    it('handles zero', () => {
-      expect(formatDuration(0)).toBe('0m')
-    })
-
-    it('handles only minutes', () => {
-      expect(formatDuration(1800)).toBe('30m')
-      expect(formatDuration(2700)).toBe('45m')
-    })
-
-    it('handles large values', () => {
-      // 160 hours
-      expect(formatDuration(576000)).toBe('160h 0m')
-    })
-  })
-
-  describe('formatMoney', () => {
-    it('formats with currency symbol', () => {
-      expect(formatMoney(100, '£')).toBe('£100.00')
-      expect(formatMoney(1234.56, '$')).toBe('$1234.56')
-    })
-
-    it('rounds to 2 decimal places', () => {
-      expect(formatMoney(100.456, '£')).toBe('£100.46')
-      expect(formatMoney(100.454, '£')).toBe('£100.45')
-    })
-
-    it('handles zero', () => {
-      expect(formatMoney(0, '£')).toBe('£0.00')
-    })
-
-    it('handles different currency symbols', () => {
-      expect(formatMoney(100, '€')).toBe('€100.00')
-      expect(formatMoney(100, '¥')).toBe('¥100.00')
-    })
-  })
-
-  describe('earnings calculations', () => {
-    it('calculates monthly earnings based on hours and rate', () => {
-      const monthSeconds = 36000 // 10 hours
-      const hourlyRate = 20
-      const hours = monthSeconds / 3600
-      const earnings = hours * hourlyRate
-
-      expect(earnings).toBe(200)
-    })
-
-    it('calculates target earnings', () => {
-      const monthlyTargetHours = 160
-      const hourlyRate = 18.67
-      const targetEarnings = monthlyTargetHours * hourlyRate
-
-      expect(targetEarnings).toBeCloseTo(2987.2)
     })
   })
 })

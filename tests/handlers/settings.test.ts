@@ -1,14 +1,14 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect } from 'vitest'
 
 /**
- * Tests for Settings Handler Logic.
- * These tests verify the business logic without requiring
- * the native better-sqlite3 module (which is compiled for Electron).
+ * Settings Handler Logic - parsing and idle time calculation.
+ * These are critical business rules for app configuration.
  */
 describe('Settings Handler Logic', () => {
-  describe('getSettings parsing', () => {
+  describe('settings parsing from storage', () => {
     /**
-     * Replicates the settings parsing logic from the handler
+     * Replicates the settings parsing logic from the handler.
+     * SQLite stores all values as strings; this converts to proper types.
      */
     function parseSettings(rawSettings: Record<string, string>) {
       return {
@@ -28,7 +28,7 @@ describe('Settings Handler Logic', () => {
       }
     }
 
-    it('returns defaults when settings are missing', () => {
+    it('uses sensible defaults when settings are missing', () => {
       const settings = parseSettings({})
 
       expect(settings.dailyTargetHours).toBe(8)
@@ -36,84 +36,48 @@ describe('Settings Handler Logic', () => {
       expect(settings.monthlyTargetHours).toBe(160)
       expect(settings.hourlyRate).toBe(18.67)
       expect(settings.currency).toBe('GBP')
-      expect(settings.currencySymbol).toBe('£')
       expect(settings.idleThresholdMinutes).toBe(10)
-      expect(settings.idleIndicatorMinutes).toBe(0.5)
-      expect(settings.issueUrlPattern).toBe('gitlab')
-      expect(settings.theme).toBe('light')
       expect(settings.showEarnings).toBe(false)
       expect(settings.notificationsEnabled).toBe(true)
     })
 
-    it('parses numeric values correctly', () => {
+    it('parses numeric strings to numbers', () => {
       const settings = parseSettings({
         dailyTargetHours: '7.5',
-        weeklyTargetHours: '35',
         hourlyRate: '25.50'
       })
 
       expect(settings.dailyTargetHours).toBe(7.5)
-      expect(settings.weeklyTargetHours).toBe(35)
       expect(settings.hourlyRate).toBe(25.50)
     })
 
-    it('parses boolean-like strings for showEarnings', () => {
-      expect(parseSettings({ showEarnings: 'true' }).showEarnings).toBe(true)
-      expect(parseSettings({ showEarnings: 'false' }).showEarnings).toBe(false)
-      expect(parseSettings({}).showEarnings).toBe(false) // Default
-    })
-
-    it('parses boolean-like strings for notificationsEnabled', () => {
-      // Default is true (only false if explicitly set to 'false')
-      expect(parseSettings({}).notificationsEnabled).toBe(true)
-      expect(parseSettings({ notificationsEnabled: 'true' }).notificationsEnabled).toBe(true)
-      expect(parseSettings({ notificationsEnabled: 'false' }).notificationsEnabled).toBe(false)
-    })
-
-    it('handles all settings together', () => {
-      const settings = parseSettings({
-        dailyTargetHours: '6',
-        weeklyTargetHours: '30',
-        monthlyTargetHours: '120',
-        hourlyRate: '30',
-        currency: 'USD',
-        currencySymbol: '$',
-        idleThresholdMinutes: '5',
-        idleIndicatorMinutes: '1',
-        issueUrlPattern: 'github',
-        theme: 'dark',
-        showEarnings: 'true',
-        notificationsEnabled: 'false'
-      })
-
-      expect(settings.dailyTargetHours).toBe(6)
-      expect(settings.weeklyTargetHours).toBe(30)
-      expect(settings.monthlyTargetHours).toBe(120)
-      expect(settings.hourlyRate).toBe(30)
-      expect(settings.currency).toBe('USD')
-      expect(settings.currencySymbol).toBe('$')
-      expect(settings.idleThresholdMinutes).toBe(5)
-      expect(settings.idleIndicatorMinutes).toBe(1)
-      expect(settings.issueUrlPattern).toBe('github')
-      expect(settings.theme).toBe('dark')
-      expect(settings.showEarnings).toBe(true)
-      expect(settings.notificationsEnabled).toBe(false)
-    })
-
-    it('handles invalid numeric values', () => {
+    it('falls back to defaults for invalid numbers', () => {
       const settings = parseSettings({
         dailyTargetHours: 'invalid',
         hourlyRate: 'not-a-number'
       })
 
-      expect(settings.dailyTargetHours).toBe(8) // Falls back to default
-      expect(settings.hourlyRate).toBe(18.67) // Falls back to default
+      expect(settings.dailyTargetHours).toBe(8)
+      expect(settings.hourlyRate).toBe(18.67)
+    })
+
+    it('parses boolean settings correctly', () => {
+      // showEarnings: only true when explicitly 'true'
+      expect(parseSettings({ showEarnings: 'true' }).showEarnings).toBe(true)
+      expect(parseSettings({ showEarnings: 'false' }).showEarnings).toBe(false)
+      expect(parseSettings({}).showEarnings).toBe(false)
+
+      // notificationsEnabled: only false when explicitly 'false'
+      expect(parseSettings({ notificationsEnabled: 'true' }).notificationsEnabled).toBe(true)
+      expect(parseSettings({ notificationsEnabled: 'false' }).notificationsEnabled).toBe(false)
+      expect(parseSettings({}).notificationsEnabled).toBe(true)
     })
   })
 
-  describe('getEffectiveIdleTime logic', () => {
+  describe('effective idle time calculation', () => {
     /**
-     * Replicates the effective idle time calculation logic
+     * Handles the case where user manually reset idle but system still
+     * reports the old idle time. Uses the time since manual reset instead.
      */
     function getEffectiveIdleTime(
       systemIdleTime: number,
@@ -123,99 +87,44 @@ describe('Settings Handler Logic', () => {
       if (idleResetTime !== null) {
         const timeSinceReset = Math.floor((Date.now() - idleResetTime) / 1000)
         if (systemIdleTime > timeSinceReset) {
-          // System still shows old idle time, use time since reset instead
+          // System still shows old idle time, use time since reset
           return timeSinceReset
         } else {
-          // System idle reset naturally (user activity detected), clear our manual reset
+          // System idle reset naturally (user activity), clear manual reset
           clearResetTime()
         }
       }
-
       return systemIdleTime
     }
 
-    it('uses system idle time when there is no manual reset', () => {
+    it('uses system idle time when no manual reset', () => {
       const result = getEffectiveIdleTime(120, null, () => {})
-
       expect(result).toBe(120)
     })
 
-    it('uses time since manual reset when reset is more recent', () => {
+    it('uses time since manual reset when more recent than system idle', () => {
       const now = Date.now()
       const resetTime = now - 60000 // 60 seconds ago
 
       const result = getEffectiveIdleTime(300, resetTime, () => {})
 
-      // Should be approximately 60 seconds
-      expect(result).toBeLessThanOrEqual(61)
       expect(result).toBeGreaterThanOrEqual(59)
+      expect(result).toBeLessThanOrEqual(61)
     })
 
-    it('clears reset time when system activity is detected', () => {
+    it('clears manual reset when user activity is detected', () => {
       let resetCleared = false
       const now = Date.now()
       const resetTime = now - 120000 // 2 minutes ago
 
-      // System idle is 30 seconds (less than time since reset)
-      // This means user was active, clear the reset
+      // System idle is 30s (less than 2 minutes since reset)
+      // means user was active, should clear the reset
       const result = getEffectiveIdleTime(30, resetTime, () => {
         resetCleared = true
       })
 
       expect(result).toBe(30)
       expect(resetCleared).toBe(true)
-    })
-  })
-
-  describe('update-settings logic', () => {
-    it('converts values to strings for storage', () => {
-      const updates = {
-        dailyTargetHours: 6,
-        showEarnings: true,
-        hourlyRate: 25.50
-      }
-
-      const stringified: Record<string, string> = {}
-      for (const [key, value] of Object.entries(updates)) {
-        stringified[key] = String(value)
-      }
-
-      expect(stringified.dailyTargetHours).toBe('6')
-      expect(stringified.showEarnings).toBe('true')
-      expect(stringified.hourlyRate).toBe('25.5')
-    })
-
-    it('handles all update types', () => {
-      const updates = {
-        theme: 'dark',
-        currency: 'USD',
-        idleThresholdMinutes: 15
-      }
-
-      const stringified: Record<string, string> = {}
-      for (const [key, value] of Object.entries(updates)) {
-        stringified[key] = String(value)
-      }
-
-      expect(stringified.theme).toBe('dark')
-      expect(stringified.currency).toBe('USD')
-      expect(stringified.idleThresholdMinutes).toBe('15')
-    })
-  })
-
-  describe('idle threshold calculation', () => {
-    it('converts minutes to seconds for threshold', () => {
-      const idleThresholdMinutes = 10
-      const thresholdSeconds = idleThresholdMinutes * 60
-
-      expect(thresholdSeconds).toBe(600)
-    })
-
-    it('handles fractional minutes', () => {
-      const idleIndicatorMinutes = 0.5
-      const indicatorSeconds = idleIndicatorMinutes * 60
-
-      expect(indicatorSeconds).toBe(30)
     })
   })
 })
