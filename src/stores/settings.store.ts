@@ -74,23 +74,30 @@ export const useSettingsStore = defineStore('settings', () => {
   })
 
   function extractIssueId(url: string): string | null {
-    // Auto-detect tracker type from URL
-    let regex = issueIdRegex.value
-
+    // Auto-detect tracker type from URL and extract project name where possible
     if (url.includes('gitlab.com') || url.includes('gitlab')) {
-      regex = /\/issues\/(\d+)/
-    } else if (url.includes('github.com') || url.includes('github')) {
-      regex = /\/issues\/(\d+)/
-    } else if (url.includes('atlassian') || url.includes('jira')) {
-      regex = /\/browse\/([A-Z]+-\d+)/
+      const match = url.match(/\/([^/]+)\/-\/issues\/(\d+)/)
+      if (!match) return null
+      return `${match[1]}#${match[2]}`
     }
-    // Otherwise use the user's configured pattern as fallback
 
-    const match = url.match(regex)
+    if (url.includes('github.com') || url.includes('github')) {
+      const match = url.match(/\/([^/]+)\/issues\/(\d+)/)
+      if (!match) return null
+      return `${match[1]}#${match[2]}`
+    }
+
+    if (url.includes('atlassian') || url.includes('jira')) {
+      const match = url.match(/\/browse\/([A-Z]+-\d+)/)
+      if (!match) return null
+      return match[1]
+    }
+
+    // Use the user's configured pattern as fallback
+    const match = url.match(issueIdRegex.value)
     if (!match) return null
 
     const id = match[1]
-    // Add # prefix for numeric IDs
     if (/^\d+$/.test(id)) {
       return `#${id}`
     }

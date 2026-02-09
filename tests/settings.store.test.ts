@@ -17,22 +17,24 @@ describe('Settings Store', () => {
 
   describe('issue ID extraction', () => {
     describe('GitLab URLs', () => {
-      it('extracts issue number from various GitLab URL formats', () => {
+      it('extracts project name and issue number from GitLab URLs', () => {
         const store = useSettingsStore()
         store.settings.issueUrlPattern = 'gitlab'
 
-        expect(store.extractIssueId('https://gitlab.com/org/repo/-/issues/123')).toBe('#123')
-        expect(store.extractIssueId('https://gitlab.com/group/subgroup/project/-/issues/456')).toBe('#456')
+        expect(store.extractIssueId('https://gitlab.com/org/repo/-/issues/123')).toBe('repo#123')
+        expect(store.extractIssueId('https://gitlab.com/group/subgroup/project/-/issues/456')).toBe('project#456')
+        expect(store.extractIssueId('https://gitlab.avvoka.com/avvoka/avvoka-reflow/-/issues/43')).toBe('avvoka-reflow#43')
+        expect(store.extractIssueId('https://gitlab.avvoka.com/avvoka/app/-/issues/6620')).toBe('app#6620')
       })
     })
 
     describe('GitHub URLs', () => {
-      it('extracts issue number from GitHub URLs', () => {
+      it('extracts repo name and issue number from GitHub URLs', () => {
         const store = useSettingsStore()
         store.settings.issueUrlPattern = 'github'
 
-        expect(store.extractIssueId('https://github.com/org/repo/issues/789')).toBe('#789')
-        expect(store.extractIssueId('https://github.com/facebook/react/issues/12345')).toBe('#12345')
+        expect(store.extractIssueId('https://github.com/org/repo/issues/789')).toBe('repo#789')
+        expect(store.extractIssueId('https://github.com/facebook/react/issues/12345')).toBe('react#12345')
       })
     })
 
