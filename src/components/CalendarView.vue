@@ -250,6 +250,8 @@ function handleAddEntry(dateStr: string) {
   expandedDate.value = null
   emit('add-entry', dateStr)
 }
+
+defineExpose({ loadEntries })
 </script>
 
 <template>

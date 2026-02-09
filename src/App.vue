@@ -27,20 +27,24 @@ const showExportDialog = ref(false)
 const showRecoveryDialog = ref(false)
 const recoveryInfo = ref<TrackingRecoveryInfo | null>(null)
 const historyViewRef = ref<InstanceType<typeof HistoryView> | null>(null)
+const calendarViewRef = ref<InstanceType<typeof CalendarView> | null>(null)
 const progressBarsRef = ref<InstanceType<typeof ProgressBars> | null>(null)
 
 function refreshProgress() {
   progressBarsRef.value?.loadProgress()
 }
 
+function refreshAllViews() {
+  historyViewRef.value?.loadEntries()
+  calendarViewRef.value?.loadEntries()
+  refreshProgress()
+}
+
 // Provide refresh function to child components
 provide('refreshProgress', refreshProgress)
 
-// Refresh history view when tracking state changes (e.g., pause/stop sets endedAt)
-watch(() => trackerStore.currentEntry, () => {
-  historyViewRef.value?.loadEntries()
-  refreshProgress()
-})
+// Refresh both views when tracking state changes (e.g., pause/stop sets endedAt)
+watch(() => trackerStore.currentEntry, refreshAllViews)
 
 async function handleRecoveryResolve(action: 'keep-all' | 'end-at-close' | 'discard') {
   await window.electronAPI.resolveTrackingRecovery(action)
@@ -98,14 +102,15 @@ onMounted(async () => {
               v-show="historyView === 'list'"
               ref="historyViewRef"
               :view-mode="historyView"
-              @entries-changed="refreshProgress"
+              @entries-changed="refreshAllViews"
               @view-change="historyView = $event"
             />
             <CalendarView
               v-show="historyView === 'calendar'"
+              ref="calendarViewRef"
               @view-change="historyView = $event"
               @add-entry="historyViewRef?.openAddEntryModal($event)"
-              @entries-changed="refreshProgress"
+              @entries-changed="refreshAllViews"
             />
           </div>
         </RTabItem>

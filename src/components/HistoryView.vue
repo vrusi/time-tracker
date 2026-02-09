@@ -253,6 +253,18 @@ function closeAddEntryModal() {
   showAddEntryModal.value = false
 }
 
+// Auto-fill link when an existing issue is selected from the dropdown
+watch(() => addEntryForm.value.issueText, (text) => {
+  const match = issuesStore.issues.find(
+    i => `${i.externalId} - ${i.name}` === text ||
+         i.externalId === text ||
+         i.name === text
+  )
+  if (match) {
+    addEntryForm.value.issueLink = match.link || ''
+  }
+})
+
 async function submitAddEntry() {
   const issueText = addEntryForm.value.issueText.trim()
   if (!issueText) return
@@ -728,6 +740,8 @@ defineExpose({ openAddEntryModal, loadEntries })
       </div>
     </RCard>
 
+    <!-- Teleport dialogs to body so they're visible even when HistoryView is hidden via v-show -->
+    <Teleport to="body">
     <!-- Bulk Delete Confirmation Dialog -->
     <RDialog v-model:open="showBulkDeleteConfirm">
       <template #title>Delete Entries?</template>
@@ -822,6 +836,7 @@ defineExpose({ openAddEntryModal, loadEntries })
         </div>
       </form>
     </RDialog>
+    </Teleport>
   </div>
 </template>
 
