@@ -105,6 +105,7 @@ onMounted(async () => {
               v-show="historyView === 'calendar'"
               @view-change="historyView = $event"
               @add-entry="historyViewRef?.openAddEntryModal($event)"
+              @entries-changed="refreshProgress"
             />
           </div>
         </RTabItem>
