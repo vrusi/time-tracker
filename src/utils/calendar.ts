@@ -1,5 +1,15 @@
 import type { TimeEntry, Issue } from '../types'
 
+/**
+ * Format a Date as local YYYY-MM-DD string
+ */
+export function toLocalDateStr(date: Date): string {
+  const y = date.getFullYear()
+  const m = String(date.getMonth() + 1).padStart(2, '0')
+  const d = String(date.getDate()).padStart(2, '0')
+  return `${y}-${m}-${d}`
+}
+
 export interface CalendarDay {
   date: Date
   day: number
@@ -26,7 +36,7 @@ export function calculateDailyTotals(
   const totals = new Map<string, number>()
 
   entries.forEach(entry => {
-    const date = entry.startedAt.split('T')[0]
+    const date = toLocalDateStr(new Date(entry.startedAt))
     const start = new Date(entry.startedAt).getTime()
     const end = entry.endedAt ? new Date(entry.endedAt).getTime() : now
     const seconds = (end - start) / 1000
@@ -47,7 +57,7 @@ export function calculateDailyIssueBreakdown(
   const breakdown = new Map<string, Map<number, IssueBreakdown>>()
 
   entries.forEach(entry => {
-    const date = entry.startedAt.split('T')[0]
+    const date = toLocalDateStr(new Date(entry.startedAt))
     const start = new Date(entry.startedAt).getTime()
     const end = entry.endedAt ? new Date(entry.endedAt).getTime() : now
     const seconds = (end - start) / 1000
@@ -95,7 +105,7 @@ export function generateCalendarWeeks(year: number, month: number): CalendarDay[
   let currentWeek: CalendarDay[] = []
 
   while (startDate <= lastDay || currentWeek.length > 0) {
-    const dateStr = startDate.toISOString().split('T')[0]
+    const dateStr = toLocalDateStr(startDate)
     currentWeek.push({
       date: new Date(startDate),
       day: startDate.getDate(),
@@ -133,7 +143,7 @@ export function getHoursClass(seconds: number): string {
  * Check if a date string is today
  */
 export function isToday(dateStr: string, now: Date = new Date()): boolean {
-  return dateStr === now.toISOString().split('T')[0]
+  return dateStr === toLocalDateStr(now)
 }
 
 /**

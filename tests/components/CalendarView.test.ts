@@ -6,6 +6,7 @@ import {
   getHoursClass,
   isToday,
   isWeekend,
+  toLocalDateStr,
   type TimeEntryWithIssue
 } from '../../src/utils/calendar'
 
@@ -128,6 +129,61 @@ describe('Calendar View Logic', () => {
       expect(isWeekend(new Date(2024, 0, 6))).toBe(true)  // Saturday
       expect(isWeekend(new Date(2024, 0, 7))).toBe(true)  // Sunday
       expect(isWeekend(new Date(2024, 0, 8))).toBe(false) // Monday
+    })
+  })
+
+  describe('list view and calendar view consistency', () => {
+    it('daily totals date keys exist in the calendar grid', () => {
+      const entries = [
+        createEntry({ id: 1, startedAt: '2024-01-15T09:00:00.000Z', endedAt: '2024-01-15T17:00:00.000Z' }),
+        createEntry({ id: 2, startedAt: '2024-01-16T10:00:00.000Z', endedAt: '2024-01-16T12:00:00.000Z' }),
+        createEntry({ id: 3, startedAt: '2024-01-17T14:00:00.000Z', endedAt: '2024-01-17T16:00:00.000Z' })
+      ]
+
+      const totals = calculateDailyTotals(entries)
+      const weeks = generateCalendarWeeks(2024, 0)
+      const allDateStrs = weeks.flat().map(d => d.dateStr)
+
+      for (const dateKey of totals.keys()) {
+        expect(allDateStrs).toContain(dateKey)
+      }
+    })
+
+    it('calendar cell day number matches the date used for entry lookup', () => {
+      const weeks = generateCalendarWeeks(2024, 0) // January 2024
+
+      for (const day of weeks.flat()) {
+        // The visual day number and the dateStr must refer to the same local date
+        const dateFromStr = new Date(day.dateStr + 'T00:00:00') // parse as local
+        expect(day.day).toBe(dateFromStr.getDate())
+      }
+    })
+
+    it('list view grouping (toLocalDateStr) matches calendar daily totals', () => {
+      const entries = [
+        createEntry({ id: 1, startedAt: '2024-01-15T09:00:00.000Z', endedAt: '2024-01-15T17:00:00.000Z' }),
+        createEntry({ id: 2, startedAt: '2024-01-15T13:00:00.000Z', endedAt: '2024-01-15T14:00:00.000Z' }),
+        createEntry({ id: 3, startedAt: '2024-01-16T08:00:00.000Z', endedAt: '2024-01-16T12:00:00.000Z' })
+      ]
+
+      // Calendar view grouping
+      const calendarTotals = calculateDailyTotals(entries)
+
+      // List view grouping (same logic used in HistoryView.vue)
+      const listGroups = new Map<string, number>()
+      entries.forEach(entry => {
+        const date = toLocalDateStr(new Date(entry.startedAt))
+        const start = new Date(entry.startedAt).getTime()
+        const end = new Date(entry.endedAt!).getTime()
+        const seconds = (end - start) / 1000
+        listGroups.set(date, (listGroups.get(date) || 0) + seconds)
+      })
+
+      // Both views must produce identical date keys and totals
+      expect(calendarTotals.size).toBe(listGroups.size)
+      for (const [date, seconds] of calendarTotals) {
+        expect(listGroups.get(date)).toBe(seconds)
+      }
     })
   })
 })

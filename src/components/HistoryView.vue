@@ -3,6 +3,7 @@ import { ref, computed, watch, onMounted } from 'vue'
 import type { TimeEntry, Issue, DayGroup } from '../types'
 import { useIssuesStore } from '../stores/issues.store'
 import { formatTime, formatDuration, formatDate, toLocalDateTimeInput } from '@/utils/format'
+import { toLocalDateStr } from '@/utils/calendar'
 import { RCard, RButton, RInput, RText, RSpace, RList, RListItem, RDialog, RPopover } from 'roughness'
 import Icon from './Icon.vue'
 
@@ -20,8 +21,8 @@ const today = new Date()
 const monthStart = new Date(today.getFullYear(), today.getMonth(), 1)
 const monthEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0)
 
-const startDate = ref(monthStart.toISOString().split('T')[0])
-const endDate = ref(monthEnd.toISOString().split('T')[0])
+const startDate = ref(toLocalDateStr(monthStart))
+const endDate = ref(toLocalDateStr(monthEnd))
 
 // Edit mode - discriminated union for mutually exclusive edit states
 type EditMode =
@@ -63,7 +64,7 @@ function showToast(message: string, isError = false) {
 const addEntryForm = ref({
   issueText: '',
   issueLink: '',
-  date: today.toISOString().split('T')[0],
+  date: toLocalDateStr(today),
   startTime: '09:00',
   endTime: '17:00',
   notes: ''
@@ -73,7 +74,7 @@ const groupedEntries = computed<DayGroup[]>(() => {
   const groups = new Map<string, DayGroup>()
 
   entries.value.forEach(entry => {
-    const date = entry.startedAt.split('T')[0]
+    const date = toLocalDateStr(new Date(entry.startedAt))
 
     if (!groups.has(date)) {
       groups.set(date, { date, entries: [], totalSeconds: 0 })
@@ -240,7 +241,7 @@ function openAddEntryModal(prefillDate?: string) {
   addEntryForm.value = {
     issueText: '',
     issueLink: '',
-    date: prefillDate || today.toISOString().split('T')[0],
+    date: prefillDate || toLocalDateStr(today),
     startTime: '09:00',
     endTime: '17:00',
     notes: ''
