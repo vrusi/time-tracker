@@ -199,6 +199,13 @@ export const useTrackerStore = defineStore('tracker', () => {
       idleRecoveryInfo.value = await window.electronAPI.getIdleRecoveryInfo()
     })
 
+    // Re-fetch idle recovery info when user returns (so the displayed time is accurate)
+    document.addEventListener('visibilitychange', async () => {
+      if (document.visibilityState === 'visible' && pauseReason.value === 'idle' && idleRecoveryInfo.value) {
+        idleRecoveryInfo.value = await window.electronAPI.getIdleRecoveryInfo()
+      }
+    })
+
     window.electronAPI.onTrackingUpdate((data) => {
       if (data) {
         currentEntry.value = data.entry
