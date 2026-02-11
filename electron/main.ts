@@ -173,8 +173,20 @@ function createWindow() {
 }
 
 function createTray() {
-  // Create a simple 16x16 icon (you can replace with actual icon file)
   const icon = nativeImage.createEmpty()
+  icon.addRepresentation({
+    scaleFactor: 1.0,
+    buffer: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAxklEQVR4nK2TvQ3CMBSEvyISW6RngxRI2SEjuGQQlD2Il0lNm44tUoCMLsh5/lGEOOma57v342dDGS3QiW1Fl2AAJmABVnFRbKgZG2CUwQMO6EWn2CpNk0sQDp4Sb/DiBifNmGt7NWbU9mRiTtrBCj0p7mLAFbhEnX0Tt7okWz0eYQZeUREnz2c7nVrqMwkeMgbegJPivTzdkQSBZxPfJaiNUMJuBCqXWIK32ymtsVQ9WSOFh5QzZx8S/3jK8Tg/fSaLQ9/5DQT/Q38njkq2AAAAAElFTkSuQmCC', 'base64'),
+    width: 16,
+    height: 16
+  })
+  icon.addRepresentation({
+    scaleFactor: 2.0,
+    buffer: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAB6klEQVR4nM2XoW/CUBDGf1lC+ieg8CRTuKVubp5gFtxEJ7ugSIZcgu48GouZmZkAMTPskKTbf1C9jZKvSYGWvtdHwr7kzOvdfdd39+7dAzs0AR/oAQEQSgKt+dI5OXwRTYA5sAYS4EeSaG0unVA2zugAQ+BVJKvN2gyIgBEwkIy0NpNOIpuhfNRCuqVTOVsAY6C7WWsDXoG+p29d6S5kO5UvYzSU03Q7Y/3ZTQlpGTzZRPIxl8+GiXGq+AEstb2tI7rvkjK05GMpn0EVeU/Rpgb3Bn8dS47Bk6+lfJemo6N8xYraZMu/JFXw5DMWR2FhDlU0UcW21wkA+YzEMdz/6OvYLFQ8prAJAPleiGunT4SKbGxZ7d8SU3jiSMS5RVPda6UzbIOiANKj9qSCuyyw6YprkrVtX8ozNRKXAO7Ukn8lDwU2bXHNszT0ZBRZbn8+gGvgLUecyjNwUWDjiWudHclAORlZkucDyBO/AFcVdiNxbhtTqBttYEne3yP+BG4NbQfiDE8VwKOl7U4ALinoS2yxkwKXIqyDgyJ0OYZ1cHAMXRpRHRw0IhxasS0KWzEOl5EtSi8jal7HNjh6HVNzIDGF0UBCjZHMlNxoJMtgM5RWwXoo5T+M5RnO9jDJ46xPszzO9jjdx8mf538z3csC/ePGdAAAAABJRU5ErkJggg==', 'base64'),
+    width: 32,
+    height: 32
+  })
+  icon.setTemplateImage(true)
   tray = new Tray(icon)
 
   updateTrayMenu()
