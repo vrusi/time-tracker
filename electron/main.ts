@@ -190,10 +190,6 @@ function createTray() {
   tray = new Tray(icon)
 
   updateTrayMenu()
-
-  tray.on('click', () => {
-    mainWindow?.show()
-  })
 }
 
 // Helper to call the imported pauseTracking with all required parameters
