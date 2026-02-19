@@ -29,6 +29,7 @@ const recoveryInfo = ref<TrackingRecoveryInfo | null>(null)
 const historyViewRef = ref<InstanceType<typeof HistoryView> | null>(null)
 const calendarViewRef = ref<InstanceType<typeof CalendarView> | null>(null)
 const progressBarsRef = ref<InstanceType<typeof ProgressBars> | null>(null)
+const issueListRef = ref<InstanceType<typeof IssueList> | null>(null)
 
 function refreshProgress() {
   progressBarsRef.value?.loadProgress()
@@ -37,6 +38,7 @@ function refreshProgress() {
 function refreshAllViews() {
   historyViewRef.value?.loadEntries()
   calendarViewRef.value?.loadEntries()
+  issueListRef.value?.loadIssueTimes()
   refreshProgress()
 }
 
@@ -92,7 +94,7 @@ onMounted(async () => {
       <RTabs v-model="activeTab" class="w-full">
         <RTabItem label="Track" value="track">
           <div class="track-section">
-            <IssueList />
+            <IssueList ref="issueListRef" />
           </div>
         </RTabItem>
 

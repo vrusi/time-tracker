@@ -172,6 +172,7 @@ async function executeMerge(targetId: number) {
     mergingIssueId.value = null
     await issuesStore.loadIssues()
     await loadIssueTimes()
+    refreshProgress?.()
     showToast('Items merged')
   } catch (err) {
     console.error('Failed to merge items:', err)
@@ -222,6 +223,8 @@ function formatEntryDuration(entry: TimeEntry): string {
   const seconds = Math.floor((end - start) / 1000)
   return formatDuration(seconds)
 }
+
+defineExpose({ loadIssueTimes })
 
 // Bulk delete functions
 function toggleSelectionMode() {
@@ -371,37 +374,52 @@ async function executeBulkDelete() {
         <!-- Notes edit mode -->
         <div v-else-if="editingNotesId === issue.id" class="notes-panel w-full">
           <div class="notes-header">
-            <RText class="text-sm">
-              <span class="text-secondary">{{ issue.externalId }}</span> {{ issue.name }}
-            </RText>
-            <button class="close-btn" @click="cancelEditingNotes" title="Close">×</button>
+            <div class="notes-header-info">
+              <span v-if="issue.externalId" class="notes-issue-id">{{ issue.externalId }}</span>
+              <span class="notes-issue-name">{{ issue.name }}</span>
+            </div>
+            <button class="close-btn" @click="cancelEditingNotes" title="Close">&times;</button>
           </div>
 
           <!-- Issue notes -->
-          <div class="notes-section">
-            <RText size="small" class="section-label">Issue Notes</RText>
+          <div class="notes-card">
+            <div class="notes-card-header">
+              <Icon name="note" :size="14" />
+              <span class="notes-card-title">Notes</span>
+            </div>
             <RInput
               v-model="notesForm"
-              :lines="3"
+              :lines="4"
               placeholder="Add notes about this tracked item..."
               @focusout="saveNotesOnBlur"
+              class="notes-textarea"
             />
+            <div class="notes-hint">
+              <RText size="small" class="text-secondary">Auto-saves when you click away</RText>
             </div>
+          </div>
 
           <!-- Work log -->
-          <div v-if="workLogEntries.length > 0" class="notes-section">
-            <RText size="small" class="section-label">Work Log ({{ workLogEntries.length }} {{ workLogEntries.length === 1 ? 'entry' : 'entries' }})</RText>
-            <div class="work-log">
+          <div class="notes-card">
+            <div class="notes-card-header">
+              <Icon name="clock" :size="14" />
+              <span class="notes-card-title">Work Log</span>
+              <span class="notes-card-badge">{{ workLogEntries.length }}</span>
+            </div>
+            <div v-if="workLogEntries.length === 0" class="work-log-empty">
+              <RText size="small" class="text-secondary">No time entries yet. Start tracking to build your work log.</RText>
+            </div>
+            <div v-else class="work-log">
               <div
                 v-for="entry in workLogEntries"
                 :key="entry.id"
                 class="work-log-entry"
               >
                 <div class="work-log-header">
-                  <RText size="small" class="text-secondary">{{ formatDateTime(entry.startedAt) }}</RText>
-                  <RText size="small" class="text-secondary">{{ formatEntryDuration(entry) }}</RText>
+                  <span class="work-log-date">{{ formatDateTime(entry.startedAt) }}</span>
+                  <span class="work-log-duration">{{ formatEntryDuration(entry) }}</span>
                 </div>
-                <RText v-if="entry.notes" size="small">{{ entry.notes }}</RText>
+                <div v-if="entry.notes" class="work-log-notes">{{ entry.notes }}</div>
               </div>
             </div>
           </div>
@@ -450,6 +468,26 @@ async function executeBulkDelete() {
               >
                 <span class="link-icon">↗</span>
               </RButton>
+
+              <!-- Inline edit & notes buttons for currently tracked issue -->
+              <template v-if="isCurrentlyTracking(issue)">
+                <RButton
+                  size="small"
+                  title="Notes"
+                  class="inline-action-btn"
+                  @click="startEditingNotes(issue)"
+                >
+                  <Icon name="note" :size="16" />
+                </RButton>
+                <RButton
+                  size="small"
+                  title="Edit"
+                  class="inline-action-btn"
+                  @click="startEditing(issue)"
+                >
+                  <Icon name="pencil" :size="16" />
+                </RButton>
+              </template>
 
               <!-- Actions dropdown menu -->
               <RPopover
@@ -637,6 +675,16 @@ async function executeBulkDelete() {
   pointer-events: none;
 }
 
+/* Inline action buttons for currently tracked issue */
+.inline-action-btn {
+  opacity: 0.6;
+  transition: opacity 0.15s ease;
+}
+
+.inline-action-btn:hover {
+  opacity: 1;
+}
+
 /* Menu trigger button */
 .menu-trigger {
   opacity: 0.4;
@@ -755,31 +803,56 @@ async function executeBulkDelete() {
   color: var(--color-text-secondary);
 }
 
+/* Notes panel layout */
 .notes-panel {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: 0.75rem;
+  padding: 0.5rem 0;
 }
 
 .notes-header {
   display: flex;
   justify-content: space-between;
-  align-items: flex-start;
+  align-items: center;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.notes-header-info {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.notes-issue-id {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  flex-shrink: 0;
+}
+
+.notes-issue-name {
+  font-weight: 500;
+  color: var(--color-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .close-btn {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 1.5rem;
-  height: 1.5rem;
+  width: 1.75rem;
+  height: 1.75rem;
   border: none;
   background: none;
   color: var(--color-text-secondary);
-  font-size: 1.25rem;
-  line-height: 1;
   cursor: pointer;
   border-radius: 4px;
+  flex-shrink: 0;
   transition: background-color 0.1s ease, color 0.1s ease;
 }
 
@@ -788,10 +861,53 @@ async function executeBulkDelete() {
   color: var(--color-text);
 }
 
-.notes-section {
+/* Notes card sections */
+.notes-card {
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  background: var(--color-bg);
+}
+
+.notes-card-header {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  color: var(--color-text-secondary);
+}
+
+.notes-card-title {
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.notes-card-badge {
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 0.05rem 0.4rem;
+  border-radius: 8px;
+  background: var(--color-bg-secondary);
+  color: var(--color-text-secondary);
+  margin-left: auto;
+}
+
+.notes-textarea :deep(textarea) {
+  min-height: 5rem;
+}
+
+.notes-hint {
+  text-align: right;
+  opacity: 0.7;
+}
+
+.work-log-empty {
+  padding: 1rem 0.5rem;
+  text-align: center;
 }
 
 .toast {
@@ -826,27 +942,24 @@ async function executeBulkDelete() {
   }
 }
 
-.section-label {
-  font-weight: 600;
-  color: var(--color-text-secondary);
-}
-
+/* Work log entries */
 .work-log {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
-  max-height: 200px;
+  max-height: 240px;
   overflow-y: auto;
-  padding: 0.5rem;
-  background: var(--color-bg-secondary);
-  border-radius: 4px;
 }
 
 .work-log-entry {
   display: flex;
   flex-direction: column;
-  padding-bottom: 0.5rem;
+  gap: 0.25rem;
+  padding: 0.5rem 0;
   border-bottom: 1px solid var(--color-border);
+}
+
+.work-log-entry:first-child {
+  padding-top: 0;
 }
 
 .work-log-entry:last-child {
@@ -858,6 +971,27 @@ async function executeBulkDelete() {
   display: flex;
   justify-content: space-between;
   align-items: center;
+}
+
+.work-log-date {
+  font-size: 0.8rem;
+  color: var(--color-text-secondary);
+}
+
+.work-log-duration {
+  font-size: 0.8rem;
+  font-weight: 600;
+  font-family: ui-monospace, monospace;
+  color: var(--color-text-secondary);
+}
+
+.work-log-notes {
+  font-size: 0.825rem;
+  color: var(--color-text);
+  line-height: 1.4;
+  white-space: pre-wrap;
+  word-break: break-word;
+  padding-left: 0.25rem;
 }
 
 .merge-dropdown {

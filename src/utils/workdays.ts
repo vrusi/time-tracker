@@ -51,6 +51,30 @@ export function calculateProgress(currentSeconds: number, targetHours: number): 
 }
 
 /**
+ * Calculate target workdays from monthly and daily target hours
+ */
+export function getTargetWorkdays(monthlyTargetHours: number, dailyTargetHours: number): number {
+  if (dailyTargetHours <= 0) return 0
+  return Math.ceil(monthlyTargetHours / dailyTargetHours)
+}
+
+/**
+ * Calculate the number of workdays worked based on tracked hours
+ */
+export function getWorkedDays(monthlySeconds: number, dailyTargetHours: number): number {
+  if (dailyTargetHours <= 0) return 0
+  const dailyTargetSeconds = dailyTargetHours * 3600
+  return Math.floor(monthlySeconds / dailyTargetSeconds)
+}
+
+/**
+ * Calculate free days in a month (workdays beyond the billable target)
+ */
+export function getFreeDays(totalWorkdays: number, targetWorkdays: number): number {
+  return Math.max(0, totalWorkdays - targetWorkdays)
+}
+
+/**
  * Aggregate time entries into total seconds
  */
 export function aggregateEntrySeconds(

@@ -153,6 +153,7 @@ async function saveEdit() {
 
     editMode.value = { type: 'normal' }
     await loadEntries()
+    emit('entries-changed')
     showToast('Entry updated')
   } catch (err) {
     console.error('Failed to save edit:', err)

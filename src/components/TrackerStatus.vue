@@ -17,6 +17,61 @@ const name = ref('')
 const isSubmitting = ref(false)
 const matchedIssue = ref<Issue | null>(null)
 
+// Description autocomplete state
+const showSuggestions = ref(false)
+const selectedSuggestionIndex = ref(-1)
+
+const filteredSuggestions = computed(() => {
+  const query = name.value.trim().toLowerCase()
+  if (!query || matchedIssue.value) return []
+  return issuesStore.issues
+    .filter(i => !i.archived && i.name.toLowerCase().includes(query))
+    .slice(0, 5)
+})
+
+function selectSuggestion(issue: Issue) {
+  matchedIssue.value = issue
+  name.value = issue.name
+  if (issue.link) link.value = issue.link
+  showSuggestions.value = false
+  selectedSuggestionIndex.value = -1
+}
+
+function handleNameInput() {
+  // Clear matched issue when user edits the name
+  if (matchedIssue.value && name.value !== matchedIssue.value.name) {
+    matchedIssue.value = null
+  }
+  showSuggestions.value = name.value.trim().length > 0 && !matchedIssue.value
+  selectedSuggestionIndex.value = -1
+}
+
+function handleNameKeydown(e: KeyboardEvent) {
+  if (!showSuggestions.value || filteredSuggestions.value.length === 0) return
+
+  if (e.key === 'ArrowDown') {
+    e.preventDefault()
+    selectedSuggestionIndex.value = Math.min(
+      selectedSuggestionIndex.value + 1,
+      filteredSuggestions.value.length - 1
+    )
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault()
+    selectedSuggestionIndex.value = Math.max(selectedSuggestionIndex.value - 1, -1)
+  } else if (e.key === 'Enter' && selectedSuggestionIndex.value >= 0) {
+    e.preventDefault()
+    selectSuggestion(filteredSuggestions.value[selectedSuggestionIndex.value])
+  } else if (e.key === 'Escape') {
+    showSuggestions.value = false
+    selectedSuggestionIndex.value = -1
+  }
+}
+
+function handleNameBlur() {
+  // Delay to allow click on suggestion to fire first
+  setTimeout(() => { showSuggestions.value = false }, 150)
+}
+
 // Watch link changes to find existing issues
 watch(link, (url) => {
   const trimmedUrl = url.trim()
@@ -34,6 +89,13 @@ watch(link, (url) => {
     if (extractedId) {
       existing = issuesStore.issues.find(i => i.externalId === extractedId)
     }
+  }
+
+  // If no URL-based match, try matching bare issue ID (e.g. "ABC-123", "project#42")
+  if (!existing) {
+    existing = issuesStore.issues.find(i =>
+      i.externalId && i.externalId.toLowerCase() === trimmedUrl.toLowerCase()
+    )
   }
 
   if (existing) {
@@ -242,12 +304,31 @@ async function handleRecoverIdleTime() {
             placeholder="Link to tracked item"
             class="field-input url-input"
           />
-          <input
-            v-model="name"
-            type="text"
-            placeholder="Item description"
-            class="field-input name-input"
-          />
+          <div class="name-input-wrapper">
+            <input
+              v-model="name"
+              type="text"
+              placeholder="Item description"
+              class="field-input name-input"
+              autocomplete="off"
+              @input="handleNameInput"
+              @keydown="handleNameKeydown"
+              @blur="handleNameBlur"
+              @focus="handleNameInput"
+            />
+            <ul v-if="showSuggestions && filteredSuggestions.length > 0" class="suggestions-dropdown">
+              <li
+                v-for="(issue, index) in filteredSuggestions"
+                :key="issue.id"
+                class="suggestion-item"
+                :class="{ 'suggestion-active': index === selectedSuggestionIndex }"
+                @mousedown.prevent="selectSuggestion(issue)"
+              >
+                <span v-if="issue.externalId" class="suggestion-id">{{ issue.externalId }}</span>
+                <span class="suggestion-name">{{ issue.name }}</span>
+              </li>
+            </ul>
+          </div>
           <span class="submit-wrapper" :title="submitTooltip">
             <RButton
               type="submit"
@@ -387,9 +468,65 @@ async function handleRecoverIdleTime() {
   min-width: 0;
 }
 
+.name-input-wrapper {
+  position: relative;
+  flex: 2;
+  min-width: 0;
+}
+
+.name-input-wrapper .name-input {
+  width: 100%;
+}
+
 .name-input {
   flex: 2;
   min-width: 0;
+}
+
+.suggestions-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 100;
+  margin: 2px 0 0;
+  padding: 0;
+  list-style: none;
+  background: var(--color-bg-secondary);
+  border: 2px solid var(--color-border);
+  border-radius: 4px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.suggestion-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  cursor: pointer;
+  font-size: 0.85rem;
+  color: var(--color-text);
+}
+
+.suggestion-item:hover,
+.suggestion-active {
+  background: var(--color-accent);
+  color: white;
+}
+
+.suggestion-id {
+  flex-shrink: 0;
+  font-size: 0.75rem;
+  opacity: 0.7;
+  font-family: ui-monospace, monospace;
+}
+
+.suggestion-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .field-input:focus {

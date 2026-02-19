@@ -4,7 +4,7 @@ import { useTrackerStore } from '../stores/tracker.store'
 import { useSettingsStore } from '../stores/settings.store'
 import { RCard, RProgress, RText } from 'roughness'
 import { formatMoney } from '../utils/format'
-import { getWorkdaysInMonth, calculateProgress, getWeekStart, getWeekEnd } from '../utils/workdays'
+import { getWorkdaysInMonth, calculateProgress, getWeekStart, getWeekEnd, getTargetWorkdays, getWorkedDays, getFreeDays } from '../utils/workdays'
 
 const trackerStore = useTrackerStore()
 const settingsStore = useSettingsStore()
@@ -13,8 +13,6 @@ const todaySeconds = ref(0)
 const weekSeconds = ref(0)
 const monthSeconds = ref(0)
 let refreshInterval: number | null = null
-
-getWorkdaysInMonth(new Date().getFullYear(), new Date().getMonth())
 
 const dailyProgress = computed(() => {
   return calculateProgress(todaySeconds.value, settingsStore.settings.dailyTargetHours)
@@ -38,6 +36,33 @@ const monthlyEarnings = computed(() => {
 
 const targetEarnings = computed(() => {
   return settingsStore.settings.monthlyTargetHours * settingsStore.settings.hourlyRate
+})
+
+// Workday counter computeds
+const totalWorkdaysInMonth = computed(() => {
+  const now = new Date()
+  return getWorkdaysInMonth(now.getFullYear(), now.getMonth())
+})
+
+const targetWorkdays = computed(() => {
+  return getTargetWorkdays(settingsStore.settings.monthlyTargetHours, settingsStore.settings.dailyTargetHours)
+})
+
+const workedDays = computed(() => {
+  return getWorkedDays(monthSeconds.value, settingsStore.settings.dailyTargetHours)
+})
+
+const remainingWorkdays = computed(() => {
+  return Math.max(0, targetWorkdays.value - workedDays.value)
+})
+
+const freeDays = computed(() => {
+  return getFreeDays(totalWorkdaysInMonth.value, targetWorkdays.value)
+})
+
+const workdayProgress = computed(() => {
+  if (targetWorkdays.value <= 0) return 0
+  return Math.min(100, (workedDays.value / targetWorkdays.value) * 100)
 })
 
 function formatHoursDisplay(seconds: number): string {
@@ -178,6 +203,29 @@ defineExpose({ loadProgress })
         />
       </div>
     </div>
+
+    <!-- Workday Counter -->
+    <div class="workday-section">
+      <div class="progress-row">
+        <div class="progress-label">
+          <RText size="small">Workdays</RText>
+          <RText size="small" class="text-secondary">
+            {{ workedDays }} / {{ targetWorkdays }} &mdash; {{ remainingWorkdays }} left
+          </RText>
+        </div>
+        <div class="progress-bar-wrapper">
+          <RProgress
+            :value="workdayProgress / 100"
+            :color="workdayProgress >= 100 ? 'success' : 'primary'"
+          />
+        </div>
+      </div>
+      <div v-if="freeDays > 0" class="free-days-info">
+        <RText size="small" class="text-secondary">
+          This month has {{ freeDays }} free {{ freeDays === 1 ? 'day' : 'days' }}
+        </RText>
+      </div>
+    </div>
   </RCard>
 </template>
 
@@ -228,6 +276,17 @@ defineExpose({ loadProgress })
 /* Force RProgress to take full width */
 .progress-bar-wrapper :deep(.r-progress) {
   width: 100%;
+}
+
+.workday-section {
+  margin-top: 0.5rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--color-border);
+}
+
+.free-days-info {
+  text-align: center;
+  margin-top: 0.25rem;
 }
 
 .text-secondary {
