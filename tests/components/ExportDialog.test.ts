@@ -1,9 +1,29 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
+
+// Mock jsPDF before importing export utils (happy-dom lacks APIs jsPDF needs)
+const mockSave = vi.fn()
+const mockOutput = vi.fn(() => new ArrayBuffer(100))
+const mockText = vi.fn()
+const mockSetFontSize = vi.fn()
+const mockJsPDFInstance = {
+  save: mockSave,
+  output: mockOutput,
+  text: mockText,
+  setFontSize: mockSetFontSize
+}
+vi.mock('jspdf', () => ({
+  jsPDF: vi.fn().mockImplementation(function () { return mockJsPDFInstance })
+}))
+vi.mock('jspdf-autotable', () => ({
+  default: vi.fn()
+}))
+
 import {
   formatTimeHM,
   roundToHalfHour,
   aggregateReport,
   generateCSV,
+  generatePDF,
   generateExportFilename,
   type AggregatedReportItem
 } from '../../src/utils/export'
@@ -32,30 +52,30 @@ describe('ExportDialog Logic', () => {
 
   describe('formatTimeHM', () => {
     it('formats whole hours', () => {
-      expect(formatTimeHM(1)).toBe('1:00')
-      expect(formatTimeHM(8)).toBe('8:00')
-      expect(formatTimeHM(12)).toBe('12:00')
+      expect(formatTimeHM(1)).toBe('01:00:00')
+      expect(formatTimeHM(8)).toBe('08:00:00')
+      expect(formatTimeHM(12)).toBe('12:00:00')
     })
 
     it('formats half hours', () => {
-      expect(formatTimeHM(1.5)).toBe('1:30')
-      expect(formatTimeHM(0.5)).toBe('0:30')
+      expect(formatTimeHM(1.5)).toBe('01:30:00')
+      expect(formatTimeHM(0.5)).toBe('00:30:00')
     })
 
     it('rounds to nearest half hour', () => {
-      expect(formatTimeHM(1.2)).toBe('1:00')
-      expect(formatTimeHM(1.3)).toBe('1:30')
-      expect(formatTimeHM(1.7)).toBe('1:30')
-      expect(formatTimeHM(1.8)).toBe('2:00')
+      expect(formatTimeHM(1.2)).toBe('01:00:00')
+      expect(formatTimeHM(1.3)).toBe('01:30:00')
+      expect(formatTimeHM(1.7)).toBe('01:30:00')
+      expect(formatTimeHM(1.8)).toBe('02:00:00')
     })
 
     it('handles zero', () => {
-      expect(formatTimeHM(0)).toBe('0:00')
+      expect(formatTimeHM(0)).toBe('00:00:00')
     })
 
     it('handles large values', () => {
-      expect(formatTimeHM(24)).toBe('24:00')
-      expect(formatTimeHM(100)).toBe('100:00')
+      expect(formatTimeHM(24)).toBe('24:00:00')
+      expect(formatTimeHM(100)).toBe('100:00:00')
     })
   })
 
@@ -123,14 +143,14 @@ describe('ExportDialog Logic', () => {
       expect(csv).toContain('"Issue with, comma"')
     })
 
-    it('formats time as H:MM rounded to half hours', () => {
+    it('formats time as HH:MM:SS rounded to half hours', () => {
       const items: AggregatedReportItem[] = [
         { externalId: '#123', name: 'Issue', totalHours: 1.5 }
       ]
 
       const csv = generateCSV(items)
 
-      expect(csv).toContain('1:30')
+      expect(csv).toContain('01:30:00')
     })
 
     it('handles multiple rows', () => {
@@ -153,6 +173,31 @@ describe('ExportDialog Logic', () => {
       expect(lines).toHaveLength(1)
       expect(lines[0]).toBe('Task,Time')
     })
+
+    it('appends total row when totalHours provided', () => {
+      const items: AggregatedReportItem[] = [
+        { externalId: '#1', name: 'Issue 1', totalHours: 2 },
+        { externalId: '#2', name: 'Issue 2', totalHours: 3 }
+      ]
+
+      const csv = generateCSV(items, 5)
+      const lines = csv.split('\n')
+
+      expect(lines).toHaveLength(4) // Header + 2 rows + total
+      expect(lines[3]).toBe('"Total",05:00:00')
+    })
+
+    it('does not append total row when totalHours not provided', () => {
+      const items: AggregatedReportItem[] = [
+        { externalId: '#1', name: 'Issue', totalHours: 2 }
+      ]
+
+      const csv = generateCSV(items)
+      const lines = csv.split('\n')
+
+      expect(lines).toHaveLength(2) // Header + 1 row
+      expect(csv).not.toContain('Total')
+    })
   })
 
   describe('generateExportFilename', () => {
@@ -164,6 +209,39 @@ describe('ExportDialog Logic', () => {
     it('does not pad two-digit months', () => {
       expect(generateExportFilename(2024, 10)).toBe('time-report-2024-10.csv')
       expect(generateExportFilename(2024, 12)).toBe('time-report-2024-12.csv')
+    })
+
+    it('uses csv extension by default', () => {
+      expect(generateExportFilename(2024, 3)).toBe('time-report-2024-03.csv')
+    })
+
+    it('uses pdf extension when specified', () => {
+      expect(generateExportFilename(2024, 3, 'pdf')).toBe('time-report-2024-03.pdf')
+    })
+  })
+
+  describe('generatePDF', () => {
+    it('returns a jsPDF document with save and output methods', () => {
+      const items: AggregatedReportItem[] = [
+        { externalId: '#1', name: 'Issue 1', totalHours: 2 },
+        { externalId: '#2', name: 'Issue 2', totalHours: 3 }
+      ]
+
+      const doc = generatePDF(items, 5, 'Test Report')
+
+      expect(doc).toBeDefined()
+      expect(typeof doc.save).toBe('function')
+      expect(typeof doc.output).toBe('function')
+    })
+
+    it('sets the title text on the document', () => {
+      const items: AggregatedReportItem[] = [
+        { externalId: '#1', name: 'Issue 1', totalHours: 1.5 }
+      ]
+
+      generatePDF(items, 1.5, 'My Report Title')
+
+      expect(mockText).toHaveBeenCalledWith('My Report Title', 14, 20)
     })
   })
 })

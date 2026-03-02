@@ -6,6 +6,7 @@ import {
   formatTimeHM,
   aggregateReport,
   generateCSV,
+  generatePDF,
   generateExportFilename
 } from '../utils/export'
 
@@ -51,14 +52,22 @@ async function generateReport() {
 function downloadCSV() {
   if (!aggregatedReport.value) return
 
-  const csv = generateCSV(aggregatedReport.value)
+  const csv = generateCSV(aggregatedReport.value, totalHours.value)
   const blob = new Blob([csv], { type: 'text/csv' })
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
-  a.download = generateExportFilename(year.value, month.value)
+  a.download = generateExportFilename(year.value, month.value, 'csv')
   a.click()
   URL.revokeObjectURL(url)
+}
+
+function downloadPDF() {
+  if (!aggregatedReport.value) return
+
+  const title = `Time Report — ${months[month.value - 1]} ${year.value}`
+  const doc = generatePDF(aggregatedReport.value, totalHours.value, title)
+  doc.save(generateExportFilename(year.value, month.value, 'pdf'))
 }
 
 function closeDialog() {
@@ -133,6 +142,12 @@ function closeDialog() {
     <template #footer>
       <div class="footer-actions">
         <button class="btn-close" @click="closeDialog">Close</button>
+        <RButton
+          v-if="aggregatedReport && aggregatedReport.length > 0"
+          @click="downloadPDF"
+        >
+          Download PDF
+        </RButton>
         <RButton
           v-if="aggregatedReport && aggregatedReport.length > 0"
           filled
