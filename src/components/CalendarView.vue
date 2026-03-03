@@ -255,6 +255,7 @@ defineExpose({ loadEntries })
 </script>
 
 <template>
+  <div class="calendar-wrapper">
   <!-- Toast notification -->
   <div v-if="toastMessage" :class="['toast', toastIsError ? 'toast-error' : 'toast-success']">
     {{ toastMessage }}
@@ -509,6 +510,7 @@ defineExpose({ loadEntries })
       </div>
     </div>
   </RCard>
+  </div>
 </template>
 
 <style scoped>
