@@ -748,13 +748,8 @@ async function executeBulkDelete() {
   pointer-events: none;
 }
 
-/* Inline action buttons for currently tracked issue */
+/* Inline action buttons for currently tracked issue - always fully visible */
 .inline-action-btn {
-  opacity: 0.6;
-  transition: opacity 0.15s ease;
-}
-
-.inline-action-btn:hover {
   opacity: 1;
 }
 

@@ -179,41 +179,45 @@ function showToast(message: string, isError = false) {
   setTimeout(() => { toastMessage.value = '' }, 3000)
 }
 
-// Edit issue name while tracking
-const isEditingName = ref(false)
-const editedName = ref('')
-const nameInput = ref<HTMLInputElement | null>(null)
+// Edit issue while tracking
+const isEditingIssue = ref(false)
+const editForm = ref({ name: '', externalId: '', link: '' })
+const editNameInput = ref<HTMLInputElement | null>(null)
 
-function startEditingName() {
+function startEditingIssue() {
   if (trackerStore.currentIssue) {
-    editedName.value = trackerStore.currentIssue.name
-    isEditingName.value = true
+    editForm.value = {
+      name: trackerStore.currentIssue.name,
+      externalId: trackerStore.currentIssue.externalId || '',
+      link: trackerStore.currentIssue.link || ''
+    }
+    isEditingIssue.value = true
     nextTick(() => {
-      nameInput.value?.focus()
-      nameInput.value?.select()
+      editNameInput.value?.focus()
     })
   }
 }
 
-async function saveIssueName() {
-  if (trackerStore.currentIssue && editedName.value.trim()) {
+async function saveIssueEdit() {
+  if (trackerStore.currentIssue && editForm.value.name.trim()) {
     try {
       await issuesStore.updateIssue(trackerStore.currentIssue.id, {
-        name: editedName.value.trim()
+        name: editForm.value.name.trim(),
+        externalId: editForm.value.externalId.trim(),
+        link: editForm.value.link.trim() || null
       })
-      // Refresh the current issue in tracker store
       await trackerStore.refreshCurrentIssue()
-      showToast('Name updated')
+      showToast('Issue updated')
     } catch (err) {
-      console.error('Failed to update name:', err)
-      showToast('Failed to update name', true)
+      console.error('Failed to update issue:', err)
+      showToast('Failed to update issue', true)
     }
   }
-  isEditingName.value = false
+  isEditingIssue.value = false
 }
 
-function cancelEditingName() {
-  isEditingName.value = false
+function cancelEditingIssue() {
+  isEditingIssue.value = false
 }
 
 // Save notes on blur
@@ -392,23 +396,37 @@ async function handleRecoverIdleTime() {
       <div class="tracking-content">
         <div class="tracker-row">
           <div class="issue-info">
-            <RText v-if="trackerStore.currentIssue.externalId" class="issue-id">{{ trackerStore.currentIssue.externalId }}</RText>
-            <template v-if="isEditingName">
-              <input
-                v-model="editedName"
-                type="text"
-                class="edit-name-input"
-                @blur="saveIssueName"
-                @keyup.enter="saveIssueName"
-                @keyup.escape="cancelEditingName"
-                ref="nameInput"
-              />
+            <template v-if="!isEditingIssue">
+              <RText v-if="trackerStore.currentIssue.externalId" class="issue-id">{{ trackerStore.currentIssue.externalId }}</RText>
+              <RText class="issue-name">{{ trackerStore.currentIssue.name }}</RText>
             </template>
             <template v-else>
-              <RText class="issue-name editable" @click="startEditingName" title="Click to edit name">
-                {{ trackerStore.currentIssue.name }}
-                <Icon name="pencil" :size="12" class="edit-hint" />
-              </RText>
+              <form class="edit-issue-form" @submit.prevent="saveIssueEdit">
+                <input
+                  v-model="editForm.name"
+                  type="text"
+                  class="edit-name-input"
+                  placeholder="Name"
+                  ref="editNameInput"
+                  required
+                />
+                <input
+                  v-model="editForm.externalId"
+                  type="text"
+                  class="edit-name-input edit-id-input"
+                  placeholder="ID (e.g. app#123)"
+                />
+                <input
+                  v-model="editForm.link"
+                  type="text"
+                  class="edit-name-input edit-link-input"
+                  placeholder="Link (optional)"
+                />
+                <div class="edit-issue-actions">
+                  <RButton type="submit" size="small" filled>Save</RButton>
+                  <RButton type="button" size="small" @click="cancelEditingIssue">Cancel</RButton>
+                </div>
+              </form>
             </template>
           </div>
           <div class="timer-section">
@@ -431,6 +449,14 @@ async function handleRecoverIdleTime() {
               title="Add notes to this time entry (saved when you pause)"
             >
               <Icon name="note" :size="16" />
+            </RButton>
+            <RButton
+              size="small"
+              :class="['subtle-btn', isEditingIssue && 'subtle-btn-active']"
+              @click="isEditingIssue ? cancelEditingIssue() : startEditingIssue()"
+              title="Edit tracked item"
+            >
+              <Icon name="pencil" :size="16" />
             </RButton>
             <RButton
               size="small"
@@ -639,26 +665,6 @@ async function handleRecoverIdleTime() {
   display: block;
 }
 
-.issue-name.editable {
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.25rem;
-}
-
-.issue-name.editable:hover {
-  text-decoration: underline;
-  text-decoration-style: dotted;
-}
-
-.edit-hint {
-  opacity: 0;
-  transition: opacity 0.15s ease;
-}
-
-.issue-name.editable:hover .edit-hint {
-  opacity: 0.5;
-}
 
 .edit-name-input {
   padding: 0.25rem 0.5rem;
@@ -675,6 +681,23 @@ async function handleRecoverIdleTime() {
 .edit-name-input:focus {
   outline: none;
   box-shadow: 0 0 0 2px rgba(var(--color-accent-rgb, 100, 100, 200), 0.2);
+}
+
+.edit-id-input,
+.edit-link-input {
+  font-size: 0.85em;
+}
+
+.edit-issue-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  width: 100%;
+}
+
+.edit-issue-actions {
+  display: flex;
+  gap: 0.5rem;
 }
 
 .timer-display.paused {
