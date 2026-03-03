@@ -44,6 +44,43 @@ function showToast(message: string, isError = false) {
   setTimeout(() => { toastMessage.value = '' }, 3000)
 }
 
+function openLink(url: string) {
+  window.electronAPI.openExternal(url)
+}
+
+// Link context menu
+const linkMenuUrl = ref<string | null>(null)
+const linkMenuStyle = ref<Record<string, string>>({})
+
+function showLinkMenu(e: MouseEvent, url: string) {
+  linkMenuUrl.value = url
+  linkMenuStyle.value = {
+    position: 'fixed',
+    left: `${e.clientX}px`,
+    top: `${e.clientY}px`
+  }
+  const close = (ev: MouseEvent) => {
+    if (!(ev.target as HTMLElement).closest('.link-context-menu')) {
+      closeLinkMenu()
+      document.removeEventListener('mousedown', close)
+    }
+  }
+  setTimeout(() => document.addEventListener('mousedown', close), 0)
+}
+
+function closeLinkMenu() {
+  linkMenuUrl.value = null
+}
+
+async function copyLink(url: string) {
+  try {
+    await navigator.clipboard.writeText(url)
+    showToast('Link copied')
+  } catch {
+    showToast('Failed to copy', true)
+  }
+}
+
 async function loadIssueTimes() {
   const issueIds = issuesStore.issues.map(i => i.id)
   if (issueIds.length === 0) return
@@ -456,18 +493,25 @@ async function executeBulkDelete() {
             <!-- Action buttons (always present, faded in selection mode) -->
             <div class="action-buttons" :class="{ 'selection-mode': selectionMode }">
               <!-- Primary action: open link (always visible if exists) -->
-              <RButton
-                v-if="issue.link"
-                tag="a"
-                :href="issue.link"
-                target="_blank"
-                size="small"
-                title="Open in tracker"
-                @click.stop
-                :disabled="selectionMode"
-              >
-                <span class="link-icon">↗</span>
-              </RButton>
+              <span v-if="issue.link" class="link-btn-wrapper">
+                <RButton
+                  size="small"
+                  title="Open in browser"
+                  @click.stop="openLink(issue.link!)"
+                  @contextmenu.stop.prevent="showLinkMenu($event, issue.link!)"
+                  :disabled="selectionMode"
+                >
+                  <span class="link-icon">↗</span>
+                </RButton>
+                <ul
+                  v-if="linkMenuUrl === issue.link"
+                  class="link-context-menu"
+                  :style="linkMenuStyle"
+                >
+                  <li @mousedown.prevent="openLink(linkMenuUrl!); closeLinkMenu()">Open in browser</li>
+                  <li @mousedown.prevent="copyLink(linkMenuUrl!); closeLinkMenu()">Copy link</li>
+                </ul>
+              </span>
 
               <!-- Inline edit & notes buttons for currently tracked issue -->
               <template v-if="isCurrentlyTracking(issue)">
@@ -618,11 +662,40 @@ async function executeBulkDelete() {
 }
 
 /* Make link icon same size as other icons */
+.link-btn-wrapper {
+  position: relative;
+}
+
 .link-icon {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   height: 1.75rem;
+}
+
+.link-context-menu {
+  position: fixed;
+  z-index: 1000;
+  margin: 0;
+  padding: 0.25rem 0;
+  list-style: none;
+  background: var(--color-bg-secondary);
+  border: 2px solid var(--color-border);
+  border-radius: 4px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  min-width: 140px;
+}
+
+.link-context-menu li {
+  padding: 0.4rem 0.75rem;
+  cursor: pointer;
+  font-size: 0.85rem;
+  color: var(--color-text);
+}
+
+.link-context-menu li:hover {
+  background: var(--color-accent);
+  color: white;
 }
 
 

@@ -29,6 +29,7 @@ const form = ref({
   idleThresholdMinutes: 10,
   idleIndicatorMinutes: 0.5,
   issueUrlPattern: 'gitlab' as 'gitlab' | 'github' | 'jira' | 'custom',
+  issueBaseUrl: '' as string,
   customIssuePattern: '' as string,
   theme: 'light' as 'light' | 'dark' | 'system',
   showEarnings: false,
@@ -79,6 +80,7 @@ function syncFormFromStore() {
     idleThresholdMinutes: s.idleThresholdMinutes,
     idleIndicatorMinutes: s.idleIndicatorMinutes,
     issueUrlPattern: s.issueUrlPattern,
+    issueBaseUrl: (s.issueBaseUrl && s.issueBaseUrl !== 'undefined') ? s.issueBaseUrl : '',
     customIssuePattern: (s.customIssuePattern && s.customIssuePattern !== 'undefined') ? s.customIssuePattern : '',
     theme: s.theme,
     showEarnings: s.showEarnings,
@@ -108,6 +110,7 @@ async function saveSettings() {
       idleThresholdMinutes: form.value.idleThresholdMinutes,
       idleIndicatorMinutes: form.value.idleIndicatorMinutes,
       issueUrlPattern: form.value.issueUrlPattern,
+      issueBaseUrl: form.value.issueBaseUrl?.trim() || '',
       customIssuePattern: form.value.customIssuePattern?.trim() || undefined,
       theme: form.value.theme,
       showEarnings: form.value.showEarnings,
@@ -335,6 +338,16 @@ async function wipeDatabase() {
                 @click="form.issueUrlPattern = tracker.value"
               >{{ tracker.name }}</button>
             </div>
+          </div>
+        </div>
+
+        <div v-if="form.issueUrlPattern !== 'custom'" class="setting-row row-md">
+          <div class="setting-label">
+            Base URL
+            <span class="setting-hint">Used to build links from short IDs (e.g. app#123)</span>
+          </div>
+          <div class="setting-control">
+            <input v-model="form.issueBaseUrl" type="text" class="input-text" placeholder="https://gitlab.com/my-org" />
           </div>
         </div>
 

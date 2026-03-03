@@ -18,10 +18,10 @@ const isSubmitting = ref(false)
 const matchedIssue = ref<Issue | null>(null)
 
 // Description autocomplete state
-const showSuggestions = ref(false)
-const selectedSuggestionIndex = ref(-1)
+const showNameSuggestions = ref(false)
+const selectedNameSuggestionIndex = ref(-1)
 
-const filteredSuggestions = computed(() => {
+const filteredNameSuggestions = computed(() => {
   const query = name.value.trim().toLowerCase()
   if (!query || matchedIssue.value) return []
   return issuesStore.issues
@@ -29,82 +29,100 @@ const filteredSuggestions = computed(() => {
     .slice(0, 5)
 })
 
-function selectSuggestion(issue: Issue) {
+function selectNameSuggestion(issue: Issue) {
   matchedIssue.value = issue
   name.value = issue.name
   if (issue.link) link.value = issue.link
-  showSuggestions.value = false
-  selectedSuggestionIndex.value = -1
+  showNameSuggestions.value = false
+  selectedNameSuggestionIndex.value = -1
 }
 
 function handleNameInput() {
-  // Clear matched issue when user edits the name
   if (matchedIssue.value && name.value !== matchedIssue.value.name) {
     matchedIssue.value = null
   }
-  showSuggestions.value = name.value.trim().length > 0 && !matchedIssue.value
-  selectedSuggestionIndex.value = -1
+  showNameSuggestions.value = name.value.trim().length > 0 && !matchedIssue.value
+  selectedNameSuggestionIndex.value = -1
 }
 
 function handleNameKeydown(e: KeyboardEvent) {
-  if (!showSuggestions.value || filteredSuggestions.value.length === 0) return
+  if (!showNameSuggestions.value || filteredNameSuggestions.value.length === 0) return
 
   if (e.key === 'ArrowDown') {
     e.preventDefault()
-    selectedSuggestionIndex.value = Math.min(
-      selectedSuggestionIndex.value + 1,
-      filteredSuggestions.value.length - 1
+    selectedNameSuggestionIndex.value = Math.min(
+      selectedNameSuggestionIndex.value + 1,
+      filteredNameSuggestions.value.length - 1
     )
   } else if (e.key === 'ArrowUp') {
     e.preventDefault()
-    selectedSuggestionIndex.value = Math.max(selectedSuggestionIndex.value - 1, -1)
-  } else if (e.key === 'Enter' && selectedSuggestionIndex.value >= 0) {
+    selectedNameSuggestionIndex.value = Math.max(selectedNameSuggestionIndex.value - 1, -1)
+  } else if (e.key === 'Enter' && selectedNameSuggestionIndex.value >= 0) {
     e.preventDefault()
-    selectSuggestion(filteredSuggestions.value[selectedSuggestionIndex.value])
+    selectNameSuggestion(filteredNameSuggestions.value[selectedNameSuggestionIndex.value])
   } else if (e.key === 'Escape') {
-    showSuggestions.value = false
-    selectedSuggestionIndex.value = -1
+    showNameSuggestions.value = false
+    selectedNameSuggestionIndex.value = -1
   }
 }
 
 function handleNameBlur() {
-  // Delay to allow click on suggestion to fire first
-  setTimeout(() => { showSuggestions.value = false }, 150)
+  setTimeout(() => { showNameSuggestions.value = false }, 150)
 }
 
-// Watch link changes to find existing issues
-watch(link, (url) => {
-  const trimmedUrl = url.trim()
-  if (!trimmedUrl) {
-    matchedIssue.value = null
-    return
-  }
+// Link field autocomplete state
+const showLinkSuggestions = ref(false)
+const selectedLinkSuggestionIndex = ref(-1)
 
-  // Check by exact link match first
-  let existing = issuesStore.issues.find(i => i.link === trimmedUrl)
-
-  // If no link match, try matching by extracted ID
-  if (!existing) {
-    const extractedId = settingsStore.extractIssueId(trimmedUrl)
-    if (extractedId) {
-      existing = issuesStore.issues.find(i => i.externalId === extractedId)
-    }
-  }
-
-  // If no URL-based match, try matching bare issue ID (e.g. "ABC-123", "project#42")
-  if (!existing) {
-    existing = issuesStore.issues.find(i =>
-      i.externalId && i.externalId.toLowerCase() === trimmedUrl.toLowerCase()
-    )
-  }
-
-  if (existing) {
-    matchedIssue.value = existing
-    name.value = existing.name
-  } else {
-    matchedIssue.value = null
-  }
+const filteredLinkSuggestions = computed(() => {
+  const query = link.value.trim().toLowerCase()
+  if (!query || matchedIssue.value) return []
+  // Match issues whose externalId contains the typed text (e.g. "105" matches "app#105", "reflow#105")
+  return issuesStore.issues
+    .filter(i => !i.archived && i.externalId && i.externalId.toLowerCase().includes(query))
+    .slice(0, 5)
 })
+
+function selectLinkSuggestion(issue: Issue) {
+  matchedIssue.value = issue
+  name.value = issue.name
+  link.value = issue.link || issue.externalId
+  showLinkSuggestions.value = false
+  selectedLinkSuggestionIndex.value = -1
+}
+
+function handleLinkInput() {
+  if (matchedIssue.value) {
+    matchedIssue.value = null
+  }
+  showLinkSuggestions.value = link.value.trim().length > 0 && !matchedIssue.value
+  selectedLinkSuggestionIndex.value = -1
+}
+
+function handleLinkKeydown(e: KeyboardEvent) {
+  if (!showLinkSuggestions.value || filteredLinkSuggestions.value.length === 0) return
+
+  if (e.key === 'ArrowDown') {
+    e.preventDefault()
+    selectedLinkSuggestionIndex.value = Math.min(
+      selectedLinkSuggestionIndex.value + 1,
+      filteredLinkSuggestions.value.length - 1
+    )
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault()
+    selectedLinkSuggestionIndex.value = Math.max(selectedLinkSuggestionIndex.value - 1, -1)
+  } else if (e.key === 'Enter' && selectedLinkSuggestionIndex.value >= 0) {
+    e.preventDefault()
+    selectLinkSuggestion(filteredLinkSuggestions.value[selectedLinkSuggestionIndex.value])
+  } else if (e.key === 'Escape') {
+    showLinkSuggestions.value = false
+    selectedLinkSuggestionIndex.value = -1
+  }
+}
+
+function handleLinkBlur() {
+  setTimeout(() => { showLinkSuggestions.value = false }, 150)
+}
 
 const submitTooltip = computed(() => {
   return matchedIssue.value
@@ -113,7 +131,7 @@ const submitTooltip = computed(() => {
 })
 
 async function handleFormSubmit() {
-  const url = link.value.trim() || null
+  let url = link.value.trim() || null
   const issueName = name.value.trim() || 'Untitled'
 
   isSubmitting.value = true
@@ -127,7 +145,13 @@ async function handleFormSubmit() {
       // Create new issue
       let externalId = ''
       if (url) {
-        externalId = settingsStore.extractIssueId(url) || ''
+        const parsed = settingsStore.parseBareId(url)
+        if (parsed) {
+          externalId = url
+          url = settingsStore.buildIssueUrl(url)
+        } else {
+          externalId = settingsStore.extractIssueId(url) || ''
+        }
       }
       issue = await issuesStore.createIssue(externalId, issueName, url)
     }
@@ -298,12 +322,31 @@ async function handleRecoverIdleTime() {
     <template v-else-if="!trackerStore.isTracking || !trackerStore.currentIssue">
       <div class="not-tracking-form">
         <form @submit.prevent="handleFormSubmit" class="hero-form">
-          <input
-            v-model="link"
-            type="text"
-            placeholder="Link to tracked item"
-            class="field-input url-input"
-          />
+          <div class="link-input-wrapper">
+            <input
+              v-model="link"
+              type="text"
+              placeholder="Link or ID (e.g. project#123)"
+              class="field-input url-input"
+              autocomplete="off"
+              @input="handleLinkInput"
+              @keydown="handleLinkKeydown"
+              @blur="handleLinkBlur"
+              @focus="handleLinkInput"
+            />
+            <ul v-if="showLinkSuggestions && filteredLinkSuggestions.length > 0" class="suggestions-dropdown">
+              <li
+                v-for="(issue, index) in filteredLinkSuggestions"
+                :key="issue.id"
+                class="suggestion-item"
+                :class="{ 'suggestion-active': index === selectedLinkSuggestionIndex }"
+                @mousedown.prevent="selectLinkSuggestion(issue)"
+              >
+                <span v-if="issue.externalId" class="suggestion-id">{{ issue.externalId }}</span>
+                <span class="suggestion-name">{{ issue.name }}</span>
+              </li>
+            </ul>
+          </div>
           <div class="name-input-wrapper">
             <input
               v-model="name"
@@ -316,13 +359,13 @@ async function handleRecoverIdleTime() {
               @blur="handleNameBlur"
               @focus="handleNameInput"
             />
-            <ul v-if="showSuggestions && filteredSuggestions.length > 0" class="suggestions-dropdown">
+            <ul v-if="showNameSuggestions && filteredNameSuggestions.length > 0" class="suggestions-dropdown">
               <li
-                v-for="(issue, index) in filteredSuggestions"
+                v-for="(issue, index) in filteredNameSuggestions"
                 :key="issue.id"
                 class="suggestion-item"
-                :class="{ 'suggestion-active': index === selectedSuggestionIndex }"
-                @mousedown.prevent="selectSuggestion(issue)"
+                :class="{ 'suggestion-active': index === selectedNameSuggestionIndex }"
+                @mousedown.prevent="selectNameSuggestion(issue)"
               >
                 <span v-if="issue.externalId" class="suggestion-id">{{ issue.externalId }}</span>
                 <span class="suggestion-name">{{ issue.name }}</span>
@@ -436,6 +479,13 @@ async function handleRecoverIdleTime() {
 .tracker-hero {
   --r-card-padding: 0.75rem;
   min-height: 6rem;
+  position: relative;
+  z-index: 10;
+  overflow: visible;
+}
+
+.tracker-hero :deep(> *) {
+  overflow: visible;
 }
 
 .not-tracking-form {
@@ -461,6 +511,16 @@ async function handleRecoverIdleTime() {
   font-size: 0.9rem;
   box-sizing: border-box;
   box-shadow: 1px 1px 0 var(--color-border);
+}
+
+.link-input-wrapper {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+}
+
+.link-input-wrapper .url-input {
+  width: 100%;
 }
 
 .url-input {

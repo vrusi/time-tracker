@@ -65,6 +65,9 @@ const electronAPI: ElectronAPI = {
   renameProject: (id, name) => ipcRenderer.invoke('rename-project', id, name),
   deleteProject: (id) => ipcRenderer.invoke('delete-project', id),
 
+  // Shell
+  openExternal: (url: string) => ipcRenderer.invoke('open-external', url),
+
   // Events from main process
   onIdlePause: (callback) => {
     ipcRenderer.on('idle-pause', callback)

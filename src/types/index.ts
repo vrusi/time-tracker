@@ -77,6 +77,7 @@ export interface AppSettings {
   idleThresholdMinutes: number
   idleIndicatorMinutes: number
   issueUrlPattern: 'gitlab' | 'github' | 'jira' | 'custom'
+  issueBaseUrl?: string
   customIssuePattern?: string
   theme: 'light' | 'dark' | 'system'
   showEarnings: boolean
@@ -147,6 +148,9 @@ export interface ElectronAPI {
   switchProject: (id: string) => Promise<Project>
   renameProject: (id: string, name: string) => Promise<Project>
   deleteProject: (id: string) => Promise<void>
+
+  // Shell
+  openExternal: (url: string) => Promise<void>
 
   // Events from main process
   onIdlePause: (callback: () => void) => void

@@ -1,4 +1,4 @@
-import { app, BrowserWindow, Tray, Menu, nativeImage, Notification, powerMonitor } from 'electron'
+import { app, BrowserWindow, Tray, Menu, nativeImage, Notification, powerMonitor, ipcMain, shell } from 'electron'
 import { join, dirname } from 'path'
 import { fileURLToPath } from 'url'
 import { initDatabase, db } from './db'
@@ -318,6 +318,11 @@ function setupIpcHandlers() {
   // Setup export handlers
   setupExportHandlers({
     getMainWindow: () => mainWindow
+  })
+
+  // Shell
+  ipcMain.handle('open-external', (_, url: string) => {
+    return shell.openExternal(url)
   })
 }
 

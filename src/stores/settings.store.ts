@@ -13,6 +13,7 @@ export const useSettingsStore = defineStore('settings', () => {
     idleThresholdMinutes: 10,
     idleIndicatorMinutes: 0.5,
     issueUrlPattern: 'gitlab',
+    issueBaseUrl: undefined,
     customIssuePattern: undefined,
     theme: 'light',
     showEarnings: false,
@@ -73,6 +74,43 @@ export const useSettingsStore = defineStore('settings', () => {
     }
   })
 
+  // Parse a bare issue ID like "reflow#125" or "PROJ-123" into its parts
+  function parseBareId(input: string): { prefix: string; number: string } | null {
+    // Match "project#123" style
+    const hashMatch = input.match(/^([a-zA-Z0-9_-]+)#(\d+)$/)
+    if (hashMatch) return { prefix: hashMatch[1], number: hashMatch[2] }
+
+    // Match "PROJ-123" jira style
+    const jiraMatch = input.match(/^([A-Z]+)-(\d+)$/)
+    if (jiraMatch) return { prefix: jiraMatch[1], number: jiraMatch[2] }
+
+    return null
+  }
+
+  // Build a full URL from a bare issue ID using the configured base URL and pattern
+  // e.g. "app#222" + base "https://gitlab.avvoka.com/avvoka" + gitlab pattern
+  //   → "https://gitlab.avvoka.com/avvoka/app/-/issues/222"
+  function buildIssueUrl(bareId: string): string | null {
+    const parsed = parseBareId(bareId)
+    if (!parsed) return null
+
+    const rawBase = settings.value.issueBaseUrl
+    if (!rawBase || rawBase === 'undefined' || rawBase === '') return null
+    const base = rawBase.replace(/\/+$/, '')
+
+    const pattern = settings.value.issueUrlPattern
+    switch (pattern) {
+      case 'gitlab':
+        return `${base}/${parsed.prefix}/-/issues/${parsed.number}`
+      case 'github':
+        return `${base}/${parsed.prefix}/issues/${parsed.number}`
+      case 'jira':
+        return `${base}/browse/${parsed.prefix}-${parsed.number}`
+      default:
+        return null
+    }
+  }
+
   function extractIssueId(url: string): string | null {
     // Auto-detect tracker type from URL and extract project name where possible
     if (url.includes('gitlab.com') || url.includes('gitlab')) {
@@ -110,6 +148,8 @@ export const useSettingsStore = defineStore('settings', () => {
     loadSettings,
     updateSettings,
     issueIdRegex,
-    extractIssueId
+    extractIssueId,
+    parseBareId,
+    buildIssueUrl
   }
 })

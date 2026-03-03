@@ -41,6 +41,7 @@ export function getSettings(db: Database.Database): AppSettings {
     idleThresholdMinutes: parseFloat(settings.idleThresholdMinutes) || 10,
     idleIndicatorMinutes: parseFloat(settings.idleIndicatorMinutes) || 0.5,
     issueUrlPattern: settings.issueUrlPattern || 'gitlab',
+    issueBaseUrl: settings.issueBaseUrl,
     customIssuePattern: settings.customIssuePattern,
     theme: settings.theme || 'light',
     showEarnings: settings.showEarnings === 'true',
