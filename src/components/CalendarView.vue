@@ -2,6 +2,7 @@
 import { ref, computed, watch, onMounted } from 'vue'
 import { RCard, RButton, RText, RSpace, RPopover, RInput } from 'roughness'
 import { useIssuesStore } from '../stores/issues.store'
+import { useTrackerStore } from '../stores/tracker.store'
 import { formatHours, formatTime, formatDuration, toLocalDateTimeInput } from '../utils/format'
 import {
   calculateDailyTotals,
@@ -15,6 +16,7 @@ import {
 import Icon from './Icon.vue'
 
 const issuesStore = useIssuesStore()
+const trackerStore = useTrackerStore()
 
 const entries = ref<TimeEntryWithIssue[]>([])
 const isLoading = ref(false)
@@ -237,6 +239,18 @@ async function mergeWithAdjacent(entry: TimeEntryWithIssue, direction: 'up' | 'd
   }
 }
 
+function isCurrentlyTracking(issueId: number): boolean {
+  return trackerStore.currentIssue?.id === issueId && trackerStore.isTracking
+}
+
+async function toggleTracking(issueId: number) {
+  if (isCurrentlyTracking(issueId)) {
+    await trackerStore.pauseTracking()
+  } else {
+    await trackerStore.startTracking(issueId)
+  }
+}
+
 watch([year, month], loadEntries)
 onMounted(loadEntries)
 
@@ -432,6 +446,17 @@ defineExpose({ loadEntries })
                     </RText>
                   </div>
                   <span class="entry-duration">{{ formatDuration(entryDuration(entry)) }}</span>
+
+                  <!-- Play/Pause button to resume tracking this issue -->
+                  <RButton
+                    size="small"
+                    :color="isCurrentlyTracking(entry.issue.id) ? 'error' : 'success'"
+                    :title="isCurrentlyTracking(entry.issue.id) ? 'Stop tracking' : 'Continue tracking'"
+                    class="play-btn"
+                    @click="toggleTracking(entry.issue.id)"
+                  >
+                    <Icon :name="isCurrentlyTracking(entry.issue.id) ? 'pause' : 'play'" :size="14" />
+                  </RButton>
 
                   <!-- Actions dropdown menu -->
                   <div class="entry-actions">
@@ -701,6 +726,17 @@ defineExpose({ loadEntries })
   font-weight: 500;
   flex-shrink: 0;
   font-size: 0.8rem;
+}
+
+/* Play button - subtle, visible on hover */
+.play-btn {
+  opacity: 0.4;
+  transition: opacity 0.15s ease;
+  flex-shrink: 0;
+}
+
+.entry-row:hover .play-btn {
+  opacity: 1;
 }
 
 .entry-notes-text {

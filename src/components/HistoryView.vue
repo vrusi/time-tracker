@@ -2,6 +2,7 @@
 import { ref, computed, watch, onMounted } from 'vue'
 import type { TimeEntry, Issue, DayGroup } from '../types'
 import { useIssuesStore } from '../stores/issues.store'
+import { useTrackerStore } from '../stores/tracker.store'
 import { formatTime, formatDuration, formatDate, toLocalDateTimeInput } from '@/utils/format'
 import { toLocalDateStr } from '@/utils/calendar'
 import { RCard, RButton, RInput, RText, RSpace, RList, RListItem, RDialog, RPopover } from 'roughness'
@@ -12,6 +13,7 @@ defineProps<{
 }>()
 
 const issuesStore = useIssuesStore()
+const trackerStore = useTrackerStore()
 
 const entries = ref<(TimeEntry & { issue: Issue })[]>([])
 const isLoading = ref(false)
@@ -437,6 +439,18 @@ const stateMessage = computed(() => {
   return `Showing ${entryCount} ${entryWord} from ${formatter.format(start)} – ${formatter.format(end)}`
 })
 
+function isCurrentlyTracking(issueId: number): boolean {
+  return trackerStore.currentIssue?.id === issueId && trackerStore.isTracking
+}
+
+async function toggleTracking(issueId: number) {
+  if (isCurrentlyTracking(issueId)) {
+    await trackerStore.pauseTracking()
+  } else {
+    await trackerStore.startTracking(issueId)
+  }
+}
+
 watch([startDate, endDate], loadEntries)
 onMounted(() => {
   loadEntries()
@@ -667,6 +681,18 @@ defineExpose({ openAddEntryModal, loadEntries })
                 <RText class="font-medium">
                   {{ formatDuration(entryDuration(entry)) }}
                 </RText>
+
+                <!-- Play/Pause button to resume tracking this issue -->
+                <RButton
+                  v-if="!selectionMode"
+                  size="small"
+                  :color="isCurrentlyTracking(entry.issue.id) ? 'error' : 'success'"
+                  :title="isCurrentlyTracking(entry.issue.id) ? 'Stop tracking' : 'Continue tracking'"
+                  class="play-btn"
+                  @click="toggleTracking(entry.issue.id)"
+                >
+                  <Icon :name="isCurrentlyTracking(entry.issue.id) ? 'pause' : 'play'" :size="14" />
+                </RButton>
 
                 <!-- Actions dropdown menu -->
                 <div class="entry-actions" v-if="!selectionMode">
@@ -1074,6 +1100,17 @@ defineExpose({ openAddEntryModal, loadEntries })
 }
 
 .btn-secondary-danger:hover {
+  opacity: 1;
+}
+
+/* Play button - subtle, visible on hover */
+.play-btn {
+  opacity: 0.4;
+  transition: opacity 0.15s ease;
+  flex-shrink: 0;
+}
+
+.entry-item:hover .play-btn {
   opacity: 1;
 }
 
