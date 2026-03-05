@@ -738,8 +738,8 @@ async function handleRecoverIdleTime() {
   flex-shrink: 0;
 }
 
-.edit-time-input {
-  font-size: 0.85em !important;
+input.edit-time-input {
+  font-size: 0.85em;
 }
 
 .edit-issue-actions {

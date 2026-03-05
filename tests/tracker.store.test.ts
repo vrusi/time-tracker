@@ -28,26 +28,25 @@ describe('Tracker Store', () => {
       vi.useRealTimers()
     })
 
-    it('never shows negative elapsed time when startedAt is in the future', () => {
+    it('never shows negative elapsed time when startedAt is in the future', async () => {
       vi.useFakeTimers()
       vi.setSystemTime(new Date('2024-01-15T10:00:00.000Z'))
 
-      const store = useTrackerStore()
-      // Entry starts 1 hour in the future
-      store.currentEntry = createMockTimeEntry({
+      const futureEntry = createMockTimeEntry({
         startedAt: '2024-01-15T11:00:00.000Z',
         endedAt: null
       })
-      store.pausedElapsedSeconds = 0
+      const issue = createMockIssue({ id: futureEntry.issueId })
 
-      // Trigger elapsed update by loading tracking state
-      // The updateElapsed function is called internally; we can verify via elapsedSeconds
-      // Since updateElapsed is private, we test through startTimer behavior
-      // Manually simulate what updateElapsed does with the Math.max guard
-      const start = new Date(store.currentEntry.startedAt).getTime()
-      const currentSessionSeconds = Math.max(0, Math.floor((Date.now() - start) / 1000))
+      mockElectronAPI.getCurrentTracking.mockResolvedValue({
+        entry: futureEntry,
+        issue
+      })
 
-      expect(currentSessionSeconds).toBe(0) // Clamped to 0, not -3600
+      const store = useTrackerStore()
+      await store.loadCurrentTracking()
+
+      expect(store.elapsedSeconds).toBe(0) // Clamped to 0, not -3600
     })
   })
 

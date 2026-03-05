@@ -80,8 +80,8 @@ function syncFormFromStore() {
     idleThresholdMinutes: s.idleThresholdMinutes,
     idleIndicatorMinutes: s.idleIndicatorMinutes,
     issueUrlPattern: s.issueUrlPattern,
-    issueBaseUrl: (s.issueBaseUrl && s.issueBaseUrl !== 'undefined') ? s.issueBaseUrl : '',
-    customIssuePattern: (s.customIssuePattern && s.customIssuePattern !== 'undefined') ? s.customIssuePattern : '',
+    issueBaseUrl: s.issueBaseUrl ?? '',
+    customIssuePattern: s.customIssuePattern ?? '',
     theme: s.theme,
     showEarnings: s.showEarnings,
     notificationsEnabled: s.notificationsEnabled

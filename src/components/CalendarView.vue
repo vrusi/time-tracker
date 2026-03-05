@@ -2,7 +2,6 @@
 import { ref, computed, watch, onMounted } from 'vue'
 import { RCard, RButton, RText, RSpace, RPopover, RInput } from 'roughness'
 import { useIssuesStore } from '../stores/issues.store'
-import { useTrackerStore } from '../stores/tracker.store'
 import { formatHours, formatTime, formatDuration, toLocalDateTimeInput } from '../utils/format'
 import {
   calculateDailyTotals,
@@ -14,9 +13,10 @@ import {
   type TimeEntryWithIssue
 } from '../utils/calendar'
 import Icon from './Icon.vue'
+import { useTrackingToggle } from '../composables/useTrackingToggle'
 
 const issuesStore = useIssuesStore()
-const trackerStore = useTrackerStore()
+const { isCurrentlyTracking, toggleTracking } = useTrackingToggle()
 
 const entries = ref<TimeEntryWithIssue[]>([])
 const isLoading = ref(false)
@@ -239,17 +239,6 @@ async function mergeWithAdjacent(entry: TimeEntryWithIssue, direction: 'up' | 'd
   }
 }
 
-function isCurrentlyTracking(issueId: number): boolean {
-  return trackerStore.currentIssue?.id === issueId && trackerStore.isTracking
-}
-
-async function toggleTracking(issueId: number) {
-  if (isCurrentlyTracking(issueId)) {
-    await trackerStore.pauseTracking()
-  } else {
-    await trackerStore.startTracking(issueId)
-  }
-}
 
 watch([year, month], loadEntries)
 onMounted(loadEntries)
@@ -269,7 +258,7 @@ defineExpose({ loadEntries })
 </script>
 
 <template>
-  <div class="calendar-wrapper">
+  <div>
   <!-- Toast notification -->
   <div v-if="toastMessage" :class="['toast', toastIsError ? 'toast-error' : 'toast-success']">
     {{ toastMessage }}

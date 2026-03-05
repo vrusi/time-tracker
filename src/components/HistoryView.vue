@@ -2,18 +2,18 @@
 import { ref, computed, watch, onMounted } from 'vue'
 import type { TimeEntry, Issue, DayGroup } from '../types'
 import { useIssuesStore } from '../stores/issues.store'
-import { useTrackerStore } from '../stores/tracker.store'
 import { formatTime, formatDuration, formatDate, toLocalDateTimeInput } from '@/utils/format'
 import { toLocalDateStr } from '@/utils/calendar'
 import { RCard, RButton, RInput, RText, RSpace, RList, RListItem, RDialog, RPopover } from 'roughness'
 import Icon from './Icon.vue'
+import { useTrackingToggle } from '../composables/useTrackingToggle'
 
 defineProps<{
   viewMode: 'list' | 'calendar'
 }>()
 
 const issuesStore = useIssuesStore()
-const trackerStore = useTrackerStore()
+const { isCurrentlyTracking, toggleTracking } = useTrackingToggle()
 
 const entries = ref<(TimeEntry & { issue: Issue })[]>([])
 const isLoading = ref(false)
@@ -439,17 +439,6 @@ const stateMessage = computed(() => {
   return `Showing ${entryCount} ${entryWord} from ${formatter.format(start)} – ${formatter.format(end)}`
 })
 
-function isCurrentlyTracking(issueId: number): boolean {
-  return trackerStore.currentIssue?.id === issueId && trackerStore.isTracking
-}
-
-async function toggleTracking(issueId: number) {
-  if (isCurrentlyTracking(issueId)) {
-    await trackerStore.pauseTracking()
-  } else {
-    await trackerStore.startTracking(issueId)
-  }
-}
 
 watch([startDate, endDate], loadEntries)
 onMounted(() => {

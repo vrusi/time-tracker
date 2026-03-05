@@ -95,7 +95,7 @@ export const useSettingsStore = defineStore('settings', () => {
     if (!parsed) return null
 
     const rawBase = settings.value.issueBaseUrl
-    if (!rawBase || rawBase === 'undefined' || rawBase === '') return null
+    if (!rawBase) return null
     const base = rawBase.replace(/\/+$/, '')
 
     const pattern = settings.value.issueUrlPattern

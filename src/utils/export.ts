@@ -16,9 +16,9 @@ export function roundToHalfHour(hours: number): number {
 }
 
 /**
- * Format hours to HH:MM:SS string (rounded to half hours)
+ * Format hours to HH:MM:SS string (rounded to nearest half hour)
  */
-export function formatTimeHM(hours: number): string {
+export function formatTimeHMS(hours: number): string {
   const rounded = roundToHalfHour(hours)
   const h = Math.floor(rounded)
   const m = Math.round((rounded - h) * 60)
@@ -52,7 +52,7 @@ export function aggregateReport(report: MonthlyReport[]): AggregatedReportItem[]
  */
 export function generateCSV(items: AggregatedReportItem[], totalHours?: number): string {
   const headers = ['Task', 'Time']
-  const rows = items.map(r => [`"${r.name}"`, formatTimeHM(r.totalHours)])
+  const rows = items.map(r => [`"${r.name}"`, formatTimeHMS(r.totalHours)])
 
   const lines = [
     headers.join(','),
@@ -60,7 +60,7 @@ export function generateCSV(items: AggregatedReportItem[], totalHours?: number):
   ]
 
   if (totalHours !== undefined) {
-    lines.push(`"Total",${formatTimeHM(totalHours)}`)
+    lines.push(`"Total",${formatTimeHMS(totalHours)}`)
   }
 
   return lines.join('\n')
@@ -82,13 +82,13 @@ export function generatePDF(items: AggregatedReportItem[], totalHours: number, t
   doc.setFontSize(16)
   doc.text(title, 14, 20)
 
-  const body = items.map(r => [r.name, formatTimeHM(r.totalHours)])
+  const body = items.map(r => [r.name, formatTimeHMS(r.totalHours)])
 
   autoTable(doc, {
     startY: 30,
     head: [['Task', 'Time']],
     body,
-    foot: [['Total', formatTimeHM(totalHours)]],
+    foot: [['Total', formatTimeHMS(totalHours)]],
     headStyles: {
       lineWidth: { bottom: 0.5 },
       fillColor: [240, 240, 240],

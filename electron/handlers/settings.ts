@@ -41,8 +41,8 @@ export function getSettings(db: Database.Database): AppSettings {
     idleThresholdMinutes: parseFloat(settings.idleThresholdMinutes) || 10,
     idleIndicatorMinutes: parseFloat(settings.idleIndicatorMinutes) || 0.5,
     issueUrlPattern: settings.issueUrlPattern || 'gitlab',
-    issueBaseUrl: settings.issueBaseUrl,
-    customIssuePattern: settings.customIssuePattern,
+    issueBaseUrl: settings.issueBaseUrl && settings.issueBaseUrl !== 'undefined' ? settings.issueBaseUrl : undefined,
+    customIssuePattern: settings.customIssuePattern && settings.customIssuePattern !== 'undefined' ? settings.customIssuePattern : undefined,
     theme: settings.theme || 'light',
     showEarnings: settings.showEarnings === 'true',
     notificationsEnabled: settings.notificationsEnabled !== 'false'

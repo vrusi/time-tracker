@@ -322,6 +322,7 @@ function setupIpcHandlers() {
 
   // Shell
   ipcMain.handle('open-external', (_, url: string) => {
+    if (!/^https?:\/\//i.test(url)) throw new Error('Invalid URL protocol')
     return shell.openExternal(url)
   })
 }

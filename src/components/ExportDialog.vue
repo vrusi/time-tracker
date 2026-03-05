@@ -3,7 +3,7 @@ import { ref, computed } from 'vue'
 import type { MonthlyReport } from '../types'
 import { RDialog, RButton, RText } from 'roughness'
 import {
-  formatTimeHM,
+  formatTimeHMS,
   aggregateReport,
   generateCSV,
   generatePDF,
@@ -115,7 +115,7 @@ function closeDialog() {
           <tbody>
             <tr v-for="item in aggregatedReport" :key="item.externalId">
               <td>{{ item.name }}</td>
-              <td class="text-right font-mono">{{ formatTimeHM(item.totalHours) }}</td>
+              <td class="text-right font-mono">{{ formatTimeHMS(item.totalHours) }}</td>
             </tr>
             <tr v-if="aggregatedReport.length === 0">
               <td colspan="2" class="text-center py-8">
@@ -126,7 +126,7 @@ function closeDialog() {
           <tfoot v-if="aggregatedReport.length > 0" class="total-row">
             <tr>
               <td><span class="total-label">Total</span></td>
-              <td class="text-right font-semibold font-mono">{{ formatTimeHM(totalHours) }}</td>
+              <td class="text-right font-semibold font-mono">{{ formatTimeHMS(totalHours) }}</td>
             </tr>
           </tfoot>
         </table>

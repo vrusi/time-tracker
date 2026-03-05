@@ -7,6 +7,7 @@ import type { Issue, TimeEntry } from '../types'
 import { RCard, RButton, RInput, RText, RSpace, RDialog, RPopover, RList, RListItem } from 'roughness'
 import Icon from './Icon.vue'
 import { formatDuration } from '@/utils/format'
+import { useTrackingToggle } from '../composables/useTrackingToggle'
 
 const issuesStore = useIssuesStore()
 const trackerStore = useTrackerStore()
@@ -101,16 +102,14 @@ watch(() => trackerStore.isTracking, (isTracking, wasTracking) => {
   }
 })
 
+const { isCurrentlyTracking: isTrackingId, toggleTracking: toggleTrackingId } = useTrackingToggle()
+
 function isCurrentlyTracking(issue: Issue): boolean {
-  return trackerStore.currentIssue?.id === issue.id && trackerStore.isTracking
+  return isTrackingId(issue.id)
 }
 
 async function toggleTracking(issue: Issue) {
-  if (isCurrentlyTracking(issue)) {
-    await trackerStore.pauseTracking()
-  } else {
-    await trackerStore.startTracking(issue.id)
-  }
+  await toggleTrackingId(issue.id)
   await loadIssueTimes()
 }
 

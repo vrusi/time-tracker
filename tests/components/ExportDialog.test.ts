@@ -19,7 +19,7 @@ vi.mock('jspdf-autotable', () => ({
 }))
 
 import {
-  formatTimeHM,
+  formatTimeHMS,
   roundToHalfHour,
   aggregateReport,
   generateCSV,
@@ -50,32 +50,32 @@ describe('ExportDialog Logic', () => {
     })
   })
 
-  describe('formatTimeHM', () => {
+  describe('formatTimeHMS', () => {
     it('formats whole hours', () => {
-      expect(formatTimeHM(1)).toBe('01:00:00')
-      expect(formatTimeHM(8)).toBe('08:00:00')
-      expect(formatTimeHM(12)).toBe('12:00:00')
+      expect(formatTimeHMS(1)).toBe('01:00:00')
+      expect(formatTimeHMS(8)).toBe('08:00:00')
+      expect(formatTimeHMS(12)).toBe('12:00:00')
     })
 
     it('formats half hours', () => {
-      expect(formatTimeHM(1.5)).toBe('01:30:00')
-      expect(formatTimeHM(0.5)).toBe('00:30:00')
+      expect(formatTimeHMS(1.5)).toBe('01:30:00')
+      expect(formatTimeHMS(0.5)).toBe('00:30:00')
     })
 
     it('rounds to nearest half hour', () => {
-      expect(formatTimeHM(1.2)).toBe('01:00:00')
-      expect(formatTimeHM(1.3)).toBe('01:30:00')
-      expect(formatTimeHM(1.7)).toBe('01:30:00')
-      expect(formatTimeHM(1.8)).toBe('02:00:00')
+      expect(formatTimeHMS(1.2)).toBe('01:00:00')
+      expect(formatTimeHMS(1.3)).toBe('01:30:00')
+      expect(formatTimeHMS(1.7)).toBe('01:30:00')
+      expect(formatTimeHMS(1.8)).toBe('02:00:00')
     })
 
     it('handles zero', () => {
-      expect(formatTimeHM(0)).toBe('00:00:00')
+      expect(formatTimeHMS(0)).toBe('00:00:00')
     })
 
     it('handles large values', () => {
-      expect(formatTimeHM(24)).toBe('24:00:00')
-      expect(formatTimeHM(100)).toBe('100:00:00')
+      expect(formatTimeHMS(24)).toBe('24:00:00')
+      expect(formatTimeHMS(100)).toBe('100:00:00')
     })
   })
 
