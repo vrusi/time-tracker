@@ -89,6 +89,87 @@ describe('Settings Store', () => {
     })
   })
 
+  describe('bare issue ID parsing', () => {
+    it('parses project#number format', () => {
+      const store = useSettingsStore()
+      expect(store.parseBareId('app#123')).toEqual({ prefix: 'app', number: '123' })
+      expect(store.parseBareId('my-project#42')).toEqual({ prefix: 'my-project', number: '42' })
+      expect(store.parseBareId('reflow#1')).toEqual({ prefix: 'reflow', number: '1' })
+    })
+
+    it('parses JIRA-style PROJ-123 format', () => {
+      const store = useSettingsStore()
+      expect(store.parseBareId('PROJ-123')).toEqual({ prefix: 'PROJ', number: '123' })
+      expect(store.parseBareId('ABC-999')).toEqual({ prefix: 'ABC', number: '999' })
+    })
+
+    it('returns null for URLs and other non-bare inputs', () => {
+      const store = useSettingsStore()
+      expect(store.parseBareId('https://gitlab.com/org/repo/-/issues/123')).toBeNull()
+      expect(store.parseBareId('just some text')).toBeNull()
+      expect(store.parseBareId('')).toBeNull()
+      expect(store.parseBareId('123')).toBeNull()
+    })
+  })
+
+  describe('building issue URLs from bare IDs', () => {
+    it('builds GitLab URL from bare ID and base URL', () => {
+      const store = useSettingsStore()
+      store.settings.issueUrlPattern = 'gitlab'
+      store.settings.issueBaseUrl = 'https://gitlab.com/my-org'
+
+      expect(store.buildIssueUrl('app#222')).toBe('https://gitlab.com/my-org/app/-/issues/222')
+    })
+
+    it('builds GitHub URL from bare ID and base URL', () => {
+      const store = useSettingsStore()
+      store.settings.issueUrlPattern = 'github'
+      store.settings.issueBaseUrl = 'https://github.com/my-org'
+
+      expect(store.buildIssueUrl('repo#42')).toBe('https://github.com/my-org/repo/issues/42')
+    })
+
+    it('builds Jira URL from bare ID and base URL', () => {
+      const store = useSettingsStore()
+      store.settings.issueUrlPattern = 'jira'
+      store.settings.issueBaseUrl = 'https://company.atlassian.net'
+
+      expect(store.buildIssueUrl('PROJ-123')).toBe('https://company.atlassian.net/browse/PROJ-123')
+    })
+
+    it('strips trailing slashes from base URL', () => {
+      const store = useSettingsStore()
+      store.settings.issueUrlPattern = 'gitlab'
+      store.settings.issueBaseUrl = 'https://gitlab.com/org/'
+
+      expect(store.buildIssueUrl('app#1')).toBe('https://gitlab.com/org/app/-/issues/1')
+    })
+
+    it('returns null when base URL is missing', () => {
+      const store = useSettingsStore()
+      store.settings.issueUrlPattern = 'gitlab'
+      store.settings.issueBaseUrl = undefined
+
+      expect(store.buildIssueUrl('app#1')).toBeNull()
+    })
+
+    it('returns null for invalid bare ID', () => {
+      const store = useSettingsStore()
+      store.settings.issueUrlPattern = 'gitlab'
+      store.settings.issueBaseUrl = 'https://gitlab.com/org'
+
+      expect(store.buildIssueUrl('not-a-bare-id')).toBeNull()
+    })
+
+    it('returns null for custom pattern', () => {
+      const store = useSettingsStore()
+      store.settings.issueUrlPattern = 'custom'
+      store.settings.issueBaseUrl = 'https://example.com'
+
+      expect(store.buildIssueUrl('app#1')).toBeNull()
+    })
+  })
+
   describe('settings persistence', () => {
     it('loads settings from backend and marks as loaded', async () => {
       const store = useSettingsStore()

@@ -4,7 +4,10 @@ import {
   getWeekStart,
   getWeekEnd,
   calculateProgress,
-  aggregateEntrySeconds
+  aggregateEntrySeconds,
+  getTargetWorkdays,
+  getWorkedDays,
+  getFreeDays
 } from '../../src/utils/workdays'
 
 /**
@@ -107,6 +110,49 @@ describe('Progress Bar Logic', () => {
 
     it('returns zero for empty array', () => {
       expect(aggregateEntrySeconds([])).toBe(0)
+    })
+  })
+
+  describe('getTargetWorkdays', () => {
+    it('calculates target workdays from monthly and daily hours', () => {
+      expect(getTargetWorkdays(160, 8)).toBe(20)
+      expect(getTargetWorkdays(120, 8)).toBe(15)
+    })
+
+    it('rounds up partial days', () => {
+      expect(getTargetWorkdays(100, 8)).toBe(13) // 12.5 → 13
+    })
+
+    it('returns zero when daily target is zero', () => {
+      expect(getTargetWorkdays(160, 0)).toBe(0)
+    })
+  })
+
+  describe('getWorkedDays', () => {
+    it('calculates completed workdays from tracked seconds', () => {
+      // 8h * 3600 = 28800 seconds per day
+      expect(getWorkedDays(28800, 8)).toBe(1)
+      expect(getWorkedDays(57600, 8)).toBe(2)
+    })
+
+    it('floors partial days', () => {
+      // 7.5 hours tracked = 0 full days
+      expect(getWorkedDays(27000, 8)).toBe(0)
+    })
+
+    it('returns zero when daily target is zero', () => {
+      expect(getWorkedDays(28800, 0)).toBe(0)
+    })
+  })
+
+  describe('getFreeDays', () => {
+    it('calculates surplus workdays in the month', () => {
+      expect(getFreeDays(23, 20)).toBe(3)
+      expect(getFreeDays(20, 20)).toBe(0)
+    })
+
+    it('returns zero when target exceeds workdays', () => {
+      expect(getFreeDays(18, 20)).toBe(0)
     })
   })
 })

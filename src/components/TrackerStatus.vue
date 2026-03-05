@@ -202,6 +202,15 @@ function startEditingIssue() {
 
 async function saveIssueEdit() {
   if (trackerStore.currentIssue && editForm.value.name.trim()) {
+    // Validate start time before saving anything
+    if (trackerStore.currentEntry && editForm.value.startedAt) {
+      const newStart = new Date(editForm.value.startedAt)
+      if (newStart.getTime() > Date.now()) {
+        showToast('Start time cannot be in the future', true)
+        return
+      }
+    }
+
     try {
       await issuesStore.updateIssue(trackerStore.currentIssue.id, {
         name: editForm.value.name.trim(),
@@ -211,12 +220,7 @@ async function saveIssueEdit() {
 
       // Update start time if changed
       if (trackerStore.currentEntry && editForm.value.startedAt) {
-        const newStart = new Date(editForm.value.startedAt)
-        if (newStart.getTime() > Date.now()) {
-          showToast('Start time cannot be in the future', true)
-          return
-        }
-        const newStartedAt = newStart.toISOString()
+        const newStartedAt = new Date(editForm.value.startedAt).toISOString()
         if (newStartedAt !== trackerStore.currentEntry.startedAt) {
           await window.electronAPI.updateTimeEntry(trackerStore.currentEntry.id, {
             startedAt: newStartedAt
