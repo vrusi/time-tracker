@@ -4,6 +4,7 @@ import { useTrackerStore } from '../stores/tracker.store'
 import { useIssuesStore } from '../stores/issues.store'
 import { useSettingsStore } from '../stores/settings.store'
 import type { Issue } from '../types'
+import { toLocalDateTimeInput } from '@/utils/format'
 import { RCard, RButton, RInput, RProgress, RText } from 'roughness'
 import Icon from './Icon.vue'
 
@@ -181,7 +182,7 @@ function showToast(message: string, isError = false) {
 
 // Edit issue while tracking
 const isEditingIssue = ref(false)
-const editForm = ref({ name: '', externalId: '', link: '' })
+const editForm = ref({ name: '', externalId: '', link: '', startedAt: '' })
 const editNameInput = ref<HTMLInputElement | null>(null)
 
 function startEditingIssue() {
@@ -189,7 +190,8 @@ function startEditingIssue() {
     editForm.value = {
       name: trackerStore.currentIssue.name,
       externalId: trackerStore.currentIssue.externalId || '',
-      link: trackerStore.currentIssue.link || ''
+      link: trackerStore.currentIssue.link || '',
+      startedAt: trackerStore.currentEntry ? toLocalDateTimeInput(trackerStore.currentEntry.startedAt) : ''
     }
     isEditingIssue.value = true
     nextTick(() => {
@@ -206,11 +208,28 @@ async function saveIssueEdit() {
         externalId: editForm.value.externalId.trim(),
         link: editForm.value.link.trim() || null
       })
+
+      // Update start time if changed
+      if (trackerStore.currentEntry && editForm.value.startedAt) {
+        const newStart = new Date(editForm.value.startedAt)
+        if (newStart.getTime() > Date.now()) {
+          showToast('Start time cannot be in the future', true)
+          return
+        }
+        const newStartedAt = newStart.toISOString()
+        if (newStartedAt !== trackerStore.currentEntry.startedAt) {
+          await window.electronAPI.updateTimeEntry(trackerStore.currentEntry.id, {
+            startedAt: newStartedAt
+          })
+          trackerStore.currentEntry.startedAt = newStartedAt
+        }
+      }
+
       await trackerStore.refreshCurrentIssue()
-      showToast('Issue updated')
+      showToast('Updated')
     } catch (err) {
       console.error('Failed to update issue:', err)
-      showToast('Failed to update issue', true)
+      showToast('Failed to update', true)
     }
   }
   isEditingIssue.value = false
@@ -422,6 +441,14 @@ async function handleRecoverIdleTime() {
                   class="edit-name-input edit-link-input"
                   placeholder="Link (optional)"
                 />
+                <div class="edit-start-time">
+                  <label class="edit-start-label">Started at</label>
+                  <input
+                    v-model="editForm.startedAt"
+                    type="datetime-local"
+                    class="edit-name-input edit-time-input"
+                  />
+                </div>
                 <div class="edit-issue-actions">
                   <RButton type="submit" size="small" filled>Save</RButton>
                   <RButton type="button" size="small" @click="cancelEditingIssue">Cancel</RButton>
@@ -693,6 +720,22 @@ async function handleRecoverIdleTime() {
   flex-direction: column;
   gap: 0.35rem;
   width: 100%;
+}
+
+.edit-start-time {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.edit-start-label {
+  font-size: 0.8rem;
+  color: var(--color-text-secondary);
+  flex-shrink: 0;
+}
+
+.edit-time-input {
+  font-size: 0.85em !important;
 }
 
 .edit-issue-actions {

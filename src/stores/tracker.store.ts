@@ -52,7 +52,7 @@ export const useTrackerStore = defineStore('tracker', () => {
   function updateElapsed() {
     if (currentEntry.value && !currentEntry.value.endedAt) {
       const start = new Date(currentEntry.value.startedAt).getTime()
-      const currentSessionSeconds = Math.floor((Date.now() - start) / 1000)
+      const currentSessionSeconds = Math.max(0, Math.floor((Date.now() - start) / 1000))
       elapsedSeconds.value = pausedElapsedSeconds.value + currentSessionSeconds
     }
   }
