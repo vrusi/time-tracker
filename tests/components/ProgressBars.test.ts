@@ -9,6 +9,8 @@ import {
   getWorkedDays,
   getFreeDays
 } from '../../src/utils/workdays'
+import { createMockIssue, createMockTimeEntry } from '../fixtures'
+import type { Issue, TimeEntry } from '../../src/types'
 
 /**
  * Progress Bar Logic - calculates work targets and progress.
@@ -153,6 +155,61 @@ describe('Progress Bar Logic', () => {
 
     it('returns zero when target exceeds workdays', () => {
       expect(getFreeDays(18, 20)).toBe(0)
+    })
+  })
+
+  describe('archived issue filtering', () => {
+    const activeIssue = createMockIssue({ id: 1, archived: false })
+    const archivedIssue = createMockIssue({ id: 2, archived: true })
+
+    function createEntryWithIssue(issue: Issue, overrides: Partial<TimeEntry> = {}) {
+      return { ...createMockTimeEntry(overrides), issue }
+    }
+
+    it('excludes archived issues from totals', () => {
+      const entries = [
+        createEntryWithIssue(activeIssue, {
+          id: 1, startedAt: '2024-01-15T09:00:00.000Z', endedAt: '2024-01-15T10:00:00.000Z'
+        }),
+        createEntryWithIssue(archivedIssue, {
+          id: 2, startedAt: '2024-01-15T10:00:00.000Z', endedAt: '2024-01-15T12:00:00.000Z'
+        })
+      ]
+
+      const activeEntries = entries.filter(e => !e.issue.archived)
+      const total = aggregateEntrySeconds(activeEntries)
+
+      // Only the active issue's 1 hour counts, not the archived issue's 2 hours
+      expect(total).toBe(3600)
+    })
+
+    it('includes all entries when none are archived', () => {
+      const entries = [
+        createEntryWithIssue(activeIssue, {
+          id: 1, startedAt: '2024-01-15T09:00:00.000Z', endedAt: '2024-01-15T10:00:00.000Z'
+        }),
+        createEntryWithIssue(activeIssue, {
+          id: 2, startedAt: '2024-01-15T11:00:00.000Z', endedAt: '2024-01-15T12:00:00.000Z'
+        })
+      ]
+
+      const activeEntries = entries.filter(e => !e.issue.archived)
+      const total = aggregateEntrySeconds(activeEntries)
+
+      expect(total).toBe(7200) // 2 hours
+    })
+
+    it('returns zero when all entries are archived', () => {
+      const entries = [
+        createEntryWithIssue(archivedIssue, {
+          id: 1, startedAt: '2024-01-15T09:00:00.000Z', endedAt: '2024-01-15T11:00:00.000Z'
+        })
+      ]
+
+      const activeEntries = entries.filter(e => !e.issue.archived)
+      const total = aggregateEntrySeconds(activeEntries)
+
+      expect(total).toBe(0)
     })
   })
 })

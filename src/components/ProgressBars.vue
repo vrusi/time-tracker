@@ -2,12 +2,14 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useTrackerStore } from '../stores/tracker.store'
 import { useSettingsStore } from '../stores/settings.store'
+import { useIssuesStore } from '../stores/issues.store'
 import { RCard, RProgress, RText } from 'roughness'
 import { formatMoney } from '../utils/format'
 import { getWorkdaysInMonth, calculateProgress, getWeekStart, getWeekEnd, getTargetWorkdays, getWorkedDays, getFreeDays } from '../utils/workdays'
 
 const trackerStore = useTrackerStore()
 const settingsStore = useSettingsStore()
+const issuesStore = useIssuesStore()
 
 const todaySeconds = ref(0)
 const weekSeconds = ref(0)
@@ -102,19 +104,23 @@ async function loadProgress() {
     monthEnd.toISOString()
   )
 
-  todaySeconds.value = todayEntries.reduce((total, entry) => {
+  const activeTodayEntries = todayEntries.filter(e => !e.issue.archived)
+  const activeWeekEntries = weekEntries.filter(e => !e.issue.archived)
+  const activeMonthEntries = monthEntries.filter(e => !e.issue.archived)
+
+  todaySeconds.value = activeTodayEntries.reduce((total, entry) => {
     const start = new Date(entry.startedAt).getTime()
     const end = entry.endedAt ? new Date(entry.endedAt).getTime() : Date.now()
     return total + (end - start) / 1000
   }, 0)
 
-  weekSeconds.value = weekEntries.reduce((total, entry) => {
+  weekSeconds.value = activeWeekEntries.reduce((total, entry) => {
     const start = new Date(entry.startedAt).getTime()
     const end = entry.endedAt ? new Date(entry.endedAt).getTime() : Date.now()
     return total + (end - start) / 1000
   }, 0)
 
-  monthSeconds.value = monthEntries.reduce((total, entry) => {
+  monthSeconds.value = activeMonthEntries.reduce((total, entry) => {
     const start = new Date(entry.startedAt).getTime()
     const end = entry.endedAt ? new Date(entry.endedAt).getTime() : Date.now()
     return total + (end - start) / 1000
@@ -135,6 +141,11 @@ onUnmounted(() => {
 
 // Also refresh when tracking changes
 trackerStore.$subscribe(() => {
+  loadProgress()
+})
+
+// Refresh when issues are archived/unarchived
+issuesStore.$subscribe(() => {
   loadProgress()
 })
 
