@@ -200,6 +200,31 @@ async function deleteEntry(entryId: number) {
   }
 }
 
+// Archive/unarchive issue
+async function archiveIssue(issueId: number) {
+  try {
+    await issuesStore.archiveIssue(issueId)
+    await loadEntries()
+    emit('entries-changed')
+    showToast('Item archived')
+  } catch (err) {
+    console.error('Failed to archive issue:', err)
+    showToast('Failed to archive issue', true)
+  }
+}
+
+async function unarchiveIssue(issueId: number) {
+  try {
+    await issuesStore.unarchiveIssue(issueId)
+    await loadEntries()
+    emit('entries-changed')
+    showToast('Item restored')
+  } catch (err) {
+    console.error('Failed to restore issue:', err)
+    showToast('Failed to restore issue', true)
+  }
+}
+
 // Merge up/down functions
 function getAdjacentEntry(entry: TimeEntry & { issue: Issue }, direction: 'up' | 'down'): (TimeEntry & { issue: Issue }) | null {
   // Flatten all entries in display order (newest first)
@@ -650,6 +675,7 @@ defineExpose({ openAddEntryModal, loadEntries })
                   <div class="flex items-center gap-2">
                     <RText class="text-secondary">{{ entry.issue.externalId }}</RText>
                     <RText>{{ entry.issue.name }}</RText>
+                    <span v-if="entry.issue.archived" class="archived-badge">archived</span>
                   </div>
                   <RText size="small" class="text-secondary">
                     {{ formatTime(entry.startedAt) }} - {{ entry.endedAt ? formatTime(entry.endedAt) : 'ongoing' }}
@@ -739,12 +765,30 @@ defineExpose({ openAddEntryModal, loadEntries })
                         <span>Merge down</span>
                       </button>
 
+                      <!-- Archive/Restore tracked item -->
+                      <button
+                        v-if="!entry.issue.archived"
+                        class="menu-item"
+                        @click="archiveIssue(entry.issue.id); openMenuId = null"
+                      >
+                        <Icon name="box" :size="16" />
+                        <span>Archive tracked item</span>
+                      </button>
+                      <button
+                        v-else
+                        class="menu-item"
+                        @click="unarchiveIssue(entry.issue.id); openMenuId = null"
+                      >
+                        <span class="menu-icon-text">↩</span>
+                        <span>Restore tracked item</span>
+                      </button>
+
                       <div class="menu-divider"></div>
 
-                      <!-- Delete -->
+                      <!-- Delete entry -->
                       <button class="menu-item menu-item-danger" @click="deleteEntry(entry.id); openMenuId = null">
                         <Icon name="delete" :size="16" />
-                        <span>Delete</span>
+                        <span>Delete entry</span>
                       </button>
                     </div>
                   </RPopover>
@@ -1167,6 +1211,21 @@ defineExpose({ openAddEntryModal, loadEntries })
 
 .menu-item-danger:hover {
   background-color: rgba(229, 57, 53, 0.1);
+}
+
+.menu-icon-text {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+}
+
+.archived-badge {
+  font-size: 0.7em;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background-color: var(--color-bg-secondary, rgba(0, 0, 0, 0.08));
+  color: var(--r-color-text-secondary, #888);
 }
 
 .menu-item-disabled {
