@@ -73,6 +73,7 @@ export interface SettingsContext {
   getMainWindow: () => BrowserWindow | null
   getIdleThreshold: () => number
   setIdleThreshold: (value: number) => void
+  setIdleIndicator: (value: number) => void
   updateTrayMenu: () => void
   pauseTracking: (reason: 'manual' | 'idle' | 'switched') => void
   getIdleResetTime: () => number | null
@@ -82,7 +83,7 @@ export interface SettingsContext {
 }
 
 export function setupSettingsHandlers(ctx: SettingsContext) {
-  const { getMainWindow, setIdleThreshold, updateTrayMenu, pauseTracking, getIdleResetTime, setIdleResetTime, getPresenceMode, setPresenceMode } = ctx
+  const { getMainWindow, setIdleThreshold, setIdleIndicator, updateTrayMenu, pauseTracking, getIdleResetTime, setIdleResetTime, getPresenceMode, setPresenceMode } = ctx
 
   // Settings
   ipcMain.handle('get-settings', () => {
@@ -99,10 +100,11 @@ export function setupSettingsHandlers(ctx: SettingsContext) {
     // Invalidate cache since settings changed
     invalidateSettingsCache()
 
-    // Reload idle threshold if it changed
-    if ('idleThresholdMinutes' in updates) {
+    // Reload idle threshold/indicator if they changed
+    if ('idleThresholdMinutes' in updates || 'idleIndicatorMinutes' in updates) {
       const newSettings = getSettings(db)
       setIdleThreshold(newSettings.idleThresholdMinutes * 60)
+      setIdleIndicator(newSettings.idleIndicatorMinutes * 60)
     }
 
     return getSettings(db)
@@ -152,9 +154,10 @@ export function setupSettingsHandlers(ctx: SettingsContext) {
     switchDatabase(getProjectDbPath(project))
     // Invalidate settings cache since we switched to a different project's database
     invalidateSettingsCache()
-    // Reload idle threshold from new db settings
+    // Reload idle threshold/indicator from new db settings
     const newSettings = getSettings(db)
     setIdleThreshold(newSettings.idleThresholdMinutes * 60)
+    setIdleIndicator(newSettings.idleIndicatorMinutes * 60)
     // Update tray menu
     updateTrayMenu()
     return project

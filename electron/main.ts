@@ -25,12 +25,15 @@ let idleCheckInterval: NodeJS.Timeout | null = null
 let presenceMode = false
 let idleResetTime: number | null = null
 let idleThreshold = 600 // 10 minutes in seconds (loaded from settings)
+let idleIndicator = 30 // idle indicator threshold in seconds (loaded from settings)
+let idleWarningSent = false
 let isQuitting = false
 let suspendedAt: number | null = null
 
 function loadIdleThreshold() {
   const settings = getSettings(db)
   idleThreshold = settings.idleThresholdMinutes * 60
+  idleIndicator = settings.idleIndicatorMinutes * 60
 }
 
 function getTodayTotalSeconds(): number {
@@ -266,10 +269,30 @@ function startIdleWatcher() {
       checkWeeklyTargetNotification()
     }
 
+    // Reset idle warning when user returns
+    if (idleTime < idleIndicator) {
+      idleWarningSent = false
+    }
+
     // Skip idle pause if presence mode is enabled
     if (presenceMode) return
 
+    // Send idle warning notification before auto-pause
+    if (idleTime >= idleIndicator && idleTime < idleThreshold && current && !idleWarningSent) {
+      const settings = getSettings(db)
+      if (settings.notificationsEnabled) {
+        const idleMinutes = Math.floor(idleTime / 60)
+        const remainingMinutes = Math.ceil((idleThreshold - idleTime) / 60)
+        new Notification({
+          title: 'Time Tracker',
+          body: `You've been idle for ${idleMinutes} min – auto-pause in ${remainingMinutes} min`
+        }).show()
+      }
+      idleWarningSent = true
+    }
+
     if (idleTime >= idleThreshold && current) {
+      idleWarningSent = false
       doPauseTracking('idle')
 
       const settings = getSettings(db)
@@ -307,6 +330,7 @@ function setupIpcHandlers() {
     getMainWindow: () => mainWindow,
     getIdleThreshold: () => idleThreshold,
     setIdleThreshold: (value: number) => { idleThreshold = value },
+    setIdleIndicator: (value: number) => { idleIndicator = value },
     updateTrayMenu,
     pauseTracking: doPauseTracking,
     getIdleResetTime: () => idleResetTime,
