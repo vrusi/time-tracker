@@ -45,7 +45,8 @@ export function getSettings(db: Database.Database): AppSettings {
     customIssuePattern: settings.customIssuePattern && settings.customIssuePattern !== 'undefined' ? settings.customIssuePattern : undefined,
     theme: settings.theme || 'light',
     showEarnings: settings.showEarnings === 'true',
-    notificationsEnabled: settings.notificationsEnabled !== 'false'
+    notificationsEnabled: settings.notificationsEnabled !== 'false',
+    claudeApiKey: settings.claudeApiKey && settings.claudeApiKey !== 'undefined' ? settings.claudeApiKey : undefined
   }
   return cachedSettings
 }

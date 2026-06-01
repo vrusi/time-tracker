@@ -10,6 +10,7 @@ import {
   setupEntryHandlers,
   setupSettingsHandlers,
   setupExportHandlers,
+  setupAiHandlers,
   getSettings,
   getEffectiveIdleTime,
   getCurrentTracking,
@@ -343,6 +344,9 @@ function setupIpcHandlers() {
   setupExportHandlers({
     getMainWindow: () => mainWindow
   })
+
+  // Setup AI handlers
+  setupAiHandlers()
 
   // Shell
   ipcMain.handle('open-external', (_, url: string) => {

@@ -5,7 +5,7 @@ import { useIssuesStore } from '../stores/issues.store'
 import { useSettingsStore } from '../stores/settings.store'
 import type { Issue } from '../types'
 import { toLocalDateTimeInput } from '@/utils/format'
-import { RCard, RButton, RInput, RProgress, RText } from 'roughness'
+import { RCard, RButton, RInput, RProgress, RText, RDialog } from 'roughness'
 import Icon from './Icon.vue'
 
 const trackerStore = useTrackerStore()
@@ -291,6 +291,84 @@ async function handleRecoverIdleTime() {
     showToast('Failed to recover idle time', true)
   }
 }
+
+// Standup formatting
+const showStandupDialog = ref(false)
+const isFormattingStandup = ref(false)
+const standupText = ref('')
+const standupError = ref('')
+
+async function openStandupDialog() {
+  if (!trackerStore.currentIssue) return
+  if (!settingsStore.settings.claudeApiKey) {
+    showToast('Add a Claude API key in Settings → AI', true)
+    return
+  }
+
+  showStandupDialog.value = true
+  standupText.value = ''
+  standupError.value = ''
+  isFormattingStandup.value = true
+
+  try {
+    const issue = trackerStore.currentIssue
+    const formatted = await window.electronAPI.aiFormatStandup({
+      externalId: issue.externalId,
+      name: issue.name,
+      link: issue.link,
+      notes: issue.notes ?? null
+    })
+    standupText.value = formatted
+    // Auto-copy: if Claude nailed it, no second click needed
+    try {
+      await navigator.clipboard.writeText(formatted)
+      showToast('Copied — edit & re-copy if needed')
+    } catch {
+      // Clipboard might fail silently in dev; user can still click Copy
+    }
+  } catch (err) {
+    console.error('Failed to format standup line:', err)
+    standupError.value = err instanceof Error ? err.message : 'Failed to format'
+  } finally {
+    isFormattingStandup.value = false
+  }
+}
+
+async function copyStandupText() {
+  try {
+    await navigator.clipboard.writeText(standupText.value)
+    showToast('Copied to clipboard')
+    showStandupDialog.value = false
+  } catch {
+    showToast('Failed to copy', true)
+  }
+}
+
+async function regenerateStandup() {
+  if (!trackerStore.currentIssue) return
+  standupError.value = ''
+  isFormattingStandup.value = true
+  try {
+    const issue = trackerStore.currentIssue
+    const formatted = await window.electronAPI.aiFormatStandup({
+      externalId: issue.externalId,
+      name: issue.name,
+      link: issue.link,
+      notes: issue.notes ?? null
+    })
+    standupText.value = formatted
+    try {
+      await navigator.clipboard.writeText(formatted)
+      showToast('Copied')
+    } catch {
+      // ignore
+    }
+  } catch (err) {
+    standupError.value = err instanceof Error ? err.message : 'Failed to format'
+  } finally {
+    isFormattingStandup.value = false
+  }
+}
 </script>
 
 <template>
@@ -491,6 +569,14 @@ async function handleRecoverIdleTime() {
             </RButton>
             <RButton
               size="small"
+              class="subtle-btn"
+              @click="openStandupDialog"
+              title="Copy for Slack standup"
+            >
+              <span class="standup-icon">#</span>
+            </RButton>
+            <RButton
+              size="small"
               color="error"
               @click="pauseWithNotes"
               title="Stop tracking"
@@ -524,6 +610,48 @@ async function handleRecoverIdleTime() {
         </div>
       </div>
     </template>
+
+    <!-- Standup format dialog -->
+    <RDialog v-model:open="showStandupDialog">
+      <template #title>Copy for Slack Standup</template>
+      <div class="standup-dialog">
+        <div v-if="isFormattingStandup" class="standup-loading">
+          <RText class="text-secondary">Formatting with Claude…</RText>
+        </div>
+        <div v-else-if="standupError" class="standup-error">
+          <RText>{{ standupError }}</RText>
+        </div>
+        <template v-else>
+          <RText size="small" class="text-secondary">
+            Tweak as needed (fill in the <code>%</code>), then re-copy if you changed it.
+          </RText>
+          <textarea
+            v-model="standupText"
+            class="standup-textarea"
+            rows="3"
+            spellcheck="false"
+          ></textarea>
+        </template>
+
+        <div class="standup-actions">
+          <RButton size="small" @click="regenerateStandup" :disabled="isFormattingStandup">
+            Regenerate
+          </RButton>
+          <RButton size="small" @click="showStandupDialog = false">
+            Close
+          </RButton>
+          <RButton
+            size="small"
+            filled
+            color="success"
+            @click="copyStandupText"
+            :disabled="!standupText || isFormattingStandup"
+          >
+            Copy
+          </RButton>
+        </div>
+      </div>
+    </RDialog>
 
     <!-- Toast notification -->
     <div v-if="toastMessage" class="toast" :class="toastIsError ? 'toast-error' : 'toast-success'">
@@ -910,5 +1038,62 @@ input.edit-time-input {
 .idle-recovery-buttons {
   display: flex;
   gap: 0.5rem;
+}
+
+.standup-icon {
+  font-weight: 700;
+  font-size: 0.95rem;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  height: 1rem;
+}
+
+.standup-dialog {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  min-width: 480px;
+}
+
+.standup-loading,
+.standup-error {
+  padding: 1rem 0;
+}
+
+.standup-textarea {
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  border: 2px solid var(--color-border);
+  border-radius: 4px;
+  background: var(--color-bg-secondary);
+  color: var(--color-text);
+  font-family: ui-monospace, monospace;
+  font-size: 0.85rem;
+  resize: vertical;
+  box-sizing: border-box;
+}
+
+.standup-textarea:focus {
+  outline: none;
+  border-color: var(--color-accent);
+}
+
+.standup-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+.text-secondary {
+  color: var(--color-text-secondary);
+}
+
+code {
+  padding: 0.05rem 0.3rem;
+  background: var(--color-bg-secondary);
+  border-radius: 3px;
+  font-family: ui-monospace, monospace;
+  font-size: 0.85em;
 }
 </style>

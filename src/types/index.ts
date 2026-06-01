@@ -82,6 +82,37 @@ export interface AppSettings {
   theme: 'light' | 'dark' | 'system'
   showEarnings: boolean
   notificationsEnabled: boolean
+  claudeApiKey?: string
+}
+
+export interface DailyBreakdownEntry {
+  date: string
+  externalId: string
+  name: string
+  hours: number
+}
+
+export interface StandupFormatRequest {
+  externalId: string
+  name: string
+  link: string | null
+  notes?: string | null
+}
+
+export interface PadTimesheetRequest {
+  year: number
+  month: number
+  monthlyTargetHours: number
+  totalHoursBefore: number
+  dailyBreakdown: DailyBreakdownEntry[]
+  trustedDays: string[]
+  redistributeDays: string[]
+}
+
+export interface PadTimesheetResponse {
+  paddedReport: { externalId: string; name: string; totalHours: number }[]
+  totalHoursAfter: number
+  notes: string
 }
 
 // IPC API exposed to renderer
@@ -132,6 +163,11 @@ export interface ElectronAPI {
 
   // Export
   exportMonth: (year: number, month: number) => Promise<MonthlyReport[]>
+  getDailyBreakdown: (year: number, month: number) => Promise<DailyBreakdownEntry[]>
+
+  // AI
+  aiFormatStandup: (request: StandupFormatRequest) => Promise<string>
+  aiPadTimesheet: (request: PadTimesheetRequest) => Promise<PadTimesheetResponse>
 
   // Idle
   getIdleTime: () => Promise<number>

@@ -3,3 +3,4 @@ export { setupTrackingHandlers, getCurrentTracking, pauseTracking, startTracking
 export { setupEntryHandlers } from './entries'
 export { setupSettingsHandlers, getSettings, getEffectiveIdleTime, invalidateSettingsCache, type SettingsContext } from './settings'
 export { setupExportHandlers, type ExportContext } from './export'
+export { setupAiHandlers } from './ai'

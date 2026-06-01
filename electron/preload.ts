@@ -48,6 +48,11 @@ const electronAPI: ElectronAPI = {
 
   // Export
   exportMonth: (year, month) => ipcRenderer.invoke('export-month', year, month),
+  getDailyBreakdown: (year, month) => ipcRenderer.invoke('get-daily-breakdown', year, month),
+
+  // AI
+  aiFormatStandup: (request) => ipcRenderer.invoke('ai-format-standup', request),
+  aiPadTimesheet: (request) => ipcRenderer.invoke('ai-pad-timesheet', request),
 
   // Idle
   getIdleTime: () => ipcRenderer.invoke('get-idle-time'),

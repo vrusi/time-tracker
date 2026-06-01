@@ -33,8 +33,13 @@ const form = ref({
   customIssuePattern: '' as string,
   theme: 'light' as 'light' | 'dark' | 'system',
   showEarnings: false,
-  notificationsEnabled: true
+  notificationsEnabled: true,
+  claudeApiKey: '' as string
 })
+
+const showApiKey = ref(false)
+// Suffix of the API key that was pasted (and rotated/burned) in chat — warn if it matches
+const LEAKED_KEY_SUFFIX = 'xzmbPAAA'
 
 const isSaving = ref(false)
 const saveMessage = ref('')
@@ -84,7 +89,8 @@ function syncFormFromStore() {
     customIssuePattern: s.customIssuePattern ?? '',
     theme: s.theme,
     showEarnings: s.showEarnings,
-    notificationsEnabled: s.notificationsEnabled
+    notificationsEnabled: s.notificationsEnabled,
+    claudeApiKey: s.claudeApiKey ?? ''
   }
 }
 
@@ -114,7 +120,8 @@ async function saveSettings() {
       customIssuePattern: form.value.customIssuePattern?.trim() || undefined,
       theme: form.value.theme,
       showEarnings: form.value.showEarnings,
-      notificationsEnabled: form.value.notificationsEnabled
+      notificationsEnabled: form.value.notificationsEnabled,
+      claudeApiKey: form.value.claudeApiKey?.trim() || undefined
     })
     saveMessage.value = 'Settings saved!'
     setTimeout(() => { saveMessage.value = '' }, 2000)
@@ -358,6 +365,38 @@ async function wipeDatabase() {
           </div>
           <div class="setting-control">
             <input v-model="form.customIssuePattern" type="text" class="input-text" placeholder="/ticket/(\d+)" />
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════════
+           SECTION: AI
+           ═══════════════════════════════════════════════════════════════ -->
+      <div class="section">
+        <div class="section-header">AI</div>
+        <div class="section-divider"></div>
+
+        <div v-if="form.claudeApiKey && form.claudeApiKey.endsWith(LEAKED_KEY_SUFFIX)" class="leaked-key-warning">
+          ⚠ The key you have here matches one shared in chat. Rotate it at console.anthropic.com and paste the new one.
+        </div>
+
+        <div class="setting-row row-md">
+          <div class="setting-label">
+            Claude API Key
+            <span class="setting-hint">Used for standup formatting & timesheet padding. Stored locally only.</span>
+          </div>
+          <div class="setting-control api-key-control">
+            <input
+              v-model="form.claudeApiKey"
+              :type="showApiKey ? 'text' : 'password'"
+              class="input-text input-api-key"
+              placeholder="sk-ant-..."
+              autocomplete="off"
+              spellcheck="false"
+            />
+            <button type="button" class="btn btn-icon" @click="showApiKey = !showApiKey" :title="showApiKey ? 'Hide' : 'Show'">
+              {{ showApiKey ? '🙈' : '👁' }}
+            </button>
           </div>
         </div>
       </div>
@@ -831,6 +870,35 @@ async function wipeDatabase() {
   opacity: 0.9;
   background: var(--color-accent);
   border-color: var(--color-accent);
+}
+
+.btn-icon {
+  padding: 0.35rem 0.5rem;
+  line-height: 1;
+}
+
+.api-key-control {
+  min-width: 0;
+  flex: 1;
+}
+
+.input-api-key {
+  flex: 1;
+  width: auto;
+  min-width: 220px;
+  font-family: ui-monospace, monospace;
+  font-size: 0.8rem;
+}
+
+.leaked-key-warning {
+  margin: 0.5rem 0 0.75rem;
+  padding: 0.5rem 0.75rem;
+  background: rgba(229, 57, 53, 0.08);
+  border: 1px solid var(--color-error);
+  border-radius: 4px;
+  color: var(--color-error);
+  font-size: 0.85rem;
+  line-height: 1.4;
 }
 
 </style>
