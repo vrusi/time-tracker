@@ -55,7 +55,7 @@ export const useSettingsStore = defineStore('settings', () => {
   const issueIdRegex = computed(() => {
     switch (settings.value.issueUrlPattern) {
       case 'gitlab':
-        return /\/issues\/(\d+)/
+        return /\/(?:issues|work_items)\/(\d+)/
       case 'github':
         return /\/issues\/(\d+)/
       case 'jira':
@@ -114,7 +114,7 @@ export const useSettingsStore = defineStore('settings', () => {
   function extractIssueId(url: string): string | null {
     // Auto-detect tracker type from URL and extract project name where possible
     if (url.includes('gitlab.com') || url.includes('gitlab')) {
-      const match = url.match(/\/([^/]+)\/-\/issues\/(\d+)/)
+      const match = url.match(/\/([^/]+)\/-\/(?:issues|work_items)\/(\d+)/)
       if (!match) return null
       return `${match[1]}#${match[2]}`
     }

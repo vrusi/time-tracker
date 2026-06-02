@@ -353,8 +353,8 @@ async function wipeDatabase() {
             Base URL
             <span class="setting-hint">Used to build links from short IDs (e.g. app#123)</span>
           </div>
-          <div class="setting-control">
-            <input v-model="form.issueBaseUrl" type="text" class="input-text" placeholder="https://gitlab.com/my-org" />
+          <div class="setting-control setting-control-grow">
+            <input v-model="form.issueBaseUrl" type="text" class="input-text input-text-full" placeholder="https://gitlab.com/my-org" />
           </div>
         </div>
 
@@ -657,6 +657,11 @@ async function wipeDatabase() {
   min-width: 160px;
 }
 
+.setting-control-grow {
+  flex: 1;
+  min-width: 0;
+}
+
 /* ═══════════════════════════════════════════════════════════════
    Input Elements
    ═══════════════════════════════════════════════════════════════ */
@@ -718,6 +723,10 @@ async function wipeDatabase() {
 .input-text:focus {
   outline: none;
   border-color: var(--color-accent);
+}
+
+.input-text-full {
+  width: 100%;
 }
 
 /* ═══════════════════════════════════════════════════════════════
