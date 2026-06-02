@@ -5,6 +5,7 @@ import { useIssuesStore } from '../stores/issues.store'
 import { useSettingsStore } from '../stores/settings.store'
 import type { Issue } from '../types'
 import { toLocalDateTimeInput } from '@/utils/format'
+import { renderForSlack } from '@/utils/slack'
 import { RCard, RButton, RInput, RProgress, RText, RDialog } from 'roughness'
 import Icon from './Icon.vue'
 
@@ -96,6 +97,11 @@ function handleLinkInput() {
   if (matchedIssue.value) {
     matchedIssue.value = null
   }
+  // If URL changes away from what we last fetched, the suggestion is stale
+  if (lastFetchedUrl && link.value.trim() !== lastFetchedUrl) {
+    fetchedTitle.value = null
+    fetchedDescription.value = null
+  }
   showLinkSuggestions.value = link.value.trim().length > 0 && !matchedIssue.value
   selectedLinkSuggestionIndex.value = -1
 }
@@ -123,6 +129,55 @@ function handleLinkKeydown(e: KeyboardEvent) {
 
 function handleLinkBlur() {
   setTimeout(() => { showLinkSuggestions.value = false }, 150)
+  void maybeFetchFromGitlab()
+}
+
+// GitLab auto-fetch
+const fetchedTitle = ref<string | null>(null)
+const fetchedDescription = ref<string | null>(null)
+const isFetchingGitlab = ref(false)
+let lastFetchedUrl = ''
+let pendingGitlabFetch: Promise<void> | null = null
+
+function looksLikeGitlabUrl(value: string): boolean {
+  return /\/-\/(issues|work_items)\/\d+/.test(value) && /^https?:\/\//.test(value)
+}
+
+function maybeFetchFromGitlab(): Promise<void> {
+  // If a fetch is already in flight, return its promise — concurrent callers wait on the same fetch
+  if (pendingGitlabFetch) return pendingGitlabFetch
+
+  const url = link.value.trim()
+  if (!url || url === lastFetchedUrl) return Promise.resolve()
+  if (matchedIssue.value) return Promise.resolve()
+  if (!looksLikeGitlabUrl(url)) return Promise.resolve()
+  if (!settingsStore.settings.gitlabToken) return Promise.resolve()
+
+  lastFetchedUrl = url
+  isFetchingGitlab.value = true
+
+  pendingGitlabFetch = (async () => {
+    try {
+      const info = await window.electronAPI.gitlabFetchIssue(url)
+      fetchedTitle.value = info.title || null
+      if (!name.value.trim() && info.title) {
+        name.value = info.title
+      }
+      fetchedDescription.value = info.description || null
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'GitLab fetch failed'
+      console.error('GitLab fetch failed:', err)
+      showToast(msg, true)
+    } finally {
+      isFetchingGitlab.value = false
+      pendingGitlabFetch = null
+    }
+  })()
+
+  // After fetch, also generate the Slack message if Advanced is open
+  pendingGitlabFetch.then(() => { void autoGenerateSlackMessage() })
+
+  return pendingGitlabFetch
 }
 
 const submitTooltip = computed(() => {
@@ -130,42 +185,6 @@ const submitTooltip = computed(() => {
     ? 'Resume tracking existing tracked item'
     : 'Start tracking this tracked item'
 })
-
-async function handleFormSubmit() {
-  let url = link.value.trim() || null
-  const issueName = name.value.trim() || 'Untitled'
-
-  isSubmitting.value = true
-  try {
-    let issue: Issue
-
-    if (matchedIssue.value) {
-      // Use existing issue
-      issue = matchedIssue.value
-    } else {
-      // Create new issue
-      let externalId = ''
-      if (url) {
-        const parsed = settingsStore.parseBareId(url)
-        if (parsed) {
-          externalId = url
-          url = settingsStore.buildIssueUrl(url)
-        } else {
-          externalId = settingsStore.extractIssueId(url) || ''
-        }
-      }
-      issue = await issuesStore.createIssue(externalId, issueName, url)
-    }
-
-    // Start tracking
-    await trackerStore.startTracking(issue.id)
-    link.value = ''
-    name.value = ''
-    matchedIssue.value = null
-  } finally {
-    isSubmitting.value = false
-  }
-}
 
 const showNotes = ref(false)
 const currentNotes = ref('')
@@ -344,6 +363,208 @@ async function copyStandupText() {
   }
 }
 
+const isPostingToSlack = ref(false)
+const canPostToSlack = computed(() =>
+  !!settingsStore.settings.slackBotToken && !!settingsStore.settings.slackChannel
+)
+
+// Advanced form (expand below quick)
+const showAdvanced = ref(false)
+const slackMsg = ref('')
+const isGeneratingSlackMsg = ref(false)
+
+// Inline standup proposal (shown after Quick Start)
+const showInlineProposal = ref(false)
+const proposalText = ref('')
+const isGeneratingProposal = ref(false)
+const isPostingProposal = ref(false)
+const proposalError = ref('')
+
+async function autoGenerateSlackMessage() {
+  if (!showAdvanced.value) return
+  if (!link.value.trim()) return
+  if (slackMsg.value.trim()) return
+  if (!settingsStore.settings.claudeApiKey) return
+
+  isGeneratingSlackMsg.value = true
+  try {
+    const externalId = settingsStore.extractIssueId(link.value.trim()) || ''
+    const formatted = await window.electronAPI.aiFormatStandup({
+      externalId,
+      name: name.value.trim() || 'Untitled',
+      link: link.value.trim(),
+      notes: fetchedDescription.value
+    })
+    slackMsg.value = formatted
+  } catch (err) {
+    console.warn('Auto-generate Slack message failed:', err)
+  } finally {
+    isGeneratingSlackMsg.value = false
+  }
+}
+
+function toggleAdvanced() {
+  showAdvanced.value = !showAdvanced.value
+  if (showAdvanced.value) void autoGenerateSlackMessage()
+}
+
+async function createAndStart(): Promise<Issue> {
+  let url = link.value.trim() || null
+  let issueName = name.value.trim()
+
+  let issue: Issue
+  if (matchedIssue.value) {
+    issue = matchedIssue.value
+  } else {
+    let externalId = ''
+    if (url) {
+      const parsed = settingsStore.parseBareId(url)
+      if (parsed) {
+        externalId = url
+        url = settingsStore.buildIssueUrl(url)
+      } else {
+        externalId = settingsStore.extractIssueId(url) || ''
+      }
+    }
+    if (!issueName) issueName = externalId || 'Untitled'
+    issue = await issuesStore.createIssue(externalId, issueName, url, fetchedDescription.value)
+  }
+  await trackerStore.startTracking(issue.id)
+  return issue
+}
+
+function resetForm() {
+  link.value = ''
+  name.value = ''
+  slackMsg.value = ''
+  matchedIssue.value = null
+  fetchedTitle.value = null
+  fetchedDescription.value = null
+  lastFetchedUrl = ''
+}
+
+async function handleQuickStart() {
+  if (!link.value.trim() && !name.value.trim()) return
+
+  isSubmitting.value = true
+  let issue: Issue | null = null
+  let snapUrl = ''
+  let snapDesc: string | null = null
+  try {
+    // Ensure GitLab fetch finished (handles the case where user clicks Start before blur completes)
+    await maybeFetchFromGitlab()
+    snapUrl = link.value.trim()
+    snapDesc = fetchedDescription.value
+    issue = await createAndStart()
+    resetForm()
+  } finally {
+    isSubmitting.value = false
+  }
+
+  if (!issue) return
+
+  // Background: generate proposal inline
+  showInlineProposal.value = true
+  proposalText.value = ''
+  proposalError.value = ''
+  isGeneratingProposal.value = true
+  try {
+    const formatted = await window.electronAPI.aiFormatStandup({
+      externalId: issue.externalId,
+      name: issue.name,
+      link: issue.link || snapUrl,
+      notes: snapDesc || issue.notes
+    })
+    proposalText.value = formatted
+  } catch (err) {
+    proposalError.value = err instanceof Error ? err.message : 'Failed to generate'
+  } finally {
+    isGeneratingProposal.value = false
+  }
+}
+
+async function handleStartAndSend() {
+  const message = slackMsg.value.trim()
+  if (!message) {
+    showToast('Standup message is empty', true)
+    return
+  }
+  if (!canPostToSlack.value) {
+    showToast('Configure Slack in Settings → Slack', true)
+    return
+  }
+
+  isSubmitting.value = true
+  try {
+    await createAndStart()
+    try {
+      await window.electronAPI.slackPostMessage(message)
+      showToast(`Posted to ${settingsStore.settings.slackChannel}`)
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Slack post failed'
+      showToast(msg, true)
+    }
+    resetForm()
+    showAdvanced.value = false
+  } finally {
+    isSubmitting.value = false
+  }
+}
+
+async function handleStartWithoutSending() {
+  if (!link.value.trim() && !name.value.trim()) return
+  isSubmitting.value = true
+  try {
+    await createAndStart()
+    resetForm()
+    showAdvanced.value = false
+  } finally {
+    isSubmitting.value = false
+  }
+}
+
+async function sendInlineProposal() {
+  if (!proposalText.value.trim()) return
+  if (!canPostToSlack.value) {
+    showToast('Configure Slack in Settings → Slack', true)
+    return
+  }
+  isPostingProposal.value = true
+  try {
+    await window.electronAPI.slackPostMessage(proposalText.value)
+    showToast(`Posted to ${settingsStore.settings.slackChannel}`)
+    showInlineProposal.value = false
+    proposalText.value = ''
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : 'Slack post failed'
+    showToast(msg, true)
+  } finally {
+    isPostingProposal.value = false
+  }
+}
+
+function dismissInlineProposal() {
+  showInlineProposal.value = false
+  proposalText.value = ''
+  proposalError.value = ''
+}
+
+async function postStandupToSlack() {
+  if (!standupText.value.trim()) return
+  isPostingToSlack.value = true
+  try {
+    await window.electronAPI.slackPostMessage(standupText.value)
+    showToast(`Posted to ${settingsStore.settings.slackChannel}`)
+    showStandupDialog.value = false
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : 'Failed to post to Slack'
+    console.error('Slack post failed:', err)
+    showToast(msg, true)
+  } finally {
+    isPostingToSlack.value = false
+  }
+}
+
 async function regenerateStandup() {
   if (!trackerStore.currentIssue) return
   standupError.value = ''
@@ -426,12 +647,12 @@ async function regenerateStandup() {
     <!-- Not tracking state (no last issue) - show issue form -->
     <template v-else-if="!trackerStore.isTracking || !trackerStore.currentIssue">
       <div class="not-tracking-form">
-        <form @submit.prevent="handleFormSubmit" class="hero-form">
+        <form @submit.prevent="handleQuickStart" class="hero-form">
           <div class="link-input-wrapper">
             <input
               v-model="link"
               type="text"
-              placeholder="Link or ID (e.g. project#123)"
+              placeholder="Paste link or ID (e.g. project#123)"
               class="field-input url-input"
               autocomplete="off"
               @input="handleLinkInput"
@@ -439,6 +660,7 @@ async function regenerateStandup() {
               @blur="handleLinkBlur"
               @focus="handleLinkInput"
             />
+            <span v-if="isFetchingGitlab" class="gitlab-fetch-spinner" title="Fetching from GitLab…">⟳</span>
             <ul v-if="showLinkSuggestions && filteredLinkSuggestions.length > 0" class="suggestions-dropdown">
               <li
                 v-for="(issue, index) in filteredLinkSuggestions"
@@ -452,6 +674,41 @@ async function regenerateStandup() {
               </li>
             </ul>
           </div>
+          <span class="submit-wrapper" :title="submitTooltip">
+            <RButton
+              type="submit"
+              size="small"
+              color="success"
+              :loading="isSubmitting"
+            >
+              <Icon name="play" :size="16" />
+              {{ isSubmitting ? '...' : (matchedIssue ? 'Resume' : 'Start') }}
+            </RButton>
+          </span>
+        </form>
+
+        <div
+          class="quick-hint"
+          :class="{ 'quick-hint-suggested': fetchedTitle, 'quick-hint-loading': isFetchingGitlab }"
+        >
+          <template v-if="isFetchingGitlab">
+            <span>⟳ Fetching title from GitLab…</span>
+          </template>
+          <template v-else-if="fetchedTitle">
+            <span class="quick-hint-label">Suggested name (from GitLab)</span>
+            <strong class="quick-hint-title">{{ fetchedTitle }}</strong>
+            <span class="quick-hint-sub">Click Start to save with this name, or expand "More options" to edit.</span>
+          </template>
+          <template v-else>
+            <span>Slack standup will generate here after you start tracking.</span>
+          </template>
+        </div>
+
+        <button type="button" class="advanced-toggle" @click="toggleAdvanced">
+          {{ showAdvanced ? '▴' : '▾' }} More options
+        </button>
+
+        <div v-if="showAdvanced" class="advanced-form">
           <div class="name-input-wrapper">
             <input
               v-model="name"
@@ -477,18 +734,45 @@ async function regenerateStandup() {
               </li>
             </ul>
           </div>
-          <span class="submit-wrapper" :title="submitTooltip">
+
+          <div class="advanced-slack-row">
+            <textarea
+              v-model="slackMsg"
+              class="standup-textarea"
+              rows="2"
+              placeholder="Slack standup message (auto-filled from link)"
+              spellcheck="false"
+            ></textarea>
+            <span v-if="isGeneratingSlackMsg" class="gitlab-fetch-spinner" title="Generating…">⟳</span>
+          </div>
+          <div v-if="slackMsg && renderForSlack(slackMsg) !== slackMsg" class="slack-preview">
+            <span class="slack-preview-label">Will send as:</span>
+            <code class="slack-preview-text">{{ renderForSlack(slackMsg) }}</code>
+          </div>
+
+          <div class="advanced-actions">
             <RButton
-              type="submit"
+              type="button"
               size="small"
+              filled
               color="success"
               :loading="isSubmitting"
+              :disabled="!canPostToSlack"
+              :title="canPostToSlack ? 'Start tracking and post to Slack' : 'Configure Slack in Settings → Slack'"
+              @click="handleStartAndSend"
             >
-              <Icon name="play" :size="16" />
-              {{ isSubmitting ? '...' : (matchedIssue ? 'Resume' : 'Start') }}
+              Start & Send
             </RButton>
-          </span>
-        </form>
+            <RButton
+              type="button"
+              size="small"
+              :loading="isSubmitting"
+              @click="handleStartWithoutSending"
+            >
+              Start without sending
+            </RButton>
+          </div>
+        </div>
       </div>
     </template>
 
@@ -608,6 +892,42 @@ async function regenerateStandup() {
             @focusout="saveNotesOnBlur"
           />
         </div>
+
+        <!-- Inline standup proposal -->
+        <div v-if="showInlineProposal" class="inline-proposal">
+          <div class="inline-proposal-header">
+            <RText size="small" class="text-secondary">Proposed standup</RText>
+            <span v-if="isGeneratingProposal" class="gitlab-fetch-spinner" title="Generating…">⟳</span>
+          </div>
+          <div v-if="proposalError" class="standup-error">
+            <RText>{{ proposalError }}</RText>
+          </div>
+          <textarea
+            v-else
+            v-model="proposalText"
+            class="standup-textarea"
+            rows="2"
+            :placeholder="isGeneratingProposal ? 'Claude is formatting…' : 'Edit if needed'"
+            spellcheck="false"
+          ></textarea>
+          <div v-if="proposalText && renderForSlack(proposalText) !== proposalText" class="slack-preview">
+            <span class="slack-preview-label">Will send as:</span>
+            <code class="slack-preview-text">{{ renderForSlack(proposalText) }}</code>
+          </div>
+          <div class="inline-proposal-actions">
+            <RButton size="small" @click="dismissInlineProposal">Dismiss</RButton>
+            <RButton
+              size="small"
+              filled
+              color="success"
+              :disabled="!proposalText || isGeneratingProposal || isPostingProposal || !canPostToSlack"
+              :title="canPostToSlack ? `Post to ${settingsStore.settings.slackChannel}` : 'Configure Slack in Settings → Slack'"
+              @click="sendInlineProposal"
+            >
+              {{ isPostingProposal ? 'Posting…' : 'Send to Slack' }}
+            </RButton>
+          </div>
+        </div>
       </div>
     </template>
 
@@ -631,6 +951,10 @@ async function regenerateStandup() {
             rows="3"
             spellcheck="false"
           ></textarea>
+          <div v-if="standupText && renderForSlack(standupText) !== standupText" class="slack-preview">
+            <span class="slack-preview-label">Will send as:</span>
+            <code class="slack-preview-text">{{ renderForSlack(standupText) }}</code>
+          </div>
         </template>
 
         <div class="standup-actions">
@@ -639,6 +963,15 @@ async function regenerateStandup() {
           </RButton>
           <RButton size="small" @click="showStandupDialog = false">
             Close
+          </RButton>
+          <RButton
+            size="small"
+            filled
+            @click="postStandupToSlack"
+            :disabled="!standupText || isFormattingStandup || isPostingToSlack || !canPostToSlack"
+            :title="canPostToSlack ? `Post to ${settingsStore.settings.slackChannel}` : 'Configure Slack in Settings → Slack'"
+          >
+            {{ isPostingToSlack ? 'Posting…' : 'Post to Slack' }}
           </RButton>
           <RButton
             size="small"
@@ -675,8 +1008,9 @@ async function regenerateStandup() {
 
 .not-tracking-form {
   display: flex;
-  align-items: center;
+  flex-direction: column;
   min-height: 4.5rem;
+  justify-content: center;
 }
 
 .hero-form {
@@ -706,6 +1040,22 @@ async function regenerateStandup() {
 
 .link-input-wrapper .url-input {
   width: 100%;
+}
+
+.gitlab-fetch-spinner {
+  position: absolute;
+  right: 0.5rem;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 1rem;
+  color: var(--color-text-secondary);
+  animation: spin 1s linear infinite;
+  pointer-events: none;
+}
+
+@keyframes spin {
+  from { transform: translateY(-50%) rotate(0deg); }
+  to { transform: translateY(-50%) rotate(360deg); }
 }
 
 .url-input {
@@ -1083,6 +1433,134 @@ input.edit-time-input {
   display: flex;
   justify-content: flex-end;
   gap: 0.5rem;
+}
+
+.quick-hint {
+  margin-top: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  background: var(--color-bg-secondary);
+  border: 1px dashed var(--color-border);
+  border-radius: 4px;
+  color: var(--color-text-secondary);
+  font-size: 0.8rem;
+  font-style: italic;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.quick-hint-suggested {
+  border-style: solid;
+  border-color: var(--color-accent, var(--color-border));
+  font-style: normal;
+}
+
+.quick-hint-label {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-text-secondary);
+}
+
+.quick-hint-title {
+  color: var(--color-text);
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.quick-hint-sub {
+  color: var(--color-text-secondary);
+  font-size: 0.75rem;
+}
+
+.advanced-toggle {
+  background: none;
+  border: none;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.8rem;
+  padding: 0.25rem 0;
+  margin-top: 0.5rem;
+  text-align: left;
+}
+
+.advanced-toggle:hover {
+  color: var(--color-text);
+}
+
+.advanced-form {
+  margin-top: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.advanced-slack-row {
+  position: relative;
+  display: flex;
+  align-items: stretch;
+}
+
+.advanced-slack-row .standup-textarea {
+  flex: 1;
+  padding-right: 2rem;
+}
+
+.advanced-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+.inline-proposal {
+  margin-top: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.inline-proposal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.inline-proposal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+.slack-preview {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.4rem 0.6rem;
+  background: var(--color-bg);
+  border-left: 2px solid var(--color-accent, var(--color-border));
+  border-radius: 2px;
+}
+
+.slack-preview-label {
+  font-size: 0.7rem;
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.slack-preview-text {
+  font-family: ui-monospace, monospace;
+  font-size: 0.8rem;
+  color: var(--color-text);
+  white-space: pre-wrap;
+  word-break: break-all;
+  background: transparent;
+  padding: 0;
 }
 
 .text-secondary {

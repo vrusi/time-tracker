@@ -34,10 +34,15 @@ const form = ref({
   theme: 'light' as 'light' | 'dark' | 'system',
   showEarnings: false,
   notificationsEnabled: true,
-  claudeApiKey: '' as string
+  claudeApiKey: '' as string,
+  slackBotToken: '' as string,
+  slackChannel: '' as string,
+  gitlabToken: '' as string
 })
 
 const showApiKey = ref(false)
+const showSlackToken = ref(false)
+const showGitlabToken = ref(false)
 // Suffix of the API key that was pasted (and rotated/burned) in chat — warn if it matches
 const LEAKED_KEY_SUFFIX = 'xzmbPAAA'
 
@@ -90,7 +95,10 @@ function syncFormFromStore() {
     theme: s.theme,
     showEarnings: s.showEarnings,
     notificationsEnabled: s.notificationsEnabled,
-    claudeApiKey: s.claudeApiKey ?? ''
+    claudeApiKey: s.claudeApiKey ?? '',
+    slackBotToken: s.slackBotToken ?? '',
+    slackChannel: s.slackChannel ?? '',
+    gitlabToken: s.gitlabToken ?? ''
   }
 }
 
@@ -121,7 +129,10 @@ async function saveSettings() {
       theme: form.value.theme,
       showEarnings: form.value.showEarnings,
       notificationsEnabled: form.value.notificationsEnabled,
-      claudeApiKey: form.value.claudeApiKey?.trim() || undefined
+      claudeApiKey: form.value.claudeApiKey?.trim() || undefined,
+      slackBotToken: form.value.slackBotToken?.trim() || undefined,
+      slackChannel: form.value.slackChannel?.trim() || undefined,
+      gitlabToken: form.value.gitlabToken?.trim() || undefined
     })
     saveMessage.value = 'Settings saved!'
     setTimeout(() => { saveMessage.value = '' }, 2000)
@@ -397,6 +408,72 @@ async function wipeDatabase() {
             <button type="button" class="btn btn-icon" @click="showApiKey = !showApiKey" :title="showApiKey ? 'Hide' : 'Show'">
               {{ showApiKey ? '🙈' : '👁' }}
             </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════════
+           SECTION: GitLab
+           ═══════════════════════════════════════════════════════════════ -->
+      <div v-if="form.issueUrlPattern === 'gitlab'" class="section">
+        <div class="section-header">GitLab</div>
+        <div class="section-divider"></div>
+
+        <div class="setting-row row-md">
+          <div class="setting-label">
+            Personal Access Token
+            <span class="setting-hint">read_api scope. Used to fetch issue title + description when you paste a URL. Stored locally only.</span>
+          </div>
+          <div class="setting-control api-key-control">
+            <input
+              v-model="form.gitlabToken"
+              :type="showGitlabToken ? 'text' : 'password'"
+              class="input-text input-api-key"
+              placeholder="glpat-..."
+              autocomplete="off"
+              spellcheck="false"
+            />
+            <button type="button" class="btn btn-icon" @click="showGitlabToken = !showGitlabToken" :title="showGitlabToken ? 'Hide' : 'Show'">
+              {{ showGitlabToken ? '🙈' : '👁' }}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════════
+           SECTION: Slack
+           ═══════════════════════════════════════════════════════════════ -->
+      <div class="section">
+        <div class="section-header">Slack</div>
+        <div class="section-divider"></div>
+
+        <div class="setting-row row-md">
+          <div class="setting-label">
+            OAuth Token
+            <span class="setting-hint">User (xoxp-…) or bot (xoxb-…) token with chat:write scope. Stored locally only.</span>
+          </div>
+          <div class="setting-control api-key-control">
+            <input
+              v-model="form.slackBotToken"
+              :type="showSlackToken ? 'text' : 'password'"
+              class="input-text input-api-key"
+              placeholder="xoxp-... or xoxb-..."
+              autocomplete="off"
+              spellcheck="false"
+            />
+            <button type="button" class="btn btn-icon" @click="showSlackToken = !showSlackToken" :title="showSlackToken ? 'Hide' : 'Show'">
+              {{ showSlackToken ? '🙈' : '👁' }}
+            </button>
+          </div>
+        </div>
+
+        <div class="setting-row row-md">
+          <div class="setting-label">
+            Channel
+            <span class="setting-hint">Where to post standups. Invite the bot to the channel first.</span>
+          </div>
+          <div class="setting-control">
+            <input v-model="form.slackChannel" type="text" class="input-text" placeholder="#dev-standups" />
           </div>
         </div>
       </div>

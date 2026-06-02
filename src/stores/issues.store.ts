@@ -23,12 +23,12 @@ export const useIssuesStore = defineStore('issues', () => {
     }
   }
 
-  async function createIssue(externalId: string, name: string, link: string | null) {
+  async function createIssue(externalId: string, name: string, link: string | null, notes: string | null = null) {
     const newIssue = await window.electronAPI.createIssue({
       externalId,
       name,
       link,
-      notes: null,
+      notes,
       archived: false
     })
     issues.value.unshift(newIssue)

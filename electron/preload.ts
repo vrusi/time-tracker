@@ -54,6 +54,12 @@ const electronAPI: ElectronAPI = {
   aiFormatStandup: (request) => ipcRenderer.invoke('ai-format-standup', request),
   aiPadTimesheet: (request) => ipcRenderer.invoke('ai-pad-timesheet', request),
 
+  // Slack
+  slackPostMessage: (text: string) => ipcRenderer.invoke('slack-post-message', text),
+
+  // GitLab
+  gitlabFetchIssue: (url: string) => ipcRenderer.invoke('gitlab-fetch-issue', url),
+
   // Idle
   getIdleTime: () => ipcRenderer.invoke('get-idle-time'),
   resetIdleTime: () => ipcRenderer.invoke('reset-idle-time'),

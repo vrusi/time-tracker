@@ -46,7 +46,10 @@ export function getSettings(db: Database.Database): AppSettings {
     theme: settings.theme || 'light',
     showEarnings: settings.showEarnings === 'true',
     notificationsEnabled: settings.notificationsEnabled !== 'false',
-    claudeApiKey: settings.claudeApiKey && settings.claudeApiKey !== 'undefined' ? settings.claudeApiKey : undefined
+    claudeApiKey: settings.claudeApiKey && settings.claudeApiKey !== 'undefined' ? settings.claudeApiKey : undefined,
+    slackBotToken: settings.slackBotToken && settings.slackBotToken !== 'undefined' ? settings.slackBotToken : undefined,
+    slackChannel: settings.slackChannel && settings.slackChannel !== 'undefined' ? settings.slackChannel : undefined,
+    gitlabToken: settings.gitlabToken && settings.gitlabToken !== 'undefined' ? settings.gitlabToken : undefined
   }
   return cachedSettings
 }

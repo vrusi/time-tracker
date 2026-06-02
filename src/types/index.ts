@@ -83,6 +83,15 @@ export interface AppSettings {
   showEarnings: boolean
   notificationsEnabled: boolean
   claudeApiKey?: string
+  slackBotToken?: string
+  slackChannel?: string
+  gitlabToken?: string
+}
+
+export interface GitlabIssueInfo {
+  title: string
+  description: string
+  webUrl: string
 }
 
 export interface DailyBreakdownEntry {
@@ -168,6 +177,12 @@ export interface ElectronAPI {
   // AI
   aiFormatStandup: (request: StandupFormatRequest) => Promise<string>
   aiPadTimesheet: (request: PadTimesheetRequest) => Promise<PadTimesheetResponse>
+
+  // Slack
+  slackPostMessage: (text: string) => Promise<void>
+
+  // GitLab
+  gitlabFetchIssue: (url: string) => Promise<GitlabIssueInfo>
 
   // Idle
   getIdleTime: () => Promise<number>

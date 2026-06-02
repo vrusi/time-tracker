@@ -11,6 +11,8 @@ import {
   setupSettingsHandlers,
   setupExportHandlers,
   setupAiHandlers,
+  setupSlackHandlers,
+  setupGitlabHandlers,
   getSettings,
   getEffectiveIdleTime,
   getCurrentTracking,
@@ -347,6 +349,12 @@ function setupIpcHandlers() {
 
   // Setup AI handlers
   setupAiHandlers()
+
+  // Setup Slack handlers
+  setupSlackHandlers()
+
+  // Setup GitLab handlers
+  setupGitlabHandlers()
 
   // Shell
   ipcMain.handle('open-external', (_, url: string) => {
