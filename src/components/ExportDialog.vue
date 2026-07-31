@@ -54,21 +54,21 @@ async function generateReport() {
   }
 }
 
-function downloadCSV(items: AggregatedReportItem[], total: number, suffix = '') {
+function downloadCSV(items: AggregatedReportItem[], total: number) {
   const csv = generateCSV(items, total)
   const blob = new Blob([csv], { type: 'text/csv' })
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
-  a.download = generateExportFilename(year.value, month.value, 'csv').replace('.csv', `${suffix}.csv`)
+  a.download = generateExportFilename(year.value, month.value, 'csv')
   a.click()
   URL.revokeObjectURL(url)
 }
 
-function downloadPDF(items: AggregatedReportItem[], total: number, suffix = '', titleSuffix = '') {
-  const title = `Time Report — ${months[month.value - 1]} ${year.value}${titleSuffix}`
+function downloadPDF(items: AggregatedReportItem[], total: number) {
+  const title = `Time Report — ${months[month.value - 1]} ${year.value}`
   const doc = generatePDF(items, total, title)
-  doc.save(generateExportFilename(year.value, month.value, 'pdf').replace('.pdf', `${suffix}.pdf`))
+  doc.save(generateExportFilename(year.value, month.value, 'pdf'))
 }
 
 function downloadOriginalCSV() {
@@ -80,11 +80,11 @@ function downloadOriginalPDF() {
 }
 
 function downloadPaddedCSV() {
-  if (paddedReport.value) downloadCSV(paddedReport.value, paddedTotal.value, '-padded')
+  if (paddedReport.value) downloadCSV(paddedReport.value, paddedTotal.value)
 }
 
 function downloadPaddedPDF() {
-  if (paddedReport.value) downloadPDF(paddedReport.value, paddedTotal.value, '-padded', ' (padded)')
+  if (paddedReport.value) downloadPDF(paddedReport.value, paddedTotal.value)
 }
 
 function closeDialog() {
