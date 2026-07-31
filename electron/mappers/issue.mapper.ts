@@ -9,6 +9,7 @@ export interface IssueRow {
   name: string
   link: string | null
   notes: string | null
+  slack_message: string | null
   archived: number
   created_at: string
 }
@@ -23,6 +24,7 @@ export function mapIssue(row: IssueRow): Issue {
     name: row.name,
     link: row.link,
     notes: row.notes,
+    slackMessage: row.slack_message,
     archived: !!row.archived,
     createdAt: row.created_at
   }

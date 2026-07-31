@@ -6,6 +6,7 @@ export const createMockIssue = (overrides: Partial<Issue> = {}): Issue => ({
   name: 'Test Issue',
   link: 'https://github.com/org/repo/issues/123',
   notes: null,
+  slackMessage: null,
   archived: false,
   createdAt: '2024-01-01T00:00:00.000Z',
   ...overrides,

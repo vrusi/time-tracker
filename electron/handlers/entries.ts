@@ -7,7 +7,7 @@ export function setupEntryHandlers() {
   // Get time entries with issue data for a date range (used in History view)
   ipcMain.handle('get-time-entries', (_, startDate: string, endDate: string) => {
     const entries = db.prepare(`
-      SELECT te.*, i.external_id, i.name, i.link, i.notes as issue_notes, i.archived, i.created_at as issue_created_at
+      SELECT te.*, i.external_id, i.name, i.link, i.notes as issue_notes, i.slack_message as issue_slack_message, i.archived, i.created_at as issue_created_at
       FROM time_entries te
       JOIN issues i ON te.issue_id = i.id
       WHERE te.started_at >= ? AND te.started_at <= ?

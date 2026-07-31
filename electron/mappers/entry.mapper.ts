@@ -21,6 +21,7 @@ export interface TimeEntryWithIssueRow extends TimeEntryRow {
   name: string
   link: string | null
   issue_notes: string | null
+  issue_slack_message: string | null
   archived: number
   issue_created_at: string
 }
@@ -63,6 +64,7 @@ export function mapTimeEntryWithIssue(row: TimeEntryWithIssueRow): TimeEntry & {
       name: row.name,
       link: row.link,
       notes: row.issue_notes,
+      slackMessage: row.issue_slack_message,
       archived: !!row.archived,
       createdAt: row.issue_created_at
     }

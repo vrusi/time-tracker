@@ -14,6 +14,7 @@ describe('Issue Mapper', () => {
         name: 'Test Issue',
         link: 'https://example.com',
         notes: 'Some notes',
+        slack_message: null,
         archived: 0,
         created_at: '2024-01-01T00:00:00.000Z'
       }
@@ -26,6 +27,7 @@ describe('Issue Mapper', () => {
         name: 'Test Issue',
         link: 'https://example.com',
         notes: 'Some notes',
+        slackMessage: null,
         archived: false,
         createdAt: '2024-01-01T00:00:00.000Z'
       })
@@ -39,7 +41,7 @@ describe('Issue Mapper', () => {
 
       const active: IssueRow = {
         id: 2, external_id: '#2', name: 'Active',
-        link: null, notes: null, archived: 0, created_at: '2024-01-01T00:00:00.000Z'
+        link: null, notes: null, slack_message: null, archived: 0, created_at: '2024-01-01T00:00:00.000Z'
       }
 
       expect(mapIssue(archived).archived).toBe(true)
@@ -49,7 +51,7 @@ describe('Issue Mapper', () => {
     it('preserves null values for optional fields', () => {
       const row: IssueRow = {
         id: 1, external_id: '#1', name: 'No Link',
-        link: null, notes: null, archived: 0, created_at: '2024-01-01T00:00:00.000Z'
+        link: null, notes: null, slack_message: null, archived: 0, created_at: '2024-01-01T00:00:00.000Z'
       }
 
       const issue = mapIssue(row)

@@ -69,6 +69,11 @@ function initDatabase(dbPath: string) {
     db.exec('ALTER TABLE issues ADD COLUMN notes TEXT')
   }
 
+  // Migration: Add slack_message column to issues if it doesn't exist
+  if (!issueColumns.some(col => col.name === 'slack_message')) {
+    db.exec('ALTER TABLE issues ADD COLUMN slack_message TEXT')
+  }
+
   return db
 }
 

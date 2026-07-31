@@ -23,19 +23,20 @@ export const useIssuesStore = defineStore('issues', () => {
     }
   }
 
-  async function createIssue(externalId: string, name: string, link: string | null, notes: string | null = null) {
+  async function createIssue(externalId: string, name: string, link: string | null, notes: string | null = null, slackMessage: string | null = null) {
     const newIssue = await window.electronAPI.createIssue({
       externalId,
       name,
       link,
       notes,
+      slackMessage,
       archived: false
     })
     issues.value.unshift(newIssue)
     return newIssue
   }
 
-  async function updateIssue(id: number, updates: { externalId?: string; name?: string; link?: string | null; notes?: string | null }) {
+  async function updateIssue(id: number, updates: { externalId?: string; name?: string; link?: string | null; notes?: string | null; slackMessage?: string | null }) {
     const updated = await window.electronAPI.updateIssue(id, updates)
     const index = issues.value.findIndex(i => i.id === id)
     if (index !== -1) {

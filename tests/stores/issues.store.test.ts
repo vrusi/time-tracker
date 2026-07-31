@@ -125,6 +125,7 @@ describe('Issues Store', () => {
         name: 'New Issue',
         link: null,
         notes: null,
+        slackMessage: null,
         archived: false
       })
       expect(result).toEqual(newIssue)

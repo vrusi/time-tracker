@@ -52,6 +52,7 @@ const SCHEMA = `
     name TEXT NOT NULL,
     link TEXT,
     notes TEXT,
+    slack_message TEXT,
     archived INTEGER DEFAULT 0,
     created_at TEXT NOT NULL
   );

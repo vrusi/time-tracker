@@ -4,6 +4,7 @@ export interface Issue {
   name: string
   link: string | null
   notes: string | null
+  slackMessage: string | null
   archived: boolean
   createdAt: string
 }
@@ -129,7 +130,7 @@ export interface ElectronAPI {
   // Issues
   getIssues: (includeArchived?: boolean) => Promise<Issue[]>
   createIssue: (issue: Omit<Issue, 'id' | 'createdAt'>) => Promise<Issue>
-  updateIssue: (id: number, updates: Partial<Pick<Issue, 'externalId' | 'name' | 'link' | 'notes'>>) => Promise<Issue>
+  updateIssue: (id: number, updates: Partial<Pick<Issue, 'externalId' | 'name' | 'link' | 'notes' | 'slackMessage'>>) => Promise<Issue>
   archiveIssue: (id: number) => Promise<void>
   unarchiveIssue: (id: number) => Promise<void>
   deleteIssue: (id: number) => Promise<void>

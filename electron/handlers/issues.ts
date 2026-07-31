@@ -15,19 +15,20 @@ export function setupIssueHandlers() {
   ipcMain.handle('create-issue', (_, issue: Omit<Issue, 'id' | 'createdAt'>) => {
     const now = new Date().toISOString()
     const result = db.prepare(`
-      INSERT INTO issues (external_id, name, link, notes, archived, created_at)
-      VALUES (?, ?, ?, ?, ?, ?)
-    `).run(issue.externalId, issue.name, issue.link, issue.notes || null, issue.archived ? 1 : 0, now)
+      INSERT INTO issues (external_id, name, link, notes, slack_message, archived, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `).run(issue.externalId, issue.name, issue.link, issue.notes || null, issue.slackMessage || null, issue.archived ? 1 : 0, now)
 
     return {
       id: result.lastInsertRowid as number,
       ...issue,
       notes: issue.notes || null,
+      slackMessage: issue.slackMessage || null,
       createdAt: now
     }
   })
 
-  ipcMain.handle('update-issue', (_, id: number, updates: { externalId?: string; name?: string; link?: string | null; notes?: string | null }) => {
+  ipcMain.handle('update-issue', (_, id: number, updates: { externalId?: string; name?: string; link?: string | null; notes?: string | null; slackMessage?: string | null }) => {
     const fields: string[] = []
     const values: any[] = []
 
@@ -46,6 +47,10 @@ export function setupIssueHandlers() {
     if (updates.notes !== undefined) {
       fields.push('notes = ?')
       values.push(updates.notes)
+    }
+    if (updates.slackMessage !== undefined) {
+      fields.push('slack_message = ?')
+      values.push(updates.slackMessage)
     }
 
     if (fields.length > 0) {

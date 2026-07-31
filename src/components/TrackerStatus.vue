@@ -37,6 +37,7 @@ function selectNameSuggestion(issue: Issue) {
   if (issue.link) link.value = issue.link
   showNameSuggestions.value = false
   selectedNameSuggestionIndex.value = -1
+  if (issue.slackMessage) slackMsg.value = issue.slackMessage
 }
 
 function handleNameInput() {
@@ -91,6 +92,7 @@ function selectLinkSuggestion(issue: Issue) {
   link.value = issue.link || issue.externalId
   showLinkSuggestions.value = false
   selectedLinkSuggestionIndex.value = -1
+  if (issue.slackMessage) slackMsg.value = issue.slackMessage
 }
 
 function handleLinkInput() {
@@ -129,7 +131,20 @@ function handleLinkKeydown(e: KeyboardEvent) {
 
 function handleLinkBlur() {
   setTimeout(() => { showLinkSuggestions.value = false }, 150)
+  tryAutoMatchFromLink()
   void maybeFetchFromGitlab()
+}
+
+function tryAutoMatchFromLink() {
+  if (matchedIssue.value) return
+  const existing = findExistingIssueFromForm()
+  if (existing) {
+    matchedIssue.value = existing
+    if (!name.value.trim()) name.value = existing.name
+    if (existing.slackMessage && !slackMsg.value.trim()) {
+      slackMsg.value = existing.slackMessage
+    }
+  }
 }
 
 // GitLab auto-fetch
@@ -319,18 +334,30 @@ const standupError = ref('')
 
 async function openStandupDialog() {
   if (!trackerStore.currentIssue) return
+
+  showStandupDialog.value = true
+  standupText.value = ''
+  standupError.value = ''
+
+  const issue = trackerStore.currentIssue
+  if (issue.slackMessage) {
+    standupText.value = issue.slackMessage
+    try {
+      await navigator.clipboard.writeText(issue.slackMessage)
+      showToast('Copied saved standup — edit & re-copy if needed')
+    } catch {
+      // ignore
+    }
+    return
+  }
+
   if (!settingsStore.settings.claudeApiKey) {
     showToast('Add a Claude API key in Settings → AI', true)
     return
   }
 
-  showStandupDialog.value = true
-  standupText.value = ''
-  standupError.value = ''
   isFormattingStandup.value = true
-
   try {
-    const issue = trackerStore.currentIssue
     const formatted = await window.electronAPI.aiFormatStandup({
       externalId: issue.externalId,
       name: issue.name,
@@ -338,7 +365,7 @@ async function openStandupDialog() {
       notes: issue.notes ?? null
     })
     standupText.value = formatted
-    // Auto-copy: if Claude nailed it, no second click needed
+    await saveSlackMessageToIssue(issue.id, formatted)
     try {
       await navigator.clipboard.writeText(formatted)
       showToast('Copied — edit & re-copy if needed')
@@ -380,10 +407,45 @@ const isGeneratingProposal = ref(false)
 const isPostingProposal = ref(false)
 const proposalError = ref('')
 
+function findExistingIssueFromForm(): Issue | null {
+  if (matchedIssue.value) return matchedIssue.value
+  const url = link.value.trim()
+  if (!url) return null
+  const linkMatch = issuesStore.issues.find(i => i.link && i.link === url)
+  if (linkMatch) return linkMatch
+  const externalId = settingsStore.parseBareId(url)
+    ? url
+    : settingsStore.extractIssueId(url)
+  if (externalId) {
+    const idMatch = issuesStore.issues.find(i => i.externalId === externalId)
+    if (idMatch) return idMatch
+  }
+  return null
+}
+
+async function saveSlackMessageToIssue(issueId: number, message: string) {
+  const trimmed = message.trim()
+  try {
+    await issuesStore.updateIssue(issueId, { slackMessage: trimmed || null })
+    if (trackerStore.currentIssue?.id === issueId) {
+      await trackerStore.refreshCurrentIssue()
+    }
+  } catch (err) {
+    console.warn('Failed to save Slack message:', err)
+  }
+}
+
 async function autoGenerateSlackMessage() {
   if (!showAdvanced.value) return
   if (!link.value.trim()) return
   if (slackMsg.value.trim()) return
+
+  const existing = findExistingIssueFromForm()
+  if (existing?.slackMessage) {
+    slackMsg.value = existing.slackMessage
+    return
+  }
+
   if (!settingsStore.settings.claudeApiKey) return
 
   isGeneratingSlackMsg.value = true
@@ -426,8 +488,17 @@ async function createAndStart(): Promise<Issue> {
         externalId = settingsStore.extractIssueId(url) || ''
       }
     }
-    if (!issueName) issueName = externalId || 'Untitled'
-    issue = await issuesStore.createIssue(externalId, issueName, url, fetchedDescription.value)
+    // Reuse an existing issue if the link or externalId already maps to one.
+    // This keeps a saved Slack message attached to the same item across re-pastes.
+    const existing = issuesStore.issues.find(i =>
+      (url && i.link === url) || (externalId && i.externalId === externalId)
+    )
+    if (existing) {
+      issue = existing
+    } else {
+      if (!issueName) issueName = externalId || 'Untitled'
+      issue = await issuesStore.createIssue(externalId, issueName, url, fetchedDescription.value)
+    }
   }
   await trackerStore.startTracking(issue.id)
   return issue
@@ -463,10 +534,16 @@ async function handleQuickStart() {
 
   if (!issue) return
 
-  // Background: generate proposal inline
   showInlineProposal.value = true
   proposalText.value = ''
   proposalError.value = ''
+
+  // If we already have a saved Slack message for this issue, reuse it — no Claude call.
+  if (issue.slackMessage) {
+    proposalText.value = issue.slackMessage
+    return
+  }
+
   isGeneratingProposal.value = true
   try {
     const formatted = await window.electronAPI.aiFormatStandup({
@@ -476,6 +553,7 @@ async function handleQuickStart() {
       notes: snapDesc || issue.notes
     })
     proposalText.value = formatted
+    await saveSlackMessageToIssue(issue.id, formatted)
   } catch (err) {
     proposalError.value = err instanceof Error ? err.message : 'Failed to generate'
   } finally {
@@ -496,7 +574,8 @@ async function handleStartAndSend() {
 
   isSubmitting.value = true
   try {
-    await createAndStart()
+    const issue = await createAndStart()
+    await saveSlackMessageToIssue(issue.id, message)
     try {
       await window.electronAPI.slackPostMessage(message)
       showToast(`Posted to ${settingsStore.settings.slackChannel}`)
@@ -531,6 +610,9 @@ async function sendInlineProposal() {
   }
   isPostingProposal.value = true
   try {
+    if (trackerStore.currentIssue) {
+      await saveSlackMessageToIssue(trackerStore.currentIssue.id, proposalText.value)
+    }
     await window.electronAPI.slackPostMessage(proposalText.value)
     showToast(`Posted to ${settingsStore.settings.slackChannel}`)
     showInlineProposal.value = false
@@ -549,10 +631,26 @@ function dismissInlineProposal() {
   proposalError.value = ''
 }
 
+async function resumeFromPaused() {
+  const issueId = trackerStore.lastTrackedIssue?.id
+  if (!issueId) return
+  await trackerStore.startTracking(issueId)
+  // After resuming, surface the saved Slack message (if any) so it can be re-sent.
+  const issue = issuesStore.issues.find(i => i.id === issueId) || trackerStore.currentIssue
+  if (issue?.slackMessage) {
+    proposalText.value = issue.slackMessage
+    proposalError.value = ''
+    showInlineProposal.value = true
+  }
+}
+
 async function postStandupToSlack() {
   if (!standupText.value.trim()) return
   isPostingToSlack.value = true
   try {
+    if (trackerStore.currentIssue) {
+      await saveSlackMessageToIssue(trackerStore.currentIssue.id, standupText.value)
+    }
     await window.electronAPI.slackPostMessage(standupText.value)
     showToast(`Posted to ${settingsStore.settings.slackChannel}`)
     showStandupDialog.value = false
@@ -567,6 +665,10 @@ async function postStandupToSlack() {
 
 async function regenerateStandup() {
   if (!trackerStore.currentIssue) return
+  if (!settingsStore.settings.claudeApiKey) {
+    showToast('Add a Claude API key in Settings → AI', true)
+    return
+  }
   standupError.value = ''
   isFormattingStandup.value = true
   try {
@@ -578,6 +680,7 @@ async function regenerateStandup() {
       notes: issue.notes ?? null
     })
     standupText.value = formatted
+    await saveSlackMessageToIssue(issue.id, formatted)
     try {
       await navigator.clipboard.writeText(formatted)
       showToast('Copied')
@@ -610,7 +713,7 @@ async function regenerateStandup() {
             <RButton
               size="small"
               color="success"
-              @click="trackerStore.startTracking(trackerStore.lastTrackedIssue!.id)"
+              @click="resumeFromPaused"
               title="Resume tracking"
             >
               <Icon name="play" :size="16" />
