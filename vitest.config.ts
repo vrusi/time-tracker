@@ -1,5 +1,6 @@
 import { defineConfig } from 'vitest/config'
 import vue from '@vitejs/plugin-vue'
+import { resolve } from 'path'
 
 export default defineConfig({
   plugins: [vue()],
@@ -11,7 +12,7 @@ export default defineConfig({
   },
   resolve: {
     alias: {
-      '@': '/Users/vrusi/workspace/time-tracker/src',
+      '@': resolve(__dirname, 'src'),
     },
   },
 })
