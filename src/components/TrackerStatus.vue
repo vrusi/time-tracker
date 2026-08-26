@@ -485,11 +485,14 @@ async function autoGenerateSlackMessage() {
 
   isGeneratingSlackMsg.value = true
   try {
-    const externalId = settingsStore.extractIssueId(link.value.trim()) || ''
+    // The first field holds a link/ID or a plain name — never feed a name to the ID parser.
+    const raw = link.value.trim()
+    const isIdentifier = looksLikeIdentifier(raw)
+    const externalId = isIdentifier ? settingsStore.extractIssueId(raw) || '' : ''
     const formatted = await window.electronAPI.aiFormatStandup({
       externalId,
-      name: name.value.trim() || 'Untitled',
-      link: link.value.trim(),
+      name: name.value.trim() || (isIdentifier ? externalId || 'Untitled' : raw),
+      link: isIdentifier ? raw : null,
       notes: fetchedDescription.value
     })
     slackMsg.value = formatted
@@ -917,7 +920,7 @@ async function regenerateStandup() {
             <input
               v-model="link"
               type="text"
-              placeholder="Paste link, or type ID / name (e.g. project#123)"
+              placeholder="Paste link, type an ID, or describe the work"
               class="field-input url-input"
               autocomplete="off"
               @input="handleLinkInput"
