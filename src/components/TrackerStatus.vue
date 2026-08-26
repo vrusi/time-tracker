@@ -77,13 +77,24 @@ function handleNameBlur() {
 const showLinkSuggestions = ref(false)
 const selectedLinkSuggestionIndex = ref(-1)
 
+// Match issues by externalId or name, so one field serves both
+// ("105" matches "app#105"; "reflow" matches the name). ID hits rank first.
+function matchIssues(query: string, excludeId?: number): Issue[] {
+  const q = query.trim().toLowerCase()
+  if (!q) return []
+  const idMatches: Issue[] = []
+  const nameMatches: Issue[] = []
+  for (const i of issuesStore.issues) {
+    if (i.archived || i.id === excludeId) continue
+    if (i.externalId && i.externalId.toLowerCase().includes(q)) idMatches.push(i)
+    else if (i.name.toLowerCase().includes(q)) nameMatches.push(i)
+  }
+  return [...idMatches, ...nameMatches].slice(0, 5)
+}
+
 const filteredLinkSuggestions = computed(() => {
-  const query = link.value.trim().toLowerCase()
-  if (!query || matchedIssue.value) return []
-  // Match issues whose externalId contains the typed text (e.g. "105" matches "app#105", "reflow#105")
-  return issuesStore.issues
-    .filter(i => !i.archived && i.externalId && i.externalId.toLowerCase().includes(query))
-    .slice(0, 5)
+  if (matchedIssue.value) return []
+  return matchIssues(link.value)
 })
 
 function selectLinkSuggestion(issue: Issue) {
@@ -156,6 +167,26 @@ let pendingGitlabFetch: Promise<void> | null = null
 
 function looksLikeGitlabUrl(value: string): boolean {
   return /\/-\/(issues|work_items)\/\d+/.test(value) && /^https?:\/\//.test(value)
+}
+
+// A URL or a bare ID ("app#123", "PROJ-12") is a link; anything else typed in the
+// first field is treated as an item name.
+function looksLikeIdentifier(value: string): boolean {
+  return /^https?:\/\//.test(value) || settingsStore.parseBareId(value) !== null
+}
+
+async function fetchGitlabInfo(url: string): Promise<{ title: string | null; description: string | null }> {
+  if (!looksLikeGitlabUrl(url) || !settingsStore.settings.gitlabToken) {
+    return { title: null, description: null }
+  }
+  try {
+    const info = await window.electronAPI.gitlabFetchIssue(url)
+    return { title: info.title || null, description: info.description || null }
+  } catch (err) {
+    console.error('GitLab fetch failed:', err)
+    showToast(err instanceof Error ? err.message : 'GitLab fetch failed', true)
+    return { title: null, description: null }
+  }
 }
 
 function maybeFetchFromGitlab(): Promise<void> {
@@ -413,6 +444,10 @@ function findExistingIssueFromForm(): Issue | null {
   if (!url) return null
   const linkMatch = issuesStore.issues.find(i => i.link && i.link === url)
   if (linkMatch) return linkMatch
+  if (!looksLikeIdentifier(url)) {
+    // Free text in the first field is a name, not an ID — match it as one.
+    return issuesStore.issues.find(i => !i.archived && i.name.toLowerCase() === url.toLowerCase()) || null
+  }
   const externalId = settingsStore.parseBareId(url)
     ? url
     : settingsStore.extractIssueId(url)
@@ -470,36 +505,44 @@ function toggleAdvanced() {
   if (showAdvanced.value) void autoGenerateSlackMessage()
 }
 
-async function createAndStart(): Promise<Issue> {
-  let url = link.value.trim() || null
-  let issueName = name.value.trim()
+// Turn whatever was typed (link, bare ID, or plain name) into an issue,
+// reusing an existing one whenever it maps to the same link, ID, or name.
+async function resolveIssue(rawInput: string, explicitName: string, description: string | null): Promise<Issue> {
+  let url: string | null = rawInput.trim() || null
+  let issueName = explicitName.trim()
 
-  let issue: Issue
-  if (matchedIssue.value) {
-    issue = matchedIssue.value
-  } else {
-    let externalId = ''
-    if (url) {
-      const parsed = settingsStore.parseBareId(url)
-      if (parsed) {
-        externalId = url
-        url = settingsStore.buildIssueUrl(url)
-      } else {
-        externalId = settingsStore.extractIssueId(url) || ''
-      }
-    }
-    // Reuse an existing issue if the link or externalId already maps to one.
-    // This keeps a saved Slack message attached to the same item across re-pastes.
-    const existing = issuesStore.issues.find(i =>
-      (url && i.link === url) || (externalId && i.externalId === externalId)
-    )
-    if (existing) {
-      issue = existing
+  if (url && !looksLikeIdentifier(url)) {
+    if (!issueName) issueName = url
+    url = null
+  }
+
+  let externalId = ''
+  if (url) {
+    const parsed = settingsStore.parseBareId(url)
+    if (parsed) {
+      externalId = url
+      url = settingsStore.buildIssueUrl(url)
     } else {
-      if (!issueName) issueName = externalId || 'Untitled'
-      issue = await issuesStore.createIssue(externalId, issueName, url, fetchedDescription.value)
+      externalId = settingsStore.extractIssueId(url) || ''
     }
   }
+
+  // Reuse an existing issue if the link, externalId, or name already maps to one.
+  // This keeps a saved Slack message attached to the same item across re-pastes.
+  const existing = issuesStore.issues.find(i =>
+    (url && i.link === url) ||
+    (externalId && i.externalId === externalId) ||
+    (!url && !externalId && !!issueName && i.name.toLowerCase() === issueName.toLowerCase())
+  )
+  if (existing) return existing
+
+  if (!issueName) issueName = externalId || 'Untitled'
+  return issuesStore.createIssue(externalId, issueName, url, description)
+}
+
+async function createAndStart(): Promise<Issue> {
+  const issue = matchedIssue.value
+    ?? await resolveIssue(link.value, name.value, fetchedDescription.value)
   await trackerStore.startTracking(issue.id)
   return issue
 }
@@ -534,6 +577,10 @@ async function handleQuickStart() {
 
   if (!issue) return
 
+  await showStandupProposalFor(issue, snapUrl, snapDesc)
+}
+
+async function showStandupProposalFor(issue: Issue, snapUrl: string, snapDesc: string | null) {
   showInlineProposal.value = true
   proposalText.value = ''
   proposalError.value = ''
@@ -559,6 +606,121 @@ async function handleQuickStart() {
   } finally {
     isGeneratingProposal.value = false
   }
+}
+
+// --- Switch to another item mid-session -------------------------------------
+// The running entry is closed by the backend (reason "switched"), so its time is
+// kept; only the live timer restarts on the new item.
+const switchQuery = ref('')
+const isSwitching = ref(false)
+const showSwitchSuggestions = ref(false)
+const selectedSwitchIndex = ref(-1)
+
+const filteredSwitchSuggestions = computed(() =>
+  matchIssues(switchQuery.value, trackerStore.currentIssue?.id)
+)
+
+function handleSwitchInput() {
+  showSwitchSuggestions.value = switchQuery.value.trim().length > 0
+  selectedSwitchIndex.value = -1
+}
+
+function handleSwitchKeydown(e: KeyboardEvent) {
+  if (!showSwitchSuggestions.value || filteredSwitchSuggestions.value.length === 0) return
+
+  if (e.key === 'ArrowDown') {
+    e.preventDefault()
+    selectedSwitchIndex.value = Math.min(
+      selectedSwitchIndex.value + 1,
+      filteredSwitchSuggestions.value.length - 1
+    )
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault()
+    selectedSwitchIndex.value = Math.max(selectedSwitchIndex.value - 1, -1)
+  } else if (e.key === 'Escape') {
+    showSwitchSuggestions.value = false
+    selectedSwitchIndex.value = -1
+  }
+}
+
+function handleSwitchBlur() {
+  setTimeout(() => { showSwitchSuggestions.value = false }, 150)
+}
+
+async function saveCurrentNotes() {
+  if (trackerStore.currentEntry && currentNotes.value.trim()) {
+    try {
+      await window.electronAPI.updateTimeEntry(trackerStore.currentEntry.id, {
+        notes: currentNotes.value.trim()
+      })
+    } catch (err) {
+      console.error('Failed to save note:', err)
+    }
+  }
+}
+
+async function switchToIssue(issue: Issue) {
+  if (issue.id === trackerStore.currentIssue?.id) {
+    resetSwitchForm()
+    return
+  }
+  isSwitching.value = true
+  try {
+    // Notes belong to the entry we are leaving — flush them before it closes.
+    await saveCurrentNotes()
+    currentNotes.value = ''
+    showNotes.value = false
+    await trackerStore.startTracking(issue.id)
+    resetSwitchForm()
+    showToast(`Switched to ${issue.externalId || issue.name}`)
+  } catch (err) {
+    console.error('Failed to switch tracked item:', err)
+    showToast('Failed to switch', true)
+    return
+  } finally {
+    isSwitching.value = false
+  }
+
+  await showStandupProposalFor(issue, issue.link || '', issue.notes ?? null)
+}
+
+function resetSwitchForm() {
+  switchQuery.value = ''
+  showSwitchSuggestions.value = false
+  selectedSwitchIndex.value = -1
+}
+
+async function handleSwitchSubmit() {
+  if (isSwitching.value) return
+
+  const highlighted = selectedSwitchIndex.value >= 0
+    ? filteredSwitchSuggestions.value[selectedSwitchIndex.value]
+    : null
+  if (highlighted) {
+    await switchToIssue(highlighted)
+    return
+  }
+
+  const raw = switchQuery.value.trim()
+  if (!raw) return
+
+  // Exact link hit — no need to ask GitLab about an item we already know.
+  const known = issuesStore.issues.find(i => i.link === raw)
+  if (known) {
+    await switchToIssue(known)
+    return
+  }
+
+  isSwitching.value = true
+  let info: { title: string | null; description: string | null }
+  let issue: Issue
+  try {
+    info = await fetchGitlabInfo(raw)
+    issue = await resolveIssue(raw, info.title || '', info.description)
+  } finally {
+    isSwitching.value = false
+  }
+  await switchToIssue(issue)
 }
 
 async function handleStartAndSend() {
@@ -755,7 +917,7 @@ async function regenerateStandup() {
             <input
               v-model="link"
               type="text"
-              placeholder="Paste link or ID (e.g. project#123)"
+              placeholder="Paste link, or type ID / name (e.g. project#123)"
               class="field-input url-input"
               autocomplete="off"
               @input="handleLinkInput"
@@ -972,6 +1134,46 @@ async function regenerateStandup() {
             </RButton>
           </div>
         </div>
+
+        <!-- Switch to another item without losing the tracked time -->
+        <form v-if="!isEditingIssue" class="switch-form" @submit.prevent="handleSwitchSubmit">
+          <label class="switch-label" for="switch-input">Switch to</label>
+          <div class="switch-input-wrapper">
+            <input
+              id="switch-input"
+              v-model="switchQuery"
+              type="text"
+              placeholder="ID, name, or link…"
+              class="field-input switch-input"
+              autocomplete="off"
+              @input="handleSwitchInput"
+              @keydown="handleSwitchKeydown"
+              @blur="handleSwitchBlur"
+              @focus="handleSwitchInput"
+            />
+            <ul v-if="showSwitchSuggestions && filteredSwitchSuggestions.length > 0" class="suggestions-dropdown">
+              <li
+                v-for="(issue, index) in filteredSwitchSuggestions"
+                :key="issue.id"
+                class="suggestion-item"
+                :class="{ 'suggestion-active': index === selectedSwitchIndex }"
+                @mousedown.prevent="switchToIssue(issue)"
+              >
+                <span v-if="issue.externalId" class="suggestion-id">{{ issue.externalId }}</span>
+                <span class="suggestion-name">{{ issue.name }}</span>
+              </li>
+            </ul>
+          </div>
+          <RButton
+            type="submit"
+            size="small"
+            :loading="isSwitching"
+            :disabled="!switchQuery.trim() || isSwitching"
+            title="Keep the time tracked so far and start tracking another item"
+          >
+            {{ isSwitching ? '...' : 'Switch' }}
+          </RButton>
+        </form>
 
         <!-- Idle progress bar (when idle) -->
         <div v-if="trackerStore.isIdle && !trackerStore.presenceMode" class="idle-section">
@@ -1250,6 +1452,31 @@ async function regenerateStandup() {
   display: flex;
   align-items: center;
   gap: 1rem;
+}
+
+.switch-form {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+}
+
+.switch-label {
+  flex-shrink: 0;
+  font-size: 0.8rem;
+  color: var(--color-text-secondary);
+}
+
+.switch-input-wrapper {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+}
+
+.switch-input {
+  width: 100%;
+  padding: 0.35rem 0.5rem;
+  font-size: 0.85rem;
 }
 
 .tracking-content {

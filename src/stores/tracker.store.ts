@@ -91,11 +91,13 @@ export const useTrackerStore = defineStore('tracker', () => {
     lastTrackedIssue.value = null  // Clear last tracked since we're now tracking
 
     // Reset paused time only if starting a new issue, not resuming
-    // When resuming, keep pausedElapsedSeconds so timer continues from where it left off
+    // When resuming, keep pausedElapsedSeconds so timer continues from where it left off.
+    // Reset before startTimer so the first tick never shows the previous item's total.
+    if (!isResuming) {
+      pausedElapsedSeconds.value = 0
+    }
+    // Clear the flag on the next tick, after the backend's pause/start updates land
     setTimeout(() => {
-      if (!isResuming) {
-        pausedElapsedSeconds.value = 0
-      }
       isSwitchingTrackers = false
     }, 0)
 
