@@ -1,3 +1,6 @@
+// A tracked item is either an issue/work item or a merge request
+export type ItemKind = 'issue' | 'merge_request'
+
 export interface Issue {
   id: number
   externalId: string

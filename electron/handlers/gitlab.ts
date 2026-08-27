@@ -7,7 +7,7 @@ interface ParsedUrl {
   host: string
   projectPath: string
   iid: string
-  kind: 'issues' | 'work_items'
+  kind: 'issues' | 'work_items' | 'merge_requests'
 }
 
 function parseGitlabUrl(rawUrl: string): ParsedUrl {
@@ -18,23 +18,25 @@ function parseGitlabUrl(rawUrl: string): ParsedUrl {
     throw new Error('Not a valid URL')
   }
 
-  // Path format: /<group>/<...>/<project>/-/issues/<iid> or /-/work_items/<iid>
-  const match = url.pathname.match(/^\/(.+)\/-\/(issues|work_items)\/(\d+)/)
+  // Path format: /<group>/<...>/<project>/-/issues/<iid>, /-/work_items/<iid> or /-/merge_requests/<iid>
+  const match = url.pathname.match(/^\/(.+)\/-\/(issues|work_items|merge_requests)\/(\d+)/)
   if (!match) {
-    throw new Error('URL does not look like a GitLab issue or work item')
+    throw new Error('URL does not look like a GitLab issue, work item or merge request')
   }
 
   return {
     host: `${url.protocol}//${url.host}`,
     projectPath: match[1],
-    kind: match[2] as 'issues' | 'work_items',
+    kind: match[2] as ParsedUrl['kind'],
     iid: match[3]
   }
 }
 
-async function fetchFromApi(host: string, projectPath: string, iid: string, token: string): Promise<{ title: string; description: string; web_url: string }> {
+async function fetchFromApi(host: string, projectPath: string, iid: string, token: string, kind: ParsedUrl['kind']): Promise<{ title: string; description: string; web_url: string }> {
   const encodedPath = encodeURIComponent(projectPath)
-  const apiUrl = `${host}/api/v4/projects/${encodedPath}/issues/${iid}`
+  // Work items share the issues endpoint; merge requests have their own
+  const resource = kind === 'merge_requests' ? 'merge_requests' : 'issues'
+  const apiUrl = `${host}/api/v4/projects/${encodedPath}/${resource}/${iid}`
 
   const response = await fetch(apiUrl, {
     headers: {
@@ -47,7 +49,7 @@ async function fetchFromApi(host: string, projectPath: string, iid: string, toke
     throw new Error('GitLab rejected the token (401). Check the token and read_api scope.')
   }
   if (response.status === 404) {
-    throw new Error('Issue not found. The token may lack access to this project.')
+    throw new Error('Item not found. The token may lack access to this project.')
   }
   if (!response.ok) {
     throw new Error(`GitLab API error ${response.status}`)
@@ -65,7 +67,7 @@ export function setupGitlabHandlers() {
     }
 
     const parsed = parseGitlabUrl(url)
-    const issue = await fetchFromApi(parsed.host, parsed.projectPath, parsed.iid, token)
+    const issue = await fetchFromApi(parsed.host, parsed.projectPath, parsed.iid, token, parsed.kind)
 
     return {
       title: issue.title ?? '',

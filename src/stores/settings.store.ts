@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, computed, watch } from 'vue'
-import type { AppSettings } from '@/types'
+import type { AppSettings, ItemKind } from '@/types'
 
 export const useSettingsStore = defineStore('settings', () => {
   const settings = ref<AppSettings>({
@@ -55,9 +55,9 @@ export const useSettingsStore = defineStore('settings', () => {
   const issueIdRegex = computed(() => {
     switch (settings.value.issueUrlPattern) {
       case 'gitlab':
-        return /\/(?:issues|work_items)\/(\d+)/
+        return /\/(?:issues|work_items|merge_requests)\/(\d+)/
       case 'github':
-        return /\/issues\/(\d+)/
+        return /\/(?:issues|pull)\/(\d+)/
       case 'jira':
         return /\/browse\/([A-Z]+-\d+)/
       case 'custom':
@@ -74,15 +74,22 @@ export const useSettingsStore = defineStore('settings', () => {
     }
   })
 
-  // Parse a bare issue ID like "reflow#125" or "PROJ-123" into its parts
-  function parseBareId(input: string): { prefix: string; number: string } | null {
-    // Match "project#123" style
-    const hashMatch = input.match(/^([a-zA-Z0-9_-]+)#(\d+)$/)
-    if (hashMatch) return { prefix: hashMatch[1], number: hashMatch[2] }
+  // Parse a bare item ID into its parts.
+  // "reflow#125" is an issue, "reflow!125" a merge request, "PROJ-123" a Jira issue.
+  function parseBareId(input: string): { prefix: string; number: string; kind: ItemKind } | null {
+    // Match "project#123" / "project!123" style
+    const hashMatch = input.match(/^([a-zA-Z0-9_-]+)([#!])(\d+)$/)
+    if (hashMatch) {
+      return {
+        prefix: hashMatch[1],
+        number: hashMatch[3],
+        kind: hashMatch[2] === '!' ? 'merge_request' : 'issue'
+      }
+    }
 
     // Match "PROJ-123" jira style
     const jiraMatch = input.match(/^([A-Z]+)-(\d+)$/)
-    if (jiraMatch) return { prefix: jiraMatch[1], number: jiraMatch[2] }
+    if (jiraMatch) return { prefix: jiraMatch[1], number: jiraMatch[2], kind: 'issue' }
 
     return null
   }
@@ -98,14 +105,16 @@ export const useSettingsStore = defineStore('settings', () => {
     if (!rawBase) return null
     const base = rawBase.replace(/\/+$/, '')
 
+    const isMr = parsed.kind === 'merge_request'
     const pattern = settings.value.issueUrlPattern
     switch (pattern) {
       case 'gitlab':
-        return `${base}/${parsed.prefix}/-/issues/${parsed.number}`
+        return `${base}/${parsed.prefix}/-/${isMr ? 'merge_requests' : 'issues'}/${parsed.number}`
       case 'github':
-        return `${base}/${parsed.prefix}/issues/${parsed.number}`
+        return `${base}/${parsed.prefix}/${isMr ? 'pull' : 'issues'}/${parsed.number}`
       case 'jira':
-        return `${base}/browse/${parsed.prefix}-${parsed.number}`
+        // Jira has no merge request concept
+        return isMr ? null : `${base}/browse/${parsed.prefix}-${parsed.number}`
       default:
         return null
     }
@@ -114,15 +123,18 @@ export const useSettingsStore = defineStore('settings', () => {
   function extractIssueId(url: string): string | null {
     // Auto-detect tracker type from URL and extract project name where possible
     if (url.includes('gitlab.com') || url.includes('gitlab')) {
-      const match = url.match(/\/([^/]+)\/-\/(?:issues|work_items)\/(\d+)/)
+      const match = url.match(/\/([^/]+)\/-\/(issues|work_items|merge_requests)\/(\d+)/)
       if (!match) return null
-      return `${match[1]}#${match[2]}`
+      // Merge requests get "!" so they read the way GitLab writes them
+      const separator = match[2] === 'merge_requests' ? '!' : '#'
+      return `${match[1]}${separator}${match[3]}`
     }
 
     if (url.includes('github.com') || url.includes('github')) {
-      const match = url.match(/\/([^/]+)\/issues\/(\d+)/)
+      const match = url.match(/\/([^/]+)\/(issues|pull)\/(\d+)/)
       if (!match) return null
-      return `${match[1]}#${match[2]}`
+      const separator = match[2] === 'pull' ? '!' : '#'
+      return `${match[1]}${separator}${match[3]}`
     }
 
     if (url.includes('atlassian') || url.includes('jira')) {

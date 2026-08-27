@@ -166,7 +166,7 @@ let lastFetchedUrl = ''
 let pendingGitlabFetch: Promise<void> | null = null
 
 function looksLikeGitlabUrl(value: string): boolean {
-  return /\/-\/(issues|work_items)\/\d+/.test(value) && /^https?:\/\//.test(value)
+  return /\/-\/(issues|work_items|merge_requests)\/\d+/.test(value) && /^https?:\/\//.test(value)
 }
 
 // A URL or a bare ID ("app#123", "PROJ-12") is a link; anything else typed in the
@@ -1067,7 +1067,7 @@ async function regenerateStandup() {
                   v-model="editForm.externalId"
                   type="text"
                   class="edit-name-input edit-id-input"
-                  placeholder="ID (e.g. app#123)"
+                  placeholder="ID (e.g. app#123 or app!45)"
                 />
                 <input
                   v-model="editForm.link"

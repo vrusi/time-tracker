@@ -63,8 +63,8 @@ const currencies = [
 ]
 
 const issueTrackers: { value: 'gitlab' | 'github' | 'jira' | 'custom'; name: string; example: string }[] = [
-  { value: 'gitlab', name: 'GitLab', example: 'https://gitlab.com/.../issues/123' },
-  { value: 'github', name: 'GitHub', example: 'https://github.com/.../issues/123' },
+  { value: 'gitlab', name: 'GitLab', example: 'https://gitlab.com/.../issues/123 or /merge_requests/123' },
+  { value: 'github', name: 'GitHub', example: 'https://github.com/.../issues/123 or /pull/123' },
   { value: 'jira', name: 'Jira', example: 'https://company.atlassian.net/browse/PROJ-123' },
   { value: 'custom', name: 'Custom', example: 'Define your own regex' }
 ]
@@ -422,7 +422,7 @@ async function wipeDatabase() {
         <div class="setting-row row-md">
           <div class="setting-label">
             Personal Access Token
-            <span class="setting-hint">read_api scope. Used to fetch issue title + description when you paste a URL. Stored locally only.</span>
+            <span class="setting-hint">read_api scope. Used to fetch the issue or merge request title + description when you paste a URL. Stored locally only.</span>
           </div>
           <div class="setting-control api-key-control">
             <input

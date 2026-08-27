@@ -60,7 +60,7 @@ Output format (one line, plain text, no markdown, no extra explanation):
   <ref> | <area> | <short detail> | <estimate> | %
 
 Where:
-- <ref>: the issue URL if provided (raw URL, no angle brackets, no markdown). If no URL, use the issue ID prefixed with "#" (e.g. "#6506").
+- <ref>: the item URL if provided (raw URL, no angle brackets, no markdown). If no URL, use the item ID as given — issues are prefixed with "#" (e.g. "#6506"), merge requests with "!" (e.g. "!1234").
 - <area>: a single lowercase tag like "redesign", "questionnaire", "drive", "ui", "qa", "backend". Infer from the issue name.
 - <short detail>: the cleaned-up issue description (keep it concise, lowercase first letter, no trailing period).
 - <estimate>: rough effort like "1h", "2h", "4h", "1d", "2d", "1w". Infer conservatively from the task type and name. QA fixes / typos → 1-3h; small components → 2-4h; index pages or larger features → 1d; multi-page redesigns → 1w.
@@ -70,6 +70,7 @@ Examples:
   https://gitlab.avvoka.com/avvoka/app/-/issues/6491 | redesign | operations tab | 1d | %
   #6506 | redesign | headers & footers index | 1d | %
   #9535 | questionnaire | < and > show as encoded | 4h | %
+  https://gitlab.avvoka.com/avvoka/app/-/merge_requests/1234 | backend | extract pdf export service | 4h | %
 
 Output ONLY the formatted line. No quotes, no preamble, no trailing newline.`
 

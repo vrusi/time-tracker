@@ -26,6 +26,15 @@ describe('Settings Store', () => {
         expect(store.extractIssueId('https://gitlab.avvoka.com/avvoka/avvoka-reflow/-/issues/43')).toBe('avvoka-reflow#43')
         expect(store.extractIssueId('https://gitlab.avvoka.com/avvoka/app/-/issues/6620')).toBe('app#6620')
       })
+
+      it('extracts merge request IDs with a "!" separator', () => {
+        const store = useSettingsStore()
+        store.settings.issueUrlPattern = 'gitlab'
+
+        expect(store.extractIssueId('https://gitlab.com/org/repo/-/merge_requests/1234')).toBe('repo!1234')
+        expect(store.extractIssueId('https://gitlab.avvoka.com/avvoka/app/-/merge_requests/12')).toBe('app!12')
+        expect(store.extractIssueId('https://gitlab.com/group/sub/project/-/merge_requests/7/diffs')).toBe('project!7')
+      })
     })
 
     describe('GitHub URLs', () => {
@@ -35,6 +44,13 @@ describe('Settings Store', () => {
 
         expect(store.extractIssueId('https://github.com/org/repo/issues/789')).toBe('repo#789')
         expect(store.extractIssueId('https://github.com/facebook/react/issues/12345')).toBe('react#12345')
+      })
+
+      it('extracts pull request IDs with a "!" separator', () => {
+        const store = useSettingsStore()
+        store.settings.issueUrlPattern = 'github'
+
+        expect(store.extractIssueId('https://github.com/org/repo/pull/789')).toBe('repo!789')
       })
     })
 
@@ -92,15 +108,21 @@ describe('Settings Store', () => {
   describe('bare issue ID parsing', () => {
     it('parses project#number format', () => {
       const store = useSettingsStore()
-      expect(store.parseBareId('app#123')).toEqual({ prefix: 'app', number: '123' })
-      expect(store.parseBareId('my-project#42')).toEqual({ prefix: 'my-project', number: '42' })
-      expect(store.parseBareId('reflow#1')).toEqual({ prefix: 'reflow', number: '1' })
+      expect(store.parseBareId('app#123')).toEqual({ prefix: 'app', number: '123', kind: 'issue' })
+      expect(store.parseBareId('my-project#42')).toEqual({ prefix: 'my-project', number: '42', kind: 'issue' })
+      expect(store.parseBareId('reflow#1')).toEqual({ prefix: 'reflow', number: '1', kind: 'issue' })
+    })
+
+    it('parses project!number as a merge request', () => {
+      const store = useSettingsStore()
+      expect(store.parseBareId('app!1234')).toEqual({ prefix: 'app', number: '1234', kind: 'merge_request' })
+      expect(store.parseBareId('my-project!42')).toEqual({ prefix: 'my-project', number: '42', kind: 'merge_request' })
     })
 
     it('parses JIRA-style PROJ-123 format', () => {
       const store = useSettingsStore()
-      expect(store.parseBareId('PROJ-123')).toEqual({ prefix: 'PROJ', number: '123' })
-      expect(store.parseBareId('ABC-999')).toEqual({ prefix: 'ABC', number: '999' })
+      expect(store.parseBareId('PROJ-123')).toEqual({ prefix: 'PROJ', number: '123', kind: 'issue' })
+      expect(store.parseBareId('ABC-999')).toEqual({ prefix: 'ABC', number: '999', kind: 'issue' })
     })
 
     it('returns null for URLs and other non-bare inputs', () => {
@@ -121,12 +143,21 @@ describe('Settings Store', () => {
       expect(store.buildIssueUrl('app#222')).toBe('https://gitlab.com/my-org/app/-/issues/222')
     })
 
+    it('builds GitLab merge request URL from bare "!" ID', () => {
+      const store = useSettingsStore()
+      store.settings.issueUrlPattern = 'gitlab'
+      store.settings.issueBaseUrl = 'https://gitlab.com/my-org'
+
+      expect(store.buildIssueUrl('app!1234')).toBe('https://gitlab.com/my-org/app/-/merge_requests/1234')
+    })
+
     it('builds GitHub URL from bare ID and base URL', () => {
       const store = useSettingsStore()
       store.settings.issueUrlPattern = 'github'
       store.settings.issueBaseUrl = 'https://github.com/my-org'
 
       expect(store.buildIssueUrl('repo#42')).toBe('https://github.com/my-org/repo/issues/42')
+      expect(store.buildIssueUrl('repo!42')).toBe('https://github.com/my-org/repo/pull/42')
     })
 
     it('builds Jira URL from bare ID and base URL', () => {
@@ -135,6 +166,14 @@ describe('Settings Store', () => {
       store.settings.issueBaseUrl = 'https://company.atlassian.net'
 
       expect(store.buildIssueUrl('PROJ-123')).toBe('https://company.atlassian.net/browse/PROJ-123')
+    })
+
+    it('returns null for a merge request ID under the Jira pattern', () => {
+      const store = useSettingsStore()
+      store.settings.issueUrlPattern = 'jira'
+      store.settings.issueBaseUrl = 'https://company.atlassian.net'
+
+      expect(store.buildIssueUrl('app!12')).toBeNull()
     })
 
     it('strips trailing slashes from base URL', () => {
